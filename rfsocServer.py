@@ -132,47 +132,30 @@ class MyTCPHandler(BaseRequestHandler):
     """ 
 
     def handle(self):
-        import struct
+        import json 
 
-        # 2 bytes x 2 channels perDAC data point
-
-        BUF_SIZE_DAC = int(2* 2000 * 2)
         print('Got connection from', self.client_address)
         # self.request is the TCP socket connected to the client
         #self.data = self.request.recv(1024).strip()
         #waveform = np
-        self.op = struct.unpack("B", self.request.recv(1))[0]
-        if self.op == 1:
-            # Start listening for NCHANELS * DAC_SAMPLE_SIZE * 2 bytes corresponding to data per channel.
-            buffer = bytearray()
-            while len(buffer) < BUF_SIZE_DAC:
-                # Socket implementation does not return exactly desired amount of bytes, 
-                # keep querying until bytearray reaches expected amount of bytes.
-                # TODO: Look for `MSG_WAITALL` flag in socket recv.
-                packet = self.request.recv(BUF_SIZE_DAC - len(buffer))
-                if packet:
-                    buffer.extend(packet)
+        jsonReceived = self.request.recv(1024)
 
-            # Accumulate ADC data in buffer, buffer float dtype should be enough to prevent overflow.
-            self.waveform = np.frombuffer(buffer, dtype="i2").reshape(self.dac_nchannels, self.dac_sample_size )
-            print("Waveform: ", self.waveform[0,0:20], self.waveform[1,25000:25020])
-            print("length: ", self.waveform.size)
-        elif self.op ==2:
-            self.nshots = struct.unpack("H", self.request.recv(2))[0]
-            # self.switchOffOnLeds() 
-            print("number shots", self.nshots)
-        elif self.op ==3:
-            self.length = struct.unpack("B", self.request.recv(2)) [0]
-            sequence = {"pulse1": 1, "pulse2": 2}
-            self.cfg["pulse_length"]=self.length
-            program = Program(self.soc, self.cfg, sequence)
-            avgi, avgq = program.acquire(self.soc, load_pulses=True, progress=False, debug=False)
-            print("Enviando avgi,avgq",avgi,avgq )
-            data = struct.pack('ffff', avgi[0], avgi[1],avgq[0],avgq[1])
-            self.request.sendall(bytes(data))
-            print("Enviando avgi,avgq",avgi,avgq )
-        else:
-            print("Else final", self.op) 
+        data = jsonReceived.decode('utf-8')
+        data = json.loads(data)
+        self.op = data["opcode"]
+        print("OpCode: ", self.op)
+
+        self.length = data["length"]
+        sequence = {"pulse1": 1, "pulse2": 2}
+        self.cfg["pulse_length"]=self.length
+        program = Program(self.soc, self.cfg, sequence)
+        avgi, avgq = program.acquire(self.soc, load_pulses=True, progress=False, debug=False)
+        print("shape: ", avgi.shape)
+        jsonDic = {"avgiRe": avgi[0][0], "avgiIm": avgi[1][0], "avgqRe": avgq[0][0],"avgqIm": avgq[1][0]}
+
+        self.request.sendall(json.dumps(jsonDic).encode())
+        print("Enviando avgi,avgq",avgi,avgq )     
+
 
 
 if __name__ == "__main__":
