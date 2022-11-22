@@ -136,16 +136,15 @@ class MyTCPHandler(BaseRequestHandler):
 
         print('Got connection from', self.client_address)
         # self.request is the TCP socket connected to the client
-        #self.data = self.request.recv(1024).strip()
-        #waveform = np
+
         jsonReceived = self.request.recv(1024)
 
         data = jsonReceived.decode('utf-8')
         data = json.loads(data)
-        self.op = data["opcode"]
-        print("OpCode: ", self.op)
 
-        self.length = data["length"]
+        self.length = 0
+        self.length = data["tii_rfsoc4x2"]["settings"]["rabi_length"]
+        print("Length: ", self.length)
         sequence = {"pulse1": 1, "pulse2": 2}
         self.cfg["pulse_length"]=self.length
         program = Program(self.soc, self.cfg, sequence)
