@@ -41,8 +41,9 @@ class Program(AveragerProgram):
             self.declare_readout(ch=ch, length=self.ro_length, freq= self.cfg["f_res"] , gen_ch=self.ro_channel)
 
         # add qubit and readout pulses to respective channels
-
-        sigma = self.soc.us2cycles(self.cfg["sigma"], gen_ch=1)
+        print(self.cfg["rabi_length"], self.cfg["sigma"])
+        sigma = self.soc.us2cycles(self.cfg["rabi_length"], gen_ch=1)
+#        sigma = self.soc.us2cycles(self.cfg["sigma"], gen_ch=1)
         self.add_gauss(ch=self.qd_channel, name="gaussian", sigma=sigma, length=sigma*4)
         for i, pulse in enumerate(self.sequence):
             p = self.sequence[pulse]
