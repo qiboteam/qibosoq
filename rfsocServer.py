@@ -19,8 +19,8 @@ class Program(AveragerProgram):
         self.qd_channel = self.cfg["qubit_ch"]
         # conver pulse lengths to clock ticks
         #TODO: Fix the qd length and gain for every pulse 
-        self.qd_length = self.soc.us2cycles(4*self.cfg["sigma"] , gen_ch=self.qd_channel)
-        self.ro_length = self.soc.us2cycles(self.cfg["readout_length"] , gen_ch=self.ro_channel) 
+        self.qd_length = self.soc.us2cycles(4*self.cfg["sigma"]*0.001 , gen_ch=self.qd_channel)
+        self.ro_length = self.soc.us2cycles(self.cfg["readout_length"]*0.001 , gen_ch=self.ro_channel) 
         # convert frequencies to dac register value  
         self.qd_frequency = self.soc.freq2reg(self.cfg["f_ge"] , gen_ch=self.qd_channel)
         self.ro_frequency = self.soc.freq2reg(self.cfg["f_res"]  , gen_ch=self.ro_channel, ro_ch=0)  
@@ -41,20 +41,24 @@ class Program(AveragerProgram):
             self.declare_readout(ch=ch, length=self.ro_length, freq= self.cfg["f_res"] , gen_ch=self.ro_channel)
 
         # add qubit and readout pulses to respective channels
-        print(self.cfg["rabi_length"], self.cfg["sigma"])
-        sigma = self.soc.us2cycles(self.cfg["rabi_length"], gen_ch=1)
-#        sigma = self.soc.us2cycles(self.cfg["sigma"], gen_ch=1)
-        self.add_gauss(ch=self.qd_channel, name="gaussian", sigma=sigma, length=sigma*4)
+
+
+
+        
         for i, pulse in enumerate(self.sequence):
             p = self.sequence[pulse]
             if p["channel"] == 1:
+                sigma = self.soc.us2cycles(self.cfg["sigma"]*0.001, gen_ch=1)
+                duration = self.soc.us2cycles(p["duration"]*0.001, gen_ch=1)
+                print("Duration pulse: ", duration)
+                self.add_gauss(ch=self.qd_channel, name="gaussian", sigma=sigma, length=duration, )
                 self.set_pulse_registers(
                     ch=self.qd_channel,
                     style="arb",
                     freq=self.qd_frequency,
                     phase= 0, # int(qd_pulse.phase),
                     gain=self.qd_gain,
-#                    length=qd_length,
+                    #length= self.qd_length, #p["duration"]*0.001,
                     waveform="gaussian"
                     )
 
@@ -66,8 +70,7 @@ class Program(AveragerProgram):
                     freq=self.ro_frequency,
                     phase= 0, # int(qd_pulse.phase),
                     gain=self.ro_gain,
-                    length=self.ro_length,
-
+                    length=self.ro_length
                     )
                 print("Readout Pulse: ",i,  p)   
         
@@ -122,7 +125,7 @@ class MyTCPHandler(BaseRequestHandler):
         elif data['opCode'] == "setup":
             self.experiment = data
             self.cfg ={**MyTCPHandler.cfg, **self.experiment}  
-            MyTCPHandler.cfg = self.cfg         
+            MyTCPHandler.cfg = self.cfg       
         elif data['opCode'] == "execute":
             del data['opCode']
             sequence = data
