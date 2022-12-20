@@ -68,13 +68,14 @@ class Program(AveragerProgram):
         self.qd_frequency = self.soc.freq2reg(self.qd_freq, gen_ch=self.qd_channel)
         self.ro_frequency = self.soc.freq2reg(self.ro_freq  , gen_ch=self.ro_channel, ro_ch=0)  
         #print("Readout freq: ",self.ro_freq , "Readout Gain: ", self.ro_gain)
+        print(self.sequence)
         for i, pulse in enumerate(self.sequence):
             p = self.sequence[pulse]
             if p["channel"] == 1:
-                self.drive_pulses = True    
-                if p['shape'] == "Gaussian":          
-                    sigma = self.soc.us2cycles(p["rel_sigma"]*0.001, gen_ch=1)
-                    duration = self.soc.us2cycles(p["duration"]*0.001, gen_ch=1)
+                self.drive_pulses = True  
+                sigma = self.soc.us2cycles(p["rel_sigma"]*0.001, gen_ch=1)
+                duration = self.soc.us2cycles(p["duration"]*0.001, gen_ch=1)  
+                if p['shape'] == "Gaussian":   
                     self.add_gauss(ch=self.qd_channel, name="Gaussian", sigma=sigma, length=duration )
                     
                     self.set_pulse_registers(
@@ -87,9 +88,8 @@ class Program(AveragerProgram):
                         )
 
                 elif p['shape'] == "Drag":          
-                    sigma = self.soc.us2cycles(p["rel_sigma"]*0.001, gen_ch=1)
-                    duration = self.soc.us2cycles(p["duration"]*0.001, gen_ch=1)
-                    self.add_DRAG(ch=self.qd_channel, name="Drag", sigma=sigma, length=duration,delta=20.0, alpha = p["beta"] )
+                    self.add_DRAG(ch=self.qd_channel, name="Drag", sigma=sigma, 
+                        length=duration, delta=20.0, alpha = p["beta"] )
                     
                     self.set_pulse_registers(
                         ch=self.qd_channel,
@@ -100,7 +100,7 @@ class Program(AveragerProgram):
                         waveform="Drag"
                         )        
                 print("Drive Pulse: ",i,  p)   
-                
+
             elif p["channel"] == 0:
                 freq=self.freq2reg(self.ro_freq, gen_ch=self.ro_channel, ro_ch=0) 
                 self.set_pulse_registers(
