@@ -116,17 +116,13 @@ class ProgramExecute(AveragerProgram):
         self.synci(200)
 
     def body(self):
-
-        
-
         # play drive pulse
         if self.drive_pulses:
             self.pulse(ch=self.qd_channel)
         # align channels and wait some time (defined in the runcard)
         self.sync_all(self.delay_before_readout)
-        print("Check point 1 - delay_before_readout", self.delay_before_readout)
-        # trigger measurement, play measurement pulse, wait for qubit to relax
 
+        # trigger measurement, play measurement pulse, wait for qubit to relax
         self.measure(pulse_ch=self.ro_channel, 
             #adcs=[0, 1], 
             adcs=[0],
@@ -148,8 +144,8 @@ class ProgramSweepFreq(RAveragerProgram):
         self.soc = soc
         self.cfg = cfg
         self.max_gain = self.cfg["max_gain"]
-        self.start = range['start']
-        self.step = range['step']        
+        self.start = range['start']* MHz
+        self.step = range['step']  *MHz      
         self.expt = range['expt']
         # HW configuration
         self.ro_channel = 0 
@@ -165,14 +161,16 @@ class ProgramSweepFreq(RAveragerProgram):
         self.ro_gain = self.cfg['ro_gain']
 
         # Qubit configuration
-        self.qubit_gain = sequence['0']['amplitude'] * self.max_gain   #self.cfg['qubit_gain']  # TODO chage to the pulse amplitude
-        self.probe_length = sequence['0']['duration'] * mu_s   #self.cfg['probe_length']  # TODO chage to the pulse duration
+        self.qubit_gain = int(sequence['0']['amplitude'] * self.max_gain)  
+        self.probe_length = sequence['0']['duration'] * mu_s   
 
-        print(f'Check point 354: {self.probe_length}')  
+ 
 
         # Experiment
         cfg["reps"] = self.cfg["hardware_avg"]
         cfg['expts'] = self.expt
+        cfg['start'] = self.start
+        cfg['step'] = self.step
         self.relax_delay = self.cfg["relax_delay"]
         self.delay_before_readout = 0
         super().__init__(soc, cfg)
@@ -247,8 +245,7 @@ class MyTCPHandler(BaseRequestHandler):
 
         data = json.loads(jsonReceived.decode('utf-8'))
         if data['opCode'] == "setup":
-
-            MyTCPHandler.cfg = data     
+            MyTCPHandler.cfg = data   
         elif data['opCode'] == "execute":
             del data['opCode']
             sequence = data  
@@ -257,23 +254,22 @@ class MyTCPHandler(BaseRequestHandler):
             jsonDic = {"avgi": avgi[0][0], "avgq": avgq[0][0]}
             self.request.sendall(json.dumps(jsonDic).encode())
         elif data['opCode'] == "sweep":
- 
             del data['opCode']
             parameter = data.pop('parameter')  
             if parameter == "Parameter.frequency":               
                 program = ProgramSweepFreq(MyTCPHandler.soc, MyTCPHandler.cfg, data['pulses'], data['range'])
                 expt_pts, avg_di, avg_dq = program.acquire(MyTCPHandler.soc,load_pulses=True,progress=False, debug=False)
-                print(f'Check point 5: {expt_pts}')
+                jsonDic =  {"avg_di": avg_di[0][0].tolist(), "avg_dq": avg_dq[0][0].tolist()}
+                print(f'Check point 354: {jsonDic}') 
+                self.request.sendall(json.dumps(jsonDic).encode())
             elif parameter == 'Parameter.amplitude':
-                ProgramSweepAmp(MyTCPHandler.soc, MyTCPHandler.cfg, data.values)
+                program = ProgramSweepAmp(MyTCPHandler.soc, MyTCPHandler.cfg, data.values)
             else:
                 sequence = data['pulses']
                 program = ProgramExecute(MyTCPHandler.soc, MyTCPHandler.cfg, sequence)
                 avgi, avgq = program.acquire(MyTCPHandler.soc, load_pulses=True, progress=False, debug=False)
-
-            #jsonDic =  {"avgi": avgi[0][0], "avgq": avgq[0][0]}
-            jsonDic = {"avgi": -10.0, "avgq": 58.3}
-            self.request.sendall(json.dumps(jsonDic).encode())
+                jsonDic = {"avgi": avgi[0][0], "avgq": avgq[0][0]}
+                self.request.sendall(json.dumps(jsonDic).encode())
                 
         else:
             print('Doing nothing')   
