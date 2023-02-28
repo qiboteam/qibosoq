@@ -31,37 +31,34 @@ class MyTCPHandler(BaseRequestHandler):
 
     def handle(self):
         self.server.socket.setblocking(False)
-        sequence = {}
         print('Got connection from', self.client_address)
         # self.request is the TCP socket connected to the client
 
-        jsonReceived = self.request.recv(2048)
+        json_received = self.request.recv(2048)
+        data = json.loads(json_received)
 
-        data = json.loads(jsonReceived.decode('utf-8'))
         print(f'Decoded data with opcode {data["opCode"]}')
 
         if data['opCode'] == "setup":
             MyTCPHandler.cfg = data
         elif data['opCode'] == "execute":
-            del data['opCode']
-            sequence = data
 
             MyTCPHandler.cfg["hardware_avg"] = data["nshots"]
             if data["relaxation_time"] is not None:
                 MyTCPHandler.cfg["repetition_duration"] = data["relaxation_time"]
 
-            pulses = sequence["pulses"]
+            pulses = data["pulses"]
             if self.check_1_ro_pulse(pulses):
 
                 program = ExecutePulseSequence(MyTCPHandler.soc,
                                                MyTCPHandler.cfg,
-                                               sequence)
+                                               data)
                 avgi, avgq = program.acquire(MyTCPHandler.soc,
                                              load_pulses=True,
                                              progress=False,
                                              debug=False)
 
-                last_pulse = sequence['pulses'][list(sequence['pulses'])[-1]]
+                last_pulse = data['pulses'][list(data['pulses'])[-1]]
                 jsonDic = {
                         "serial": last_pulse["serial"],
                         "avgi": avgi[0][0],
