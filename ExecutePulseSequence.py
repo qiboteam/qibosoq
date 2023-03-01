@@ -28,8 +28,9 @@ class ProgramExecute(AveragerProgram):
 
         # connections  (for every qubit here are defined drive and readout lines
         self.connections = {
-                '0': {"qd": 1,
-                      "ro": 0},
+                '0': {"drive": 1,
+                      "readout": 0,
+                      "adc_ch": 0},
         }
 
         self.pulse_sequence = {}
@@ -156,11 +157,12 @@ class ProgramExecute(AveragerProgram):
 
         drive_ch = self.connections[str(qubit)]["drive"]
         readout_ch = self.connections[str(qubit)]["readout"]
+        adc_ch = self.connections[str(qubit)]["adc_ch"]
 
         if pulse_type == "qd":
             return drive_ch, None
         elif pulse_type == "ro":
-            return drive_ch, readout_ch
+            return readout_ch, adc_ch
 
     def initialize(self):
         """This function gets called automatically by qick super.__init__, it contains:
@@ -194,7 +196,7 @@ class ProgramExecute(AveragerProgram):
 
         for serial, pulse in self.pulse_sequence.items():
             if pulse["channel"] not in first_pulse_registered:
-                first_pulse_registered.append(pulse["channell"])
+                first_pulse_registered.append(pulse["channel"])
             else:
                 continue
 
