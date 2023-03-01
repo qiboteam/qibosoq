@@ -4,8 +4,10 @@ import sys
 
 from socketserver import BaseRequestHandler, TCPServer
 from qick import QickSoc
+
+from ExecutePulseSequence import ExecutePulseSequence
+
 import ExecuteSweep
-import ExecutePulseSequence
 
 
 def signal_handler(sig, frame):
@@ -38,6 +40,7 @@ class MyTCPHandler(BaseRequestHandler):
         data = json.loads(json_received)
 
         print(f'Decoded data with opcode {data["opCode"]}')
+        print(f'Data: {data}')
 
         if data['opCode'] == "setup":
             MyTCPHandler.cfg = data
@@ -108,7 +111,6 @@ class MyTCPHandler(BaseRequestHandler):
             print('Doing nothing')
 
     def check_1_ro_pulse(self, pulses):
-        print(pulses)
         count_ro = 0
         for i, pulse in enumerate(pulses):
             p = pulses[pulse]

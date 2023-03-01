@@ -1,7 +1,7 @@
 from qick import AveragerProgram
 
 
-class ProgramExecute(AveragerProgram):
+class ExecutePulseSequence(AveragerProgram):
     """This qick AveragerProgram handles a qibo sequence of pulse"""
 
     def __init__(self, soc, cfg, sequence):
@@ -22,9 +22,9 @@ class ProgramExecute(AveragerProgram):
         self.mu_s = 0.001
 
         # settings
-        self.max_gain = self.cfg["max_gain"]  # TODO redundancy
-        self.adc_trig_offset = self.cfg["adc_trig_offset"]
-        self.max_sampling_rate = self.cfg["max_sampling_rate"]
+        self.max_gain = cfg["max_gain"]  # TODO redundancy
+        self.adc_trig_offset = cfg["adc_trig_offset"]
+        self.max_sampling_rate = cfg["sampling_rate"]
 
         # connections  (for every qubit here are defined drive and readout lines
         self.connections = {
@@ -38,9 +38,11 @@ class ProgramExecute(AveragerProgram):
         self.channels = []
 
         # fill the self.pulse_sequence and the self.readout_pulses oject
-        self.convert_sequence(sequence)
+        self.soc = soc
+        self.soccfg = soc  # No need for a different soc config object since qick is on board
+        self.convert_sequence(sequence["pulses"])
 
-        cfg["reps"] = self.cfg["hardware_avg"]
+        cfg["reps"] = cfg["hardware_avg"]
         super().__init__(soc, cfg)
 
     def convert_sequence(self, sequence):
@@ -94,7 +96,7 @@ class ProgramExecute(AveragerProgram):
 
         """
 
-        for pulse in sequence:
+        for _, pulse in sequence.items():
             pulse_dic = {}
 
             pulse_dic["type"] = pulse["type"]
@@ -102,7 +104,7 @@ class ProgramExecute(AveragerProgram):
 
             gen_ch, adc_ch = self.from_qubit_to_ch(pulse["qubit"],   # if drive pulse return only gen_ch, otherwise both
                                                    pulse["type"])
-            pulse_dic["freq"] = self.soc.freq2reg(pulse["freq"] * self.MHz,  # TODO maybe differentiate between drive and readout
+            pulse_dic["freq"] = self.soc.freq2reg(pulse["frequency"] * self.MHz,  # TODO maybe differentiate between drive and readout
                                                   gen_ch=gen_ch,
                                                   ro_ch=adc_ch)
 
@@ -119,6 +121,7 @@ class ProgramExecute(AveragerProgram):
                 pulse_dic["waveform"] = pulse["shape"]  # TODO redundancy
                 pulse_dic["shape"] = pulse["shape"]
                 pulse_dic["name"] = pulse["shape"]
+                pulse_dic["style"] = "arb"
 
                 sigma = length / pulse["rel_sigma"]
                 pulse_dic["sigma"] = self.soc.us2cycles(sigma)
@@ -146,7 +149,7 @@ class ProgramExecute(AveragerProgram):
 
             self.pulse_sequence[pulse["serial"]] = pulse_dic  # TODO check if deep copy
 
-            if pulse["freq"] < self.max_sampling_rate / 2:
+            if pulse["frequency"] < self.max_sampling_rate / 2:
                 zone = 1
             else:
                 zone = 2
@@ -181,8 +184,8 @@ class ProgramExecute(AveragerProgram):
         # declare readouts
         channel_already_declared = []
         for readout in self.readouts:
-            if readout["ch"] not in channel_already_declared:
-                channel_already_declared.append(readout["ch"])
+            if readout["adc_ch"] not in channel_already_declared:
+                channel_already_declared.append(readout["adc_ch"])
             else:
                 print(f"Avoided redecalaration of channel {readout['ch']}")    # TODO raise warning
                 continue
@@ -195,8 +198,8 @@ class ProgramExecute(AveragerProgram):
         first_pulse_registered = []
 
         for serial, pulse in self.pulse_sequence.items():
-            if pulse["channel"] not in first_pulse_registered:
-                first_pulse_registered.append(pulse["channel"])
+            if pulse["ch"] not in first_pulse_registered:
+                first_pulse_registered.append(pulse["ch"])
             else:
                 continue
 
@@ -214,7 +217,7 @@ class ProgramExecute(AveragerProgram):
                                sigma=pulse["sigma"],
                                length=pulse["length"])
 
-            if pulse["shape"] == "Drag":
+            elif pulse["shape"] == "Drag":
                 self.add_DRAG(ch=pulse["ch"],
                               name=pulse["name"],
                               sigma=pulse["sigma"],
@@ -225,18 +228,24 @@ class ProgramExecute(AveragerProgram):
             else:
                 raise Exception(f'Pulse shape {pulse["shape"]} not recognized!')
 
+            self.set_pulse_registers(ch=pulse["ch"],
+                                     style=pulse["style"],
+                                     freq=pulse["freq"],
+                                     phase=pulse["phase"],
+                                     gain=pulse["gain"],
+                                     waveform=pulse["waveform"])
+
         elif pulse["type"] == "ro":
-            pass
+
+            self.set_pulse_registers(ch=pulse["ch"],
+                                     style=pulse["style"],
+                                     freq=pulse["freq"],
+                                     phase=pulse["phase"],
+                                     gain=pulse["gain"],
+                                     length=pulse["length"],
+                                     waveform=pulse["waveform"])
         else:
             raise Exception(f'Pulse type {pulse["type"]} not recognized!')
-
-        self.set_pulse_registers(ch=pulse["ch"],
-                                 style=pulse["style"],
-                                 freq=pulse["freq"],
-                                 phase=pulse["phase"],
-                                 gain=pulse["gain"],
-                                 length=pulse["length"],
-                                 waveform=pulse["waveform"])
 
     def body(self):
         """Execute sequence of pulses.
