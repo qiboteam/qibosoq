@@ -7,6 +7,7 @@ Supports the following FPGA:
 import math
 import pickle
 import signal
+import socket
 import sys
 from socketserver import BaseRequestHandler, TCPServer
 from typing import List, Tuple
@@ -22,10 +23,6 @@ def signal_handler(sig, frame):
     """Signal handling for Ctrl-C (closing the server)"""
     print("Server closing")
     sys.exit(0)
-
-
-# starts the handler
-signal.signal(signal.SIGINT, signal_handler)
 
 
 class ExecutePulseSequence(AveragerProgram):
@@ -595,15 +592,17 @@ class MyTCPHandler(BaseRequestHandler):
     def handle(self):
         self.server.socket.setblocking(False)
 
-        len_mes = pickle.loads(self.request.recv(15))
-        count = len_mes
-
+        count = pickle.loads(self.request.recv(15))
+        received = self.request.recv(count, socket.MSG_WAITALL)
+        """
         received = bytearray()
         while count != 0:
-            minimum = min(1273, count)
+            minimum = min(1200, count)
             rec = self.request.recv(minimum)
+            print(f"\tLen rec: {len(rec)}")
             received.extend(rec)
             count = count - minimum
+        """
 
         data = pickle.loads(received)
 
@@ -632,7 +631,10 @@ class MyTCPHandler(BaseRequestHandler):
         self.request.sendall(pickle.dumps(results))
 
 
+# starts the handler
+signal.signal(signal.SIGINT, signal_handler)
 global_soc = QickSoc()
+
 if __name__ == "__main__":
     HOST = "192.168.0.72"  # Serverinterface address
     PORT = 6000  # Port to listen on (non-privileged ports are > 1023)
