@@ -6,30 +6,21 @@ Supports the following FPGA:
 
 import math
 import pickle
-import sys
 import signal
+import sys
+from socketserver import BaseRequestHandler, TCPServer
 from typing import List, Tuple
 
 import numpy as np
-from qick import AveragerProgram, QickSoc, RAveragerProgram
-
 from qibolab.platforms.abstract import Qubit
-from qibolab.pulses import (
-    Drag,
-    Gaussian,
-    Pulse,
-    PulseSequence,
-    PulseType,
-    Rectangular,
-)
+from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
-
-from socketserver import BaseRequestHandler, TCPServer
+from qick import AveragerProgram, QickSoc, RAveragerProgram
 
 
 def signal_handler(sig, frame):
     """Signal handling for Ctrl-C (closing the server)"""
-    print('Server closing')
+    print("Server closing")
     sys.exit(0)
 
 
@@ -176,6 +167,7 @@ class ExecutePulseSequence(AveragerProgram):
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
         # register first pulses of all channels
+        """
         first_pulse_registered = []
         for pulse in self.sequence:
             qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -185,12 +177,13 @@ class ExecutePulseSequence(AveragerProgram):
 
             if gen_ch not in first_pulse_registered:
                 first_pulse_registered.append(gen_ch)
-                self.add_pulse_to_register(pulse)
+                self.add_pulse_to_register(pulse, True)
+        """
 
         # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
 
-    def add_pulse_to_register(self, pulse: Pulse):
+    def add_pulse_to_register(self, pulse: Pulse, first=False):
         """This function calls the set_pulse_registers function"""
 
         # find channels relevant for this pulse
@@ -205,7 +198,7 @@ class ExecutePulseSequence(AveragerProgram):
             raise Exception("Amp must be in [-1,1], was: {pulse.amplitude}")
 
         # phase converted from rad (qibolab) to deg (qick) and then to reg vals
-        phase = self.deg2reg(math.degrees(pulse.relative_phase), gen_ch=gen_ch)
+        phase = self.deg2reg(np.degrees(pulse.relative_phase), gen_ch=gen_ch)
 
         # pulse length converted with DAC CLK
         us_length = pulse.duration * self.us
@@ -226,10 +219,7 @@ class ExecutePulseSequence(AveragerProgram):
         # if pulse is drag or gauss first define the i-q shape and then set reg
         if is_drag or is_gaus:
             name = pulse.serial
-            sigma = us_length / pulse.shape.rel_sigma
-            sigma = self.soc.us2cycles(
-                us_length / pulse.shape.rel_sigma, gen_ch=gen_ch
-            )  # TODO probably conversion is linear
+            sigma = soc_length / pulse.shape.rel_sigma
 
             if is_gaus:
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
@@ -268,9 +258,6 @@ class ExecutePulseSequence(AveragerProgram):
         At the end of the pulse wait for clock.
         """
 
-        # list of channels where a pulse is already been executed
-        first_pulse_executed = []
-
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * self.us)
@@ -280,10 +267,7 @@ class ExecutePulseSequence(AveragerProgram):
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type == PulseType.DRIVE else ro_ch
 
-            if gen_ch in first_pulse_executed:
-                self.add_pulse_to_register(pulse)
-            else:
-                first_pulse_executed.append(gen_ch)
+            self.add_pulse_to_register(pulse)
 
             if pulse.type == PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -477,6 +461,7 @@ class ExecuteSingleSweep(RAveragerProgram):
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
         # register first pulses of all channels
+        """
         first_pulse_registered = []
         for pulse in self.sequence:
             qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -486,6 +471,7 @@ class ExecuteSingleSweep(RAveragerProgram):
             if gen_ch not in first_pulse_registered:
                 first_pulse_registered.append(gen_ch)
                 self.add_pulse_to_register(pulse)
+        """
 
         # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
@@ -536,10 +522,7 @@ class ExecuteSingleSweep(RAveragerProgram):
         # if pulse is drag or gaus first define the i-q shape and then set regs
         if is_drag or is_gaus:
             name = pulse.serial
-            sigma = us_length / pulse.shape.rel_sigma
-            sigma = self.soc.us2cycles(
-                us_length / pulse.shape.rel_sigma, gen_ch=gen_ch
-            )  # TODO probably conversion is linear
+            sigma = soc_length / pulse.shape.rel_sigma
 
             if is_gaus:
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
@@ -582,9 +565,6 @@ class ExecuteSingleSweep(RAveragerProgram):
         At the end of the pulse wait for clock and call update function.
         """
 
-        # list of channels where a pulse is already been executed
-        first_pulse_executed = []
-
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * self.us)
@@ -594,10 +574,7 @@ class ExecuteSingleSweep(RAveragerProgram):
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type == PulseType.DRIVE else ro_ch
 
-            if gen_ch in first_pulse_executed:
-                self.add_pulse_to_register(pulse)
-            else:
-                first_pulse_executed.append(gen_ch)
+            self.add_pulse_to_register(pulse)
 
             if pulse.type == PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -623,48 +600,41 @@ class MyTCPHandler(BaseRequestHandler):
 
         received = bytearray()
         while count != 0:
-            minimum = min(1448, count)
-            received.extend(self.request.recv(minimum))
+            minimum = min(1273, count)
+            rec = self.request.recv(minimum)
+            received.extend(rec)
             count = count - minimum
 
         data = pickle.loads(received)
 
         if data["operation_code"] == "execute_pulse_sequence":
-            program = ExecutePulseSequence(global_soc,
-                                           data["cfg"],
-                                           data["sequence"],
-                                           data["qubits"])
+            program = ExecutePulseSequence(global_soc, data["cfg"], data["sequence"], data["qubits"])
             toti, totq = program.acquire(
                 global_soc,
                 data["readouts_per_experiment"],
                 load_pulses=True,
                 progress=False,
                 debug=False,
-                average=data["average"])
+                average=data["average"],
+            )
         elif data["operation_code"] == "execute_single_sweep":
-            program = ExecuteSingleSweep(global_soc,
-                                         data["cfg"],
-                                         data["sequence"],
-                                         data["qubits"],
-                                         data["sweeper"])
+            program = ExecuteSingleSweep(global_soc, data["cfg"], data["sequence"], data["qubits"], data["sweeper"])
             toti, totq = program.acquire(
                 global_soc,
                 data["readouts_per_experiment"],
                 load_pulses=True,
                 progress=False,
                 debug=False,
-                average=data["average"])
+                average=data["average"],
+            )
 
-        results = {
-            "i": toti,
-            "q": totq
-        }
+        results = {"i": toti, "q": totq}
         self.request.sendall(pickle.dumps(results))
 
 
 global_soc = QickSoc()
 if __name__ == "__main__":
-    HOST = "192.168.2.72"  # Serverinterface address
+    HOST = "192.168.0.72"  # Serverinterface address
     PORT = 6000  # Port to listen on (non-privileged ports are > 1023)
     TCPServer.allow_reuse_address = True
     # Create the server, binding to localhost on port 6000
