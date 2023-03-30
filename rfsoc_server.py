@@ -9,11 +9,13 @@ import pickle
 import signal
 import socket
 import sys
+from dataclasses import asdict
 from datetime import datetime
 from socketserver import BaseRequestHandler, TCPServer
 from typing import List, Tuple
 
 import numpy as np
+from qibolab.instruments.rfsoc import QickProgramConfig
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
@@ -33,13 +35,13 @@ def signal_handler(sig, frame):
 class ExecutePulseSequence(AveragerProgram):
     """This qick AveragerProgram handles a qibo sequence of pulses"""
 
-    def __init__(self, soc: QickSoc, cfg: dict, sequence: PulseSequence, qubits: List[Qubit]):
+    def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
         """In this function we define the most important settings.
         In detail:
             * set the conversion coefficients to be used for frequency and
               time values
             * max_gain, adc_trig_offset, max_sampling_rate are imported from
-              cfg (runcard settings)
+              qpcfg (runcard settings)
             * relaxdelay (for each execution) is taken from cfg (runcard)
             * syncdelay (for each measurement) is defined explicitly
             * wait_initialize is defined explicitly
@@ -54,20 +56,21 @@ class ExecutePulseSequence(AveragerProgram):
         self.qubits = qubits
 
         # general settings
-        self.max_gain = cfg["max_gain"]
-        self.adc_trig_offset = cfg["adc_trig_offset"]
-        self.max_sampling_rate = cfg["sampling_rate"]
+        self.max_gain = qpcfg.max_gain
+        self.adc_trig_offset = qpcfg.adc_trig_offset
+        self.max_sampling_rate = qpcfg.sampling_rate
+        self.reps = qpcfg.reps
 
         # TODO maybe better elsewhere
         # relax_delay is the time waited at the end of the program (for ADC)
         # syncdelay is the time waited at the end of every measure (overall t)
         # wait_initialize is the time waited at the end of initialize
         # all of these are converted using tproc CLK
-        self.relax_delay = self.us2cycles(cfg["repetition_duration"] * NS_TO_US)
+        self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
-        super().__init__(soc, cfg)
+        super().__init__(soc, asdict(qpcfg))
 
     def acquire(
         self,
@@ -114,8 +117,8 @@ class ExecutePulseSequence(AveragerProgram):
 
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.cfg["reps"])) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.cfg["reps"])) / lengths[idx]
+            i_val = self.di_buf[idx].reshape((count, self.reps)) / lengths[idx]
+            q_val = self.dq_buf[idx].reshape((count, self.reps)) / lengths[idx]
 
             tot_i.append(i_val)
             tot_q.append(q_val)
@@ -264,12 +267,14 @@ class ExecutePulseSequence(AveragerProgram):
 class ExecuteSingleSweep(RAveragerProgram):
     """This qick AveragerProgram handles a qibo sequence of pulses"""
 
-    def __init__(self, soc: QickSoc, cfg: dict, sequence: PulseSequence, qubits: List[Qubit], sweeper: Sweeper):
+    def __init__(
+        self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], sweeper: Sweeper
+    ):
         """In this function we define the most important settings.
         In detail:
             * set the conversion coefficients to be used for frequency and time
             * max_gain, adc_trig_offset, max_sampling_rate are imported from
-              cfg (runcard settings)
+              qpcfg (runcard settings)
             * relaxdelay (for each execution) is taken from cfg (runcard )
             * syncdelay (for each measurement) is defined explicitly
             * wait_initialize is defined explicitly
@@ -284,27 +289,29 @@ class ExecuteSingleSweep(RAveragerProgram):
         self.sequence = sequence
         self.qubits = qubits
 
+        # sweeper Settings
+        self.sweeper = sweeper
+        self.sweeper_reg = None
+        self.sweeper_page = None
+        qpcfg.expts = len(sweeper.values)
+
         # settings
-        self.max_gain = cfg["max_gain"]
-        self.adc_trig_offset = cfg["adc_trig_offset"]
-        self.max_sampling_rate = cfg["sampling_rate"]
+        self.max_gain = qpcfg.max_gain
+        self.adc_trig_offset = qpcfg.adc_trig_offset
+        self.max_sampling_rate = qpcfg.sampling_rate
+        self.reps = qpcfg.reps
+        self.expts = qpcfg.expts
 
         # TODO maybe better elsewhere
         # relax_delay is the time waited at the end of the program (for ADC)
         # syncdelay is the time waited at the end of every measure
         # wait_initialize is the time waited at the end of initialize
         # all of these are converted using tproc CLK
-        self.relax_delay = self.us2cycles(cfg["repetition_duration"] * NS_TO_US)
+        self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
-        # sweeper Settings
-        self.sweeper = sweeper
-        self.sweeper_reg = None
-        self.sweeper_page = None
-        cfg["expts"] = len(sweeper.values)
-
-        super().__init__(soc, cfg)
+        super().__init__(soc, asdict(qpcfg))
 
     def acquire(
         self,
@@ -351,8 +358,8 @@ class ExecuteSingleSweep(RAveragerProgram):
 
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.cfg["expts"], self.cfg["reps"])) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.cfg["expts"], self.cfg["reps"])) / lengths[idx]
+            i_val = self.di_buf[idx].reshape((count, self.expts, self.reps)) / lengths[idx]
+            q_val = self.dq_buf[idx].reshape((count, self.expts, self.reps)) / lengths[idx]
 
             tot_i.append(i_val)
             tot_q.append(q_val)
@@ -430,6 +437,7 @@ class ExecuteSingleSweep(RAveragerProgram):
 
     def add_pulse_to_register(self, pulse):
         """This function calls the set_pulse_registers function"""
+        # TODO check
 
         is_sweeped = self.sweeper.pulses[0] == pulse
 
