@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "fpga-server"
+name = "fpga_server"
 version = "0.0.1.dev0"
 description = "RFSoC server for qibolab-qick integration"
 authors = ["Rodolfo Carobene <rodolfo.carobene@gmail.com>", "Javier Serrano <javier.serrano@tii.ae>"]
@@ -12,7 +12,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Physics",
 ]
-packages = [{ include = "fpga-server", from = "src" }]
+packages = [{ include = "fpga_server", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
