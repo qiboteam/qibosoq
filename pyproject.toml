@@ -5,11 +5,18 @@ description = "RFSoC server for qibolab-qick integration"
 authors = ["Rodolfo Carobene <rodolfo.carobene@gmail.com>", "Javier Serrano <javier.serrano@tii.ae>"]
 license = "Apache License 2.0"
 readme = "README.md"
-packages = [{include = "fpga_server"}]
+repository = "https://github.com/qiboteam/fpga-server/"
+documentation = ""
+keywords = []
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Physics",
+]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <4"
-qibolab = "0.0.3.dev0"
+# qibolab = "0.0.3.dev0"
+qibolab = { git = "https://github.com/qiboteam/qibolab.git", rev  = "d5b6a02"}
 qick = { git = "https://github.com/openquantumhardware/qick.git", rev = "2f0c6f"}
 
 
