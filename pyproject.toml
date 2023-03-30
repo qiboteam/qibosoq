@@ -12,11 +12,13 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Physics",
 ]
+packages = [{ include = "fpga-server", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.8, <4"
-# qibolab = "0.0.3.dev0"
+python = ">=3.8, <3.12"
+# TODO replace with qibolab = "0.0.3" when released
 qibolab = { git = "https://github.com/qiboteam/qibolab.git", rev  = "d5b6a02"}
+# TODO replace with qick when released
 qick = { git = "https://github.com/openquantumhardware/qick.git", rev = "2f0c6f"}
 
 
