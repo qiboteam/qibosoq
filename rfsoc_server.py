@@ -434,6 +434,10 @@ class ExecuteSingleSweep(RAveragerProgram):
                 # for declare_readout freqs in MHz and not in register values
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
+        #
+        for pulse in self.sequence:
+            self.add_pulse_to_register(pulse)
+
         # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
 
@@ -539,8 +543,6 @@ class ExecuteSingleSweep(RAveragerProgram):
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-            self.add_pulse_to_register(pulse)
 
             if pulse.type is PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
