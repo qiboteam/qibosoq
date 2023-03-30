@@ -2,13 +2,15 @@
 name = "fpga-server"
 version = "0.0.1.dev0"
 description = "RFSoC server for qibolab-qick integration"
-authors = ["rodolfocarobene <rodolfo.carobene@gmail.com>"]
+authors = ["Rodolfo Carobene <rodolfo.carobene@gmail.com>", "Javier Serrano <javier.serrano@tii.ae>"]
 license = "Apache License 2.0"
 readme = "README.md"
 packages = [{include = "fpga_server"}]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <4"
+qibolab = "0.0.3.dev0"
+qick = "0.2"
 
 
 [build-system]
