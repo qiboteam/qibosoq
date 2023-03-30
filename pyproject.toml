@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "fpga-server"
+version = "0.0.1.dev0"
+description = "RFSoC server for qibolab-qick integration"
+authors = ["rodolfocarobene <rodolfo.carobene@gmail.com>"]
+license = "Apache License 2.0"
+readme = "README.md"
+packages = [{include = "fpga_server"}]
+
+[tool.poetry.dependencies]
+python = ">=3.8, <4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
