@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "fpga_server"
+name = "qibosoq"
 version = "0.0.1.dev0"
-description = "RFSoC server for qibolab-qick integration"
+description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = ["Rodolfo Carobene <rodolfo.carobene@gmail.com>", "Javier Serrano <javier.serrano@tii.ae>"]
 license = "Apache License 2.0"
 readme = "README.md"
@@ -12,7 +12,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Physics",
 ]
-packages = [{ include = "fpga_server", from = "src" }]
+packages = [{ include = "qibosoq", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
