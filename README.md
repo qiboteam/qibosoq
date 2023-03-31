@@ -1,6 +1,6 @@
-# Qibosoc
+# Qibosoq
 Repository for developing server side of RFSoC fpga boards
-Qibosoq is a server for integrating [Qick]() in the [Qibolab](https://github.com/qiboteam/qibolab) ecosystem
+Qibosoq is a server for integrating [Qick](https://github.com/openquantumhardware/qick) in the [Qibolab](https://github.com/qiboteam/qibolab) ecosystem
 for executing arbitrary pulses sequences on QPUs.
 
 ## Installation
