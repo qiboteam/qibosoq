@@ -1,16 +1,17 @@
 """ Tests `rfosc_server.py`."""
 
-import pytest
-from qibosoq.rfsoc_server import ExecutePulseSequence, ExecuteSingleSweep, MyTCPHandler
-from qibolab.instruments.rfsoc import QickProgramConfig
-from qibolab.pulses import PulseSequence, PulseType, Rectangular, Pulse, Gaussian, Drag
-from qibolab.platforms.abstract import Qubit
-from qibolab.designs import ChannelMap
-from qibolab.sweeper import Sweeper, Parameter
-from qick import QickSoc
-from socketserver import BaseRequestHandler, TCPServer
+from socketserver import TCPServer
+
 import numpy as np
-from time import sleep
+import pytest
+from qibolab.designs import ChannelMap
+from qibolab.instruments.rfsoc import QickProgramConfig
+from qibolab.platforms.abstract import Qubit
+from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
+from qibolab.sweeper import Parameter, Sweeper
+from qick import QickSoc
+
+from qibosoq.rfsoc_server import ExecutePulseSequence, ExecuteSingleSweep, MyTCPHandler
 
 
 class Helper:
@@ -67,21 +68,16 @@ class Helper:
         channels["L3-18_qd"].ports = [("o1", 1)]
 
         qubits = []
-        q0 = Qubit(
-                name="q0",
-                readout=channels["L3-18_ro"],
-                feedback=channels["L2-RO"],
-                drive=channels["L3-18_qd"]
-        )
+        q0 = Qubit(name="q0", readout=channels["L3-18_ro"], feedback=channels["L2-RO"], drive=channels["L3-18_qd"])
         qubits.append(q0)
         return qubits
 
     def get_sweeper(sequence):
         sweep = Sweeper(
-                parameter=Parameter.frequency,
-                parameter_range=np.arange(5_000_000_000, 5_000_00_100, 20),
-                pulses=sequence[0]
-                )
+            parameter=Parameter.frequency,
+            parameter_range=np.arange(5_000_000_000, 5_000_00_100, 20),
+            pulses=sequence[0],
+        )
         return sweep
 
 
@@ -120,12 +116,7 @@ def test_execute_pulse_sequence_acquire(helpers):
         sequence = helpers.get_pulse_sequence(readouts=n_ro)
         program = ExecutePulseSequence(soc, cfg, sequence, qubits)
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=n_ro,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=False
+            soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=False
         )
         assert i.shape == [1, n_ro, 1000]
         assert q.shape == [1, n_ro, 1000]
@@ -140,12 +131,7 @@ def test_execute_pulse_sequence_acquire_average(helpers):
         sequence = helpers.get_pulse_sequence(readouts=n_ro)
         program = ExecutePulseSequence(soc, cfg, sequence, qubits)
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=n_ro,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=True
+            soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=True
         )
         assert i.shape == [1, n_ro, 1]
         assert q.shape == [1, n_ro, 1]
@@ -160,12 +146,7 @@ def test_execute_pulse_sequence_gaus(helpers):
 
     program = ExecutePulseSequence(soc, cfg, sequence, qubits)
     i, q = program.acquire(
-            soc=soc,
-            readouts_per_experiment=1,
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=True
+        soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
     assert i.shape == [1, 1, 1]
@@ -181,12 +162,7 @@ def test_execute_pulse_sequence_drag(helpers):
 
     program = ExecutePulseSequence(soc, cfg, sequence, qubits)
     i, q = program.acquire(
-            soc=soc,
-            readouts_per_experiment=1,
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=True
+        soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
     assert i.shape == [1, 1, 1]
@@ -215,12 +191,7 @@ def test_execute_pulse_sequence_error_amplitude(helpers):
 
     with pytest.raises(ValueError):
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=1,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=True
+            soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
         )
 
 
@@ -246,12 +217,7 @@ def test_execute_pulse_sequence_error_type(helpers):
 
     with pytest.raises(NotImplementedError):
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=0,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=True
+            soc=soc, readouts_per_experiment=0, load_pulses=True, progress=False, debug=False, average=True
         )
 
 
@@ -281,12 +247,7 @@ def test_execute_single_sweep_acquire(helpers):
         cfg = helpers.get_qick_program_config()
         program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=n_ro,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=False
+            soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=False
         )
         assert i.shape == [1, n_ro, cfg.expts, 1000]
         assert q.shape == [1, n_ro, cfg.expts, 1000]
@@ -302,12 +263,7 @@ def test_execute_pulse_single_sweep_average(helpers):
         cfg = helpers.get_qick_program_config()
         program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=n_ro,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=True
+            soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=True
         )
         assert i.shape == [1, n_ro, cfg.expts, 1]
         assert q.shape == [1, n_ro, cfg.expts, 1]
@@ -323,12 +279,7 @@ def test_execute_single_sweep_gaus(helpers):
 
     program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
     i, q = program.acquire(
-            soc=soc,
-            readouts_per_experiment=1,
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=True
+        soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
     assert i.shape == [1, 1, cfg.expts, 1]
@@ -345,12 +296,7 @@ def test_execute_single_sweep_drag(helpers):
 
     program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
     i, q = program.acquire(
-            soc=soc,
-            readouts_per_experiment=1,
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=True
+        soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
     assert i.shape == [1, 1, cfg.expts, 1]
@@ -381,12 +327,7 @@ def test_execute_single_sweep_error_amplitude(helpers):
 
     with pytest.raises(ValueError):
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=1,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=True
+            soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
         )
 
 
@@ -414,12 +355,7 @@ def test_execute_single_sweep_error_type(helpers):
 
     with pytest.raises(NotImplementedError):
         i, q = program.acquire(
-                soc=soc,
-                readouts_per_experiment=0,
-                load_pulses=True,
-                progress=False,
-                debug=False,
-                average=True
+            soc=soc, readouts_per_experiment=0, load_pulses=True, progress=False, debug=False, average=True
         )
 
 
