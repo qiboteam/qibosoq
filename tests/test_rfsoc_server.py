@@ -365,7 +365,7 @@ def test_execute_single_sweep_error_type(helpers):
 
 # test server
 def test_tcpserver_init():
-    host = "192.168.2.81"
+    host = "192.168.0.72"
     port = 6000
     with TCPServer((host, port), MyTCPHandler) as server:
         assert isinstance(server, TCPServer)
