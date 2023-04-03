@@ -63,6 +63,7 @@ class ExecutePulseSequence(AveragerProgram):
         self.adc_trig_offset = qpcfg.adc_trig_offset
         self.max_sampling_rate = qpcfg.sampling_rate
         self.reps = qpcfg.reps
+        self.is_mux = is_mux  # TODO add to dictionary
 
         # TODO maybe better elsewhere
         # relax_delay is the time waited at the end of the program (for ADC)
@@ -197,8 +198,8 @@ class ExecutePulseSequence(AveragerProgram):
             ro_ch = self.qubits[readout_pulse.qubit].readout.ports[0][1]
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout_pulse.duration * self.us, gen_ch=ro_ch)
-                freq = readout_pulse.frequency * self.MHz
+                length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
+                freq = readout_pulse.frequency * HZ_TO_MHZ
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
@@ -311,7 +312,8 @@ class ExecutePulseSequence(AveragerProgram):
     def set_bias(self, mode="sweetspot"):
         duration = 48  # minimum len
 
-        for qubit in self.qubits:
+        for idx in self.qubits:
+            qubit = self.qubits[idx]
             if qubit.flux:
                 ch = qubit.flux.ports[0][1]
                 if mode == "sweetspot":
@@ -322,9 +324,16 @@ class ExecutePulseSequence(AveragerProgram):
                     raise NotImplementedError(f"Mode {mode} not supported")
                 i = np.full(duration, value)
                 q = np.full(duration, 0)
-                self.add_pulse(f"const_{value}_{qubit}", i, q)
+                self.add_pulse(ch, f"const_{value}_{idx}", i, q)
                 self.set_pulse_registers(
-                    ch=ch, waveform=f"const_{value}_{qubit}", style="arb", outsel="input", stdysel="last"
+                    ch=ch,
+                    waveform=f"const_{value}_{idx}",
+                    style="arb",
+                    outsel="input",
+                    stdysel="last",
+                    freq=0,
+                    gain=self.max_gain,
+                    phase=0,
                 )
                 self.pulse(ch=ch)
         self.wait_all()
@@ -335,9 +344,9 @@ class ExecutePulseSequence(AveragerProgram):
         gen_ch = qubit.flux.ports[0][1]
         sweetspot = qubit.flux.bias  # TODO convert units
 
-        start = self.soc.us2cycles(pulse.start * self.us, gen_ch=gen_ch)
-        finish = self.soc.us2cycles(pulse.finish * self.us, gen_ch=gen_ch)
-        duration = self.soc.us2cycles(pulse.duration * self.us, gen_ch=gen_ch)
+        start = self.soc.us2cycles(pulse.start * NS_TO_US, gen_ch=gen_ch)
+        finish = self.soc.us2cycles(pulse.finish * NS_TO_US, gen_ch=gen_ch)
+        duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
 
         padding = 2
         while True:
@@ -353,8 +362,17 @@ class ExecutePulseSequence(AveragerProgram):
         q = np.full(duration + 2 * padding, 0)
         i[start + padding : finish + padding] += np.full(duration, amp)
 
-        self.add_pulse(pulse.serial, i, q)
-        self.set_pulse_registers(ch=gen_ch, waveform=pulse.serial, style="arb", outsel="input", stdysel="last")
+        self.add_pulse(gen_ch, pulse.serial, i, q)
+        self.set_pulse_registers(
+            ch=gen_ch,
+            waveform=pulse.serial,
+            style="arb",
+            outsel="input",
+            stdysel="last",
+            freq=0,
+            gain=self.max_gain,
+            phase=0,
+        )
         self.pulse(ch=gen_ch)
         return 2 * padding
 
@@ -737,7 +755,7 @@ signal.signal(signal.SIGINT, signal_handler)
 global_soc = QickSoc()
 
 if __name__ == "__main__":
-    HOST = "192.168.0.72"  # Serverinterface address
+    HOST = "192.168.2.81"  # Serverinterface address
     PORT = 6000  # Port to listen on (non-privileged ports are > 1023)
     TCPServer.allow_reuse_address = True
     # Create the server, binding to localhost on port 6000
