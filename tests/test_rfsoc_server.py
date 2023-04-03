@@ -4,7 +4,7 @@ from socketserver import TCPServer
 
 import numpy as np
 import pytest
-from qibolab.designs import ChannelMap
+from qibolab.designs.channels import ChannelMap
 from qibolab.instruments.rfsoc import QickProgramConfig
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
@@ -16,7 +16,7 @@ from qibosoq.rfsoc_server import ExecutePulseSequence, ExecuteSingleSweep, MyTCP
 
 class Helper:
     def get_qick_program_config(expts=None):
-        cfg = QickProgramConfig(expts)
+        cfg = QickProgramConfig(expts=expts)
         return cfg
 
     def get_pulse_sequence(readouts=1, drives=0, type_drive="gaus"):
@@ -75,8 +75,8 @@ class Helper:
     def get_sweeper(sequence):
         sweep = Sweeper(
             parameter=Parameter.frequency,
-            parameter_range=np.arange(5_000_000_000, 5_000_00_100, 20),
-            pulses=sequence[0],
+            values=np.arange(5_000_000_000, 5_000_000_100, 20),
+            pulses=[sequence[0]],
         )
         return sweep
 
@@ -118,8 +118,8 @@ def test_execute_pulse_sequence_acquire(helpers):
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=False
         )
-        assert i.shape == [1, n_ro, 1000]
-        assert q.shape == [1, n_ro, 1000]
+        assert np.shape(i) == (1, n_ro, 1000)
+        assert np.shape(q) == (1, n_ro, 1000)
 
 
 def test_execute_pulse_sequence_acquire_average(helpers):
@@ -133,8 +133,8 @@ def test_execute_pulse_sequence_acquire_average(helpers):
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=True
         )
-        assert i.shape == [1, n_ro, 1]
-        assert q.shape == [1, n_ro, 1]
+        assert np.shape(i) == (1, n_ro)
+        assert np.shape(q) == (1, n_ro)
 
 
 def test_execute_pulse_sequence_gaus(helpers):
@@ -149,8 +149,8 @@ def test_execute_pulse_sequence_gaus(helpers):
         soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
-    assert i.shape == [1, 1, 1]
-    assert q.shape == [1, 1, 1]
+    assert np.shape(i) == (1, 1)
+    assert np.shape(q) == (1, 1)
 
 
 def test_execute_pulse_sequence_drag(helpers):
@@ -165,31 +165,33 @@ def test_execute_pulse_sequence_drag(helpers):
         soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
-    assert i.shape == [1, 1, 1]
-    assert q.shape == [1, 1, 1]
+    assert np.shape(i) == (1, 1)
+    assert np.shape(q) == (1, 1)
 
 
+# TODO the error is actually raised by qibolab
 def test_execute_pulse_sequence_error_amplitude(helpers):
     soc = QickSoc()
     cfg = helpers.get_qick_program_config()
     qubits = helpers.get_qubits()
 
-    sequence = PulseSequence()
-    p0 = Pulse(
-        start=0,
-        duration=50,
-        amplitude=1.1,
-        frequency=6_000_000_000,
-        relative_phase=0.0,
-        shape=Rectangular(),
-        channel=0,
-        type=PulseType.READOUT,
-        qubit=0,
-    )
-    sequence.add(p0)
-    program = ExecutePulseSequence(soc, cfg, sequence, qubits)
-
     with pytest.raises(ValueError):
+        sequence = PulseSequence()
+        p0 = Pulse(
+            start=0,
+            duration=50,
+            amplitude=1.1,
+            frequency=6_000_000_000,
+            relative_phase=0.0,
+            shape=Rectangular(),
+            channel=0,
+            type=PulseType.READOUT,
+            qubit=0,
+        )
+        sequence.add(p0)
+
+        program = ExecutePulseSequence(soc, cfg, sequence, qubits)
+
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
         )
@@ -213,9 +215,10 @@ def test_execute_pulse_sequence_error_type(helpers):
         qubit=0,
     )
     sequence.add(p0)
-    program = ExecutePulseSequence(soc, cfg, sequence, qubits)
 
     with pytest.raises(NotImplementedError):
+        program = ExecutePulseSequence(soc, cfg, sequence, qubits)
+
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=0, load_pulses=True, progress=False, debug=False, average=True
         )
@@ -249,8 +252,8 @@ def test_execute_single_sweep_acquire(helpers):
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=False
         )
-        assert i.shape == [1, n_ro, cfg.expts, 1000]
-        assert q.shape == [1, n_ro, cfg.expts, 1000]
+        assert np.shape(i) == (1, n_ro, cfg.expts, 1000)
+        assert np.shape(q) == (1, n_ro, cfg.expts, 1000)
 
 
 def test_execute_pulse_single_sweep_average(helpers):
@@ -265,8 +268,8 @@ def test_execute_pulse_single_sweep_average(helpers):
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=n_ro, load_pulses=True, progress=False, debug=False, average=True
         )
-        assert i.shape == [1, n_ro, cfg.expts, 1]
-        assert q.shape == [1, n_ro, cfg.expts, 1]
+        assert np.shape(i) == (1, n_ro, cfg.expts)
+        assert np.shape(q) == (1, n_ro, cfg.expts)
 
 
 def test_execute_single_sweep_gaus(helpers):
@@ -282,8 +285,8 @@ def test_execute_single_sweep_gaus(helpers):
         soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
-    assert i.shape == [1, 1, cfg.expts, 1]
-    assert q.shape == [1, 1, cfg.expts, 1]
+    assert np.shape(i) == (1, 1, cfg.expts)
+    assert np.shape(q) == (1, 1, cfg.expts)
 
 
 def test_execute_single_sweep_drag(helpers):
@@ -299,33 +302,34 @@ def test_execute_single_sweep_drag(helpers):
         soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
     )
 
-    assert i.shape == [1, 1, cfg.expts, 1]
-    assert q.shape == [1, 1, cfg.expts, 1]
+    assert np.shape(i) == (1, 1, cfg.expts)
+    assert np.shape(q) == (1, 1, cfg.expts)
 
 
+# TODO the error is actually raised by qibolab
 def test_execute_single_sweep_error_amplitude(helpers):
     soc = QickSoc()
     qubits = helpers.get_qubits()
 
-    sequence = PulseSequence()
-    p0 = Pulse(
-        start=0,
-        duration=50,
-        amplitude=1.1,
-        frequency=6_000_000_000,
-        relative_phase=0.0,
-        shape=Rectangular(),
-        channel=0,
-        type=PulseType.DRIVE,
-        qubit=0,
-    )
-    sequence.add(p0)
-    sweep = helpers.get_sweeper(sequence)
-    cfg = helpers.get_qick_program_config(len(sweep.values))
-
-    program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
-
     with pytest.raises(ValueError):
+        sequence = PulseSequence()
+        p0 = Pulse(
+            start=0,
+            duration=50,
+            amplitude=1.1,
+            frequency=6_000_000_000,
+            relative_phase=0.0,
+            shape=Rectangular(),
+            channel=0,
+            type=PulseType.DRIVE,
+            qubit=0,
+        )
+        sequence.add(p0)
+        sweep = helpers.get_sweeper(sequence)
+        cfg = helpers.get_qick_program_config(len(sweep.values))
+
+        program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
+
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=1, load_pulses=True, progress=False, debug=False, average=True
         )
@@ -351,9 +355,9 @@ def test_execute_single_sweep_error_type(helpers):
     sweep = helpers.get_sweeper(sequence)
     cfg = helpers.get_qick_program_config(len(sweep.values))
 
-    program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
-
     with pytest.raises(NotImplementedError):
+        program = ExecuteSingleSweep(soc, cfg, sequence, qubits, sweep)
+
         i, q = program.acquire(
             soc=soc, readouts_per_experiment=0, load_pulses=True, progress=False, debug=False, average=True
         )
@@ -361,7 +365,7 @@ def test_execute_single_sweep_error_type(helpers):
 
 # test server
 def test_tcpserver_init():
-    host = "192.168.0.72"
+    host = "192.168.2.81"
     port = 6000
     with TCPServer((host, port), MyTCPHandler) as server:
         assert isinstance(server, TCPServer)
