@@ -159,7 +159,7 @@ class ExecutePulseSequence(AveragerProgram):
                 zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
                 self.declare_gen(ch, nqz=zone)
 
-    def declare_gen_mux_readouts(self):
+    def declare_gen_mux_ro(self):
         """
         Only one readout channel is supported
         """
@@ -311,6 +311,7 @@ class ExecutePulseSequence(AveragerProgram):
 
     def set_bias(self, mode="sweetspot"):
         duration = 48  # minimum len
+        self.sync_all()
 
         for idx in self.qubits:
             qubit = self.qubits[idx]
@@ -322,9 +323,9 @@ class ExecutePulseSequence(AveragerProgram):
                     value = 0
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
-                i = np.full(duration, value)
-                q = np.full(duration, 0)
-                self.add_pulse(ch, f"const_{value}_{idx}", i, q)
+                i_wf = np.full(duration, value)
+                q_wf = np.zeros(len(i_wf))
+                self.add_pulse(ch, f"const_{value}_{idx}", i_wf, q_wf)
                 self.set_pulse_registers(
                     ch=ch,
                     waveform=f"const_{value}_{idx}",
@@ -332,35 +333,36 @@ class ExecutePulseSequence(AveragerProgram):
                     outsel="input",
                     stdysel="last",
                     freq=0,
-                    gain=self.max_gain,
                     phase=0,
+                    gain=self.max_gain,
                 )
                 self.pulse(ch=ch)
-        self.wait_all()
         self.sync_all()
 
-    def flux_pulse(self, pulse):
+    def flux_pulse(self, pulse, time):
         qubit = self.qubits[pulse.qubit]
         gen_ch = qubit.flux.ports[0][1]
         sweetspot = qubit.flux.bias  # TODO convert units
 
-        start = self.soc.us2cycles(pulse.start * NS_TO_US, gen_ch=gen_ch)
-        finish = self.soc.us2cycles(pulse.finish * NS_TO_US, gen_ch=gen_ch)
+        # start = self.soc.us2cycles(pulse.start * NS_TO_US, gen_ch=gen_ch)
         duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
+        # TODO this throws an error for unknown reasons
+        # finish = self.soc.us2cycles(pulse.finish * NS_TO_US, gen_ch=gen_ch)
+        # finish = self.soc.us2cycles((pulse.start + pulse.duration) * NS_TO_US, gen_ch=gen_ch)
 
-        padding = 2
+        padding = 16
         while True:
-            tot_len = 2 * padding + duration
-            if tot_len % 8 == 0 and tot_len > 48:
+            tot_len = padding + duration
+            if tot_len % 16 == 0 and tot_len > 48:
                 break
             else:
                 padding += 1
 
-        amp = int(pulse.amplitude * self.max_gain)
+        amp = int(pulse.amplitude * self.max_gain) + sweetspot
 
-        i = np.full(duration + 2 * padding, sweetspot)
-        q = np.full(duration + 2 * padding, 0)
-        i[start + padding : finish + padding] += np.full(duration, amp)
+        i = np.full(duration, amp)
+        i = np.append(i, np.full(padding, sweetspot))
+        q = np.zeros(len(i))
 
         self.add_pulse(gen_ch, pulse.serial, i, q)
         self.set_pulse_registers(
@@ -370,11 +372,10 @@ class ExecutePulseSequence(AveragerProgram):
             outsel="input",
             stdysel="last",
             freq=0,
-            gain=self.max_gain,
             phase=0,
+            gain=self.max_gain,
         )
-        self.pulse(ch=gen_ch)
-        return 2 * padding
+        self.pulse(ch=gen_ch, t=time)
 
     def body(self):
         """Execute sequence of pulses.
@@ -384,22 +385,19 @@ class ExecutePulseSequence(AveragerProgram):
         At the end of the pulse wait for clock.
         """
         muxed_ro_executed_pulses_time = []
-        total_delay = 0
 
         self.set_bias("sweetspot")  # set qubit at sweetspot
 
         for pulse in self.sequence:
             # time follows tproc CLK
-            time = self.soc.us2cycles(pulse.start * NS_TO_US) - total_delay
-
-            self.add_pulse_to_register(pulse)
+            time = self.soc.us2cycles(pulse.start * NS_TO_US)
 
             if pulse.type is PulseType.DRIVE:
+                self.add_pulse_to_register(pulse)
                 ch = self.qubits[pulse.qubit].drive.ports[0][1]
                 self.pulse(ch=ch, t=time)
             elif pulse.type is PulseType.FLUX:
-                delay = self.flux_pulse(pulse)
-                total_delay += delay
+                self.flux_pulse(pulse, time)
             elif pulse.type is PulseType.READOUT:
                 ch = self.qubits[pulse.qubit].readout.ports[0][1]
                 if self.is_mux:
@@ -418,6 +416,7 @@ class ExecutePulseSequence(AveragerProgram):
                             syncdelay=self.syncdelay,
                         )
                 else:
+                    self.add_pulse_to_register(pulse)
                     adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
                     self.measure(
                         pulse_ch=ch,
@@ -428,9 +427,11 @@ class ExecutePulseSequence(AveragerProgram):
                         syncdelay=self.syncdelay,
                     )
         self.wait_all()
-        self.sync_all(self.relax_delay)
+        self.sync_all()
 
         self.set_bias("zero")  # set qubit bias at zero
+
+        self.sync_all(self.relax_delay)
 
 
 # TODO implement
@@ -755,7 +756,7 @@ signal.signal(signal.SIGINT, signal_handler)
 global_soc = QickSoc()
 
 if __name__ == "__main__":
-    HOST = "192.168.2.81"  # Serverinterface address
+    HOST = "192.168.0.81"  # Serverinterface address
     PORT = 6000  # Port to listen on (non-privileged ports are > 1023)
     TCPServer.allow_reuse_address = True
     # Create the server, binding to localhost on port 6000
