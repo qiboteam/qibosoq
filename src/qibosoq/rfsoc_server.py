@@ -37,7 +37,7 @@ class ExecutePulseSequence(AveragerProgram):
     """This qick AveragerProgram handles a qibo sequence of pulses"""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], is_mux: bool = False
+        self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], is_mux: bool = True
     ):
         """In this function we define the most important settings.
         In detail:
@@ -751,7 +751,7 @@ class MyTCPHandler(BaseRequestHandler):
 
 # starts the handler
 signal.signal(signal.SIGINT, signal_handler)
-global_soc = QickSoc()
+global_soc = QickSoc("/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit")
 
 if __name__ == "__main__":
     HOST = "192.168.0.81"  # Serverinterface address
