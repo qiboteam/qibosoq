@@ -344,16 +344,14 @@ class ExecutePulseSequence(AveragerProgram):
         gen_ch = qubit.flux.ports[0][1]
         sweetspot = qubit.flux.bias  # TODO convert units
 
-        # start = self.soc.us2cycles(pulse.start * NS_TO_US, gen_ch=gen_ch)
         duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
-        # TODO this throws an error for unknown reasons
-        # finish = self.soc.us2cycles(pulse.finish * NS_TO_US, gen_ch=gen_ch)
-        # finish = self.soc.us2cycles((pulse.start + pulse.duration) * NS_TO_US, gen_ch=gen_ch)
+        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
+        duration *= samples_per_clk
 
-        padding = 16
+        padding = samples_per_clk
         while True:
             tot_len = padding + duration
-            if tot_len % 16 == 0 and tot_len > 48:
+            if tot_len % samples_per_clk == 0 and tot_len > 48:
                 break
             else:
                 padding += 1
