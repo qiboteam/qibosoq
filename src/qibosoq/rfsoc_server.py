@@ -211,8 +211,8 @@ class ExecutePulseSequence(AveragerProgram):
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=sigma,  # TODO: check if correct
-                    alpha=pulse.beta,
+                    delta=1,  # TODO: check if correct
+                    alpha=pulse.shape.beta,
                     length=soc_length,
                 )
 
@@ -501,8 +501,8 @@ class ExecuteSingleSweep(RAveragerProgram):
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=sigma,  # TODO: check if correct
-                    alpha=pulse.beta,
+                    delta=1,  # TODO: check if correct
+                    alpha=pulse.shape.beta,
                     length=soc_length,
                 )
 
