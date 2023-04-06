@@ -59,7 +59,7 @@ class Helper:
     def get_qubits():
         channels = ChannelMap()
         channels |= ChannelMap.from_names("L3-18_ro")  # readout (DAC)
-        channels |= ChannelMap.from_names("L2-RO")  # feedback (readout DAC)
+        channels |= ChannelMap.from_names("L2-RO")  # feedback (readout ADC)
         channels |= ChannelMap.from_names("L3-18_qd")  # drive
 
         # Map controllers to qubit channels (HARDCODED)
