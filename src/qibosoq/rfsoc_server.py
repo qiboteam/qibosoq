@@ -134,10 +134,11 @@ class ExecutePulseSequence(AveragerProgram):
 
         adcs, adc_count = np.unique(adcs, return_counts=True)
 
+        len_out = int(len(self.di_buf[0]) / len(adcs))
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.reps)) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.reps)) / lengths[idx]
+            i_val = self.di_buf[idx][:len_out].reshape((count, self.cfg["reps"])) / lengths[idx]
+            q_val = self.dq_buf[idx][:len_out].reshape((count, self.cfg["reps"])) / lengths[idx]
 
             tot_i.append(i_val)
             tot_q.append(q_val)
@@ -199,7 +200,13 @@ class ExecutePulseSequence(AveragerProgram):
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
-                freq = readout_pulse.frequency * HZ_TO_MHZ
+
+                # freq = readout_pulse.frequency * HZ_TO_MHZ
+
+                # TODO add parameters to QickProgramConfig
+                freq = readout_pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+                freq = freq * HZ_TO_MHZ
+
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
@@ -400,10 +407,11 @@ class ExecutePulseSequence(AveragerProgram):
                 ch = self.qubits[pulse.qubit].readout.ports[0][1]
                 if self.is_mux:
                     if pulse.start not in muxed_ro_executed_pulses_time:
+                        self.add_muxed_readout_to_register(self.multi_ro_pulses[pulse.start])
                         muxed_ro_executed_pulses_time.append(pulse.start)
                         adcs = []
-                        for pulse in self.multi_ro_pulses[pulse.start]:
-                            adcs.append(self.qubits[pulse.qubit].feedback.ports[0][1])
+                        for ro_pulse in self.multi_ro_pulses[pulse.start]:
+                            adcs.append(self.qubits[ro_pulse.qubit].feedback.ports[0][1])
 
                         self.measure(
                             pulse_ch=ch,
