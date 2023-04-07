@@ -134,9 +134,9 @@ class ExecutePulseSequence(AveragerProgram):
 
         adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        len_out = int(len(self.di_buf[0]) / len(adcs))
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
+            len_out = count * self.cfg["reps"]
             i_val = self.di_buf[idx][:len_out].reshape((count, self.cfg["reps"])) / lengths[idx]
             q_val = self.dq_buf[idx][:len_out].reshape((count, self.cfg["reps"])) / lengths[idx]
 
@@ -155,9 +155,14 @@ class ExecutePulseSequence(AveragerProgram):
             elif pulse.type is PulseType.FLUX:
                 ch = self.qubits[pulse.qubit].flux.ports[0][1]
 
+            if pulse.type is PulseType.READOUT:
+                freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+            else:
+                freq = pulse.frequency
+
             if ch not in ch_already_declared:
                 ch_already_declared.append(ch)
-                zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
+                zone = 1 if freq < self.max_sampling_rate / 2 else 2
                 self.declare_gen(ch, nqz=zone)
 
     def declare_gen_mux_ro(self):
@@ -174,10 +179,9 @@ class ExecutePulseSequence(AveragerProgram):
 
             if adc_ch not in adc_ch_added:
                 adc_ch_added.append(adc_ch)
-                zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
-
                 # TODO add parameters to QickProgramConfig
                 freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+                zone = 1 if freq < self.max_sampling_rate / 2 else 2
                 freq = freq * HZ_TO_MHZ
 
                 mux_gains.append(pulse.amplitude)
@@ -262,7 +266,8 @@ class ExecutePulseSequence(AveragerProgram):
         if pulse.type is PulseType.DRIVE:
             freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
-            freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
+            freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+            freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
             raise NotImplementedError(f"Pulse type {pulse.type} not supported!")
 
