@@ -16,11 +16,12 @@ from socketserver import BaseRequestHandler, TCPServer
 from typing import List, Tuple
 
 import numpy as np
-from qibolab.instruments.rfsoc import QickProgramConfig
+from qibolab.instruments.rfsoc import QickProgramConfig, QickSweep
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
-from qibolab.sweeper import Parameter, Sweeper
+from qibolab.sweeper import Parameter
 from qick import AveragerProgram, QickSoc, RAveragerProgram
+from qick.qick_asm import QickRegisterManagerMixin
 
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
@@ -136,7 +137,7 @@ class ExecutePulseSequence(AveragerProgram):
 
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            len_out = count * self.cfg["reps"]
+            len_out = count * self.cfg["reps"]  # TODO maybe must start differently
             i_val = self.di_buf[idx][:len_out].reshape((count, self.cfg["reps"])) / lengths[idx]
             q_val = self.dq_buf[idx][:len_out].reshape((count, self.cfg["reps"])) / lengths[idx]
 
@@ -445,12 +446,17 @@ class ExecutePulseSequence(AveragerProgram):
         self.sync_all(self.relax_delay)
 
 
-# TODO implement
-class ExecuteSingleSweep(RAveragerProgram):
+class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
     """This qick AveragerProgram handles a qibo sequence of pulses"""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], sweeper: Sweeper
+        self,
+        soc: QickSoc,
+        qpcfg: QickProgramConfig,
+        sequence: PulseSequence,
+        qubits: List[Qubit],
+        sweeper: QickSweep,
+        is_mux: bool = True,
     ):
         """In this function we define the most important settings.
         In detail:
@@ -473,16 +479,17 @@ class ExecuteSingleSweep(RAveragerProgram):
 
         # sweeper Settings
         self.sweeper = sweeper
-        self.sweeper_reg = None
-        self.sweeper_page = None
-        qpcfg.expts = len(sweeper.values)
+        self.sweeper_step = sweeper.step
+        self.sweeper_reg = []
+        self.temp_regs = []
+        qpcfg.expts = sweeper.expts
 
         # settings
         self.max_gain = qpcfg.max_gain
         self.adc_trig_offset = qpcfg.adc_trig_offset
         self.max_sampling_rate = qpcfg.sampling_rate
         self.reps = qpcfg.reps
-        self.expts = qpcfg.expts
+        self.is_mux = is_mux  # TODO add to dictionary
 
         # TODO maybe better elsewhere
         # relax_delay is the time waited at the end of the program (for ADC)
@@ -540,12 +547,83 @@ class ExecuteSingleSweep(RAveragerProgram):
 
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.expts, self.reps)) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.expts, self.reps)) / lengths[idx]
+            len_out = count * self.cfg["reps"]  # TODO maybe must start differently
+            i_val = self.di_buf[idx][:len_out].reshape((count, self.expts, self.reps)) / lengths[idx]
+            q_val = self.dq_buf[idx][:len_out].reshape((count, self.expts, self.reps)) / lengths[idx]
 
             tot_i.append(i_val)
             tot_q.append(q_val)
         return tot_i, tot_q
+
+    def declare_nqz_zones(self, sequence: PulseSequence):
+        """Declare nqz zone (1-2) for all signal generators used"""
+        ch_already_declared = []
+        for pulse in self.sequence:
+            if pulse.type is PulseType.DRIVE:
+                ch = self.qubits[pulse.qubit].drive.ports[0][1]
+            elif pulse.type is PulseType.READOUT:
+                ch = self.qubits[pulse.qubit].readout.ports[0][1]
+            elif pulse.type is PulseType.FLUX:
+                ch = self.qubits[pulse.qubit].flux.ports[0][1]
+
+            if pulse.type is PulseType.READOUT:
+                freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+            else:
+                freq = pulse.frequency
+
+            if ch not in ch_already_declared:
+                ch_already_declared.append(ch)
+                zone = 1 if freq < self.max_sampling_rate / 2 else 2
+                self.declare_gen(ch, nqz=zone)
+
+    def declare_gen_mux_ro(self):
+        """
+        Only one readout channel is supported
+        """
+
+        adc_ch_added = []
+        mux_freqs = []
+        mux_gains = []
+        for pulse in self.sequence.ro_pulses:
+            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
+            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+
+            if adc_ch not in adc_ch_added:
+                adc_ch_added.append(adc_ch)
+                # TODO add parameters to QickProgramConfig
+                freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+                zone = 1 if freq < self.max_sampling_rate / 2 else 2
+                freq = freq * HZ_TO_MHZ
+
+                mux_gains.append(pulse.amplitude)
+                mux_freqs.append(freq)
+
+        self.declare_gen(
+            ch=ro_ch,
+            nqz=zone,
+            mixer_freq=self.cfg["mixer_freq"],
+            mux_freqs=mux_freqs,
+            mux_gains=mux_gains,
+            ro_ch=adc_ch_added[0],  # we use just one for dec
+        )
+
+    def declare_readout_freq(self):
+        adc_ch_already_declared = []
+        for readout_pulse in self.sequence.ro_pulses:
+            adc_ch = self.qubits[readout_pulse.qubit].feedback.ports[0][1]
+            ro_ch = self.qubits[readout_pulse.qubit].readout.ports[0][1]
+            if adc_ch not in adc_ch_already_declared:
+                adc_ch_already_declared.append(adc_ch)
+                length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
+
+                # freq = readout_pulse.frequency * HZ_TO_MHZ
+
+                # TODO add parameters to QickProgramConfig
+                freq = readout_pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
+                freq = freq * HZ_TO_MHZ
+
+                # in declare_readout frequency in MHz
+                self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
     def initialize(self):
         """This function gets called automatically by qick super.__init__,
@@ -557,62 +635,43 @@ class ExecuteSingleSweep(RAveragerProgram):
           (if first pulse for channel, otherwise it will be done in the body)
         """
 
-        # find channels of sweeper pulse
-        pulse = self.sweeper.pulses[0]
-        qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-        adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-        ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-        gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
+        if self.sweeper.parameter is Parameter.bias:
+            for idx in self.sweeper.indexes:
+                gen_ch = self.qubits[idx].flux.ports[0][1]
 
-        # find page of sweeper pulse channel
-        self.sweeper_page = self.ch_page(gen_ch)
+                self.sweeper_reg.append(self.get_gen_reg(gen_ch, "gain"))
 
-        # define start and step values
-        start = self.sweeper.values[0]
-        step = self.sweeper.values[1] - self.sweeper.values[0]
+                self.sweeper_step = int(self.max_gain * self.sweeper_step)
+                new_reg = self.new_gen_reg(gen_ch, init_val=0, name=f"temp_reg_{idx}")
+                self.temp_regs.append(new_reg)
 
-        # find register of sweeped parameter and assign start and step
-        if self.sweeper.parameter == Parameter.frequency:
-            self.sweeper_reg = self.sreg(gen_ch, "freq")
-            self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
-            self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
+        else:
+            for idx in self.sweeper.indexe:
+                pulse = self.sequence[idx]
+                qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+                gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
+
+                if self.sweeper.parameter is Parameter.frequency:
+                    self.sweeper_reg.append(self.get_gen_reg(gen_ch, "freq"))
+                    self.sweeper_step = self.soc.freq2reg(self.sweeper_step * HZ_TO_MHZ, gen_ch)
+                else:
+                    self.sweeper_reg.append(self.get_gen_reg(gen_ch, "gain"))
+                    self.sweeper_step = int(self.max_gain * self.sweeper_step)
 
             # TODO: should stop if nyquist zone changes in the sweep
-
-        elif self.sweeper.parameter == Parameter.amplitude:
-            self.sweeper_reg = self.sreg(gen_ch, "gain")
-            self.cfg["start"] = int(start * self.max_gain)
-            self.cfg["step"] = int(step * self.max_gain)
-
-            if self.cfg["start"] + self.cfg["step"] * self.cfg["expts"] > self.max_gain:
-                raise ValueError("Amplitude higher than maximum!")
+            # TODO: should stop if amp goes over 1
 
         # declare nyquist zones for all used channels
-        ch_already_declared = []
-        for pulse in self.sequence:
-            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-            if gen_ch not in ch_already_declared:
-                ch_already_declared.append(gen_ch)
-
-                if pulse.frequency < self.max_sampling_rate / 2:
-                    self.declare_gen(gen_ch, nqz=1)
-                else:
-                    self.declare_gen(gen_ch, nqz=2)
+        self.declare_nqz_zones(self.sequence.qd_pulses)
+        self.declare_nqz_zones(self.sequence.qf_pulses)
+        if self.is_mux:
+            self.declare_gen_mux_ro()
+        else:
+            self.declare_nqz_zones(self.sequence.ro_pulses)
 
         # declare readouts
-        ro_ch_already_declared = []
-        for readout_pulse in self.sequence.ro_pulses:
-            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            if adc_ch not in ro_ch_already_declared:
-                ro_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
-                freq = readout_pulse.frequency * HZ_TO_MHZ
-                # for declare_readout freqs in MHz and not in register values
-                self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
+        self.declare_readout_freq()
 
         # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
@@ -621,7 +680,7 @@ class ExecuteSingleSweep(RAveragerProgram):
         """This function calls the set_pulse_registers function"""
         # TODO check
 
-        is_sweeped = self.sweeper.pulses[0] == pulse
+        is_sweeped = pulse in self.sweeper.pulses
 
         # find channels relevant for this pulse
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -631,7 +690,9 @@ class ExecuteSingleSweep(RAveragerProgram):
 
         # assign gain parameter
         if is_sweeped and self.sweeper.parameter == Parameter.amplitude:
-            gain = self.cfg["start"]
+            for idx, sweep_pulse in enumerate(self.sweeper.pulses):
+                if pulse == sweep_pulse:
+                    gain = int(self.sweeper.starts[idx] * self.max_gain)
         else:
             gain = int(pulse.amplitude * self.max_gain)
 
@@ -652,7 +713,9 @@ class ExecuteSingleSweep(RAveragerProgram):
         # pulse freq converted with frequency matching
         if pulse.type is PulseType.DRIVE:
             if is_sweeped and self.sweeper.parameter == Parameter.frequency:
-                freq = self.cfg["start"]
+                for idx, sweep_pulse in enumerate(self.sweeper.pulses):
+                    if pulse == sweep_pulse:
+                        freq = self.soc.freq2reg(self.sweeper.starts[idx] * HZ_TO_MHZ, gen_ch)
             else:
                 freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
 
@@ -697,39 +760,159 @@ class ExecuteSingleSweep(RAveragerProgram):
 
     def update(self):
         """Update function for sweeper"""
-        self.mathi(self.sweeper_page, self.sweeper_reg, self.sweeper_reg, "+", self.cfg["step"])
+        for idx, reg in enumerate(self.sweeper_reg):
+            self.mathi(reg.page, reg.addr, reg.addr, "+", self.sweeper_step)
+
+    def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
+        mask = []
+        for pulse in ro_pulses:
+            mask.append(pulse.qubit)
+
+        pulse = ro_pulses[0]
+        gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+
+        us_length = pulse.duration * NS_TO_US
+        soc_length = self.soc.us2cycles(us_length)
+
+        if not isinstance(pulse.shape, Rectangular):
+            raise Exception("Only Rectangular ro pulses are supported")
+
+        self.set_pulse_registers(ch=gen_ch, style="const", length=soc_length, mask=mask)
+
+    def set_bias(self, mode="sweetspot"):
+        duration = 48  # minimum len
+        self.sync_all()
+
+        for idx in self.qubits:
+            qubit = self.qubits[idx]
+            if qubit.flux:
+                ch = qubit.flux.ports[0][1]
+                if mode == "sweetspot":
+                    if self.sweeper.parameter is Parameter.bias:
+                        value = int(self.sweeper.starts[idx] * self.max_gain)
+                    value = qubit.flux.bias
+                elif mode == "zero":
+                    value = 0
+                else:
+                    raise NotImplementedError(f"Mode {mode} not supported")
+                i_wf = np.full(duration, value)
+                q_wf = np.zeros(len(i_wf))
+                self.add_pulse(ch, f"const_{value}_{idx}", i_wf, q_wf)
+                self.set_pulse_registers(
+                    ch=ch,
+                    waveform=f"const_{value}_{idx}",
+                    style="arb",
+                    outsel="input",
+                    stdysel="last",
+                    freq=0,
+                    phase=0,
+                    gain=self.max_gain,
+                )
+                self.pulse(ch=ch)
+        self.sync_all()
+
+    def flux_pulse(self, pulse, time):
+        qubit = self.qubits[pulse.qubit]
+        gen_ch = qubit.flux.ports[0][1]
+        sweetspot = qubit.flux.bias  # TODO convert units
+
+        duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
+        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
+        duration *= samples_per_clk
+
+        padding = samples_per_clk
+        while True:
+            tot_len = padding + duration
+            if tot_len % samples_per_clk == 0 and tot_len > 48:
+                break
+            else:
+                padding += 1
+
+        amp = int(pulse.amplitude * self.max_gain) + sweetspot
+
+        i = np.full(duration, amp)
+        i = np.append(i, np.full(padding, sweetspot))
+        q = np.zeros(len(i))
+
+        self.add_pulse(gen_ch, pulse.serial, i, q)
+        self.set_pulse_registers(
+            ch=gen_ch,
+            waveform=pulse.serial,
+            style="arb",
+            outsel="input",
+            stdysel="last",
+            freq=0,
+            phase=0,
+            gain=self.max_gain,
+        )
+        self.pulse(ch=gen_ch, t=time)
 
     def body(self):
         """Execute sequence of pulses.
         If the pulse is already loaded in the register just launch it,
         otherwise first calls the add_pulse_to_register function.
         If readout it does a measurement with an adc trigger, it does not wait.
-        At the end of the pulse wait for clock and call update function.
+        At the end of the pulse wait for clock.
         """
+        muxed_ro_executed_pulses_time = []
+
+        self.set_bias("sweetspot")  # set qubit at sweetspot
 
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * NS_TO_US)
 
-            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-            self.add_pulse_to_register(pulse)
-
             if pulse.type is PulseType.DRIVE:
-                self.pulse(ch=gen_ch, t=time)
+                self.add_pulse_to_register(pulse)
+                ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                self.pulse(ch=ch, t=time)
+            elif pulse.type is PulseType.FLUX:
+                self.flux_pulse(pulse, time)
             elif pulse.type is PulseType.READOUT:
-                self.measure(
-                    pulse_ch=gen_ch,
-                    adcs=[adc_ch],
-                    adc_trig_offset=time + self.adc_trig_offset,
-                    t=time,
-                    wait=False,
-                    syncdelay=self.syncdelay,
-                )
+                ch = self.qubits[pulse.qubit].readout.ports[0][1]
+                if self.is_mux:
+                    if pulse.start not in muxed_ro_executed_pulses_time:
+                        self.add_muxed_readout_to_register(self.multi_ro_pulses[pulse.start])
+                        muxed_ro_executed_pulses_time.append(pulse.start)
+                        adcs = []
+                        for ro_pulse in self.multi_ro_pulses[pulse.start]:
+                            adcs.append(self.qubits[ro_pulse.qubit].feedback.ports[0][1])
+
+                        self.measure(
+                            pulse_ch=ch,
+                            adcs=adcs,
+                            adc_trig_offset=time + self.adc_trig_offset,
+                            t=time,
+                            wait=False,
+                            syncdelay=self.syncdelay,
+                        )
+                else:
+                    self.add_pulse_to_register(pulse)
+                    adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
+                    self.measure(
+                        pulse_ch=ch,
+                        adcs=[adc_ch],
+                        adc_trig_offset=time + self.adc_trig_offset,
+                        t=time,
+                        wait=False,
+                        syncdelay=self.syncdelay,
+                    )
         self.wait_all()
+        self.sync_all()
+
+        # set temp register to remember bias
+        if self.sweeper.parameter is Parameter.bias:
+            for idx, reg in enumerate(self.temp_regs):
+                self.res_r_gain.set_to(self.res_r_gain_update)
+                self.mathi(reg.page, reg.addr, self.sweeper_reg[idx].addr, "+", 0)
+
+        self.set_bias("zero")  # set qubit bias at zero
+        # restore bias values with temp registers
+        if self.sweeper.parameter is Parameter.bias:
+            for idx, reg in enumerate(self.temp_regs):
+                self.res_r_gain.set_to(self.res_r_gain_update)
+                self.mathi(reg.page, self.sweeper_reg[idx].addr, reg.addr, "+", 0)
+
         self.sync_all(self.relax_delay)
 
 
