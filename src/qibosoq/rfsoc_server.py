@@ -145,6 +145,11 @@ class ExecutePulseSequence(AveragerProgram):
             tot_q.append(q_val)
         return tot_i, tot_q
 
+    def declare_nqz_zones_flux(self):
+        for qubit in self.qubits:
+            ch = self.qubits[qubit].flux.ports[0][1]
+            self.declare_gen(ch, nqz=1)
+
     def declare_nqz_zones(self, sequence: PulseSequence):
         """Declare nqz zone (1-2) for all signal generators used"""
         ch_already_declared = []
@@ -153,8 +158,8 @@ class ExecutePulseSequence(AveragerProgram):
                 ch = self.qubits[pulse.qubit].drive.ports[0][1]
             elif pulse.type is PulseType.READOUT:
                 ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            elif pulse.type is PulseType.FLUX:
-                ch = self.qubits[pulse.qubit].flux.ports[0][1]
+            # elif pulse.type is PulseType.FLUX:
+            #    ch = self.qubits[pulse.qubit].flux.ports[0][1]
 
             if pulse.type is PulseType.READOUT:
                 freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
@@ -226,7 +231,7 @@ class ExecutePulseSequence(AveragerProgram):
 
         # declare nyquist zones for all used channels
         self.declare_nqz_zones(self.sequence.qd_pulses)
-        self.declare_nqz_zones(self.sequence.qf_pulses)
+        self.declare_nqz_zones_flux()
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
@@ -446,7 +451,7 @@ class ExecutePulseSequence(AveragerProgram):
         self.sync_all(self.relax_delay)
 
 
-class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
+class ExecuteSingleSweep(QickRegisterManagerMixin, RAveragerProgram):
     """This qick AveragerProgram handles a qibo sequence of pulses"""
 
     def __init__(
@@ -572,6 +577,11 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
             tot_q.append(q_val)
         return tot_i, tot_q
 
+    def declare_nqz_zones_flux(self):
+        for qubit in self.qubits:
+            ch = self.qubits[qubit].flux.ports[0][1]
+            self.declare_gen(ch, nqz=1)
+
     def declare_nqz_zones(self, sequence: PulseSequence):
         """Declare nqz zone (1-2) for all signal generators used"""
         ch_already_declared = []
@@ -580,8 +590,8 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
                 ch = self.qubits[pulse.qubit].drive.ports[0][1]
             elif pulse.type is PulseType.READOUT:
                 ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            elif pulse.type is PulseType.FLUX:
-                ch = self.qubits[pulse.qubit].flux.ports[0][1]
+            # elif pulse.type is PulseType.FLUX:
+            #    ch = self.qubits[pulse.qubit].flux.ports[0][1]
 
             if pulse.type is PulseType.READOUT:
                 freq = pulse.frequency - self.cfg["mixer_freq"] - self.cfg["LO_freq"]
@@ -654,7 +664,7 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
 
         # declare nyquist zones for all used channels
         self.declare_nqz_zones(self.sequence.qd_pulses)
-        self.declare_nqz_zones(self.sequence.qf_pulses)
+        self.declare_nqz_zones_flux()
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
@@ -698,7 +708,10 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
         """This function calls the set_pulse_registers function"""
         # TODO check
 
-        is_sweeped = pulse in self.sweeper.pulses
+        if self.sweeper.parameter is Parameter.bias:
+            is_sweeped = False
+        else:
+            is_sweeped = pulse in self.sweeper.pulses
 
         # find channels relevant for this pulse
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -806,9 +819,12 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
             if qubit.flux:
                 ch = qubit.flux.ports[0][1]
                 if mode == "sweetspot":
-                    if self.sweeper.parameter is Parameter.bias:
-                        value = int(self.sweeper.starts[idx] * self.max_gain)
                     value = qubit.flux.bias
+                    if self.sweeper.parameter is Parameter.bias:
+                        for kdx, jdx in enumerate(self.sweeper.indexes):
+                            if jdx == idx:
+                                print(self.sweeper.starts)
+                                value = int(self.sweeper.starts[kdx] * self.max_gain)
                 elif mode == "zero":
                     value = 0
                 else:
@@ -921,14 +937,12 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
         # set temp register to remember bias
         if self.sweeper.parameter is Parameter.bias:
             for idx, reg in enumerate(self.temp_regs):
-                self.res_r_gain.set_to(self.res_r_gain_update)
                 self.mathi(reg.page, reg.addr, self.sweeper_reg[idx].addr, "+", 0)
 
         self.set_bias("zero")  # set qubit bias at zero
         # restore bias values with temp registers
         if self.sweeper.parameter is Parameter.bias:
             for idx, reg in enumerate(self.temp_regs):
-                self.res_r_gain.set_to(self.res_r_gain_update)
                 self.mathi(reg.page, self.sweeper_reg[idx].addr, reg.addr, "+", 0)
 
         self.sync_all(self.relax_delay)
