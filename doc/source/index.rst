@@ -22,7 +22,6 @@ Contents
     :caption: Main documentation
 
     api-reference/index
-    developer-guides/index
 
 
 Indices and tables
