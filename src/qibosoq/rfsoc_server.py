@@ -500,6 +500,21 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
+        if is_mux:
+            # register readout pulses (multiplexed)
+            """
+            This build a dictionary:
+            {
+                'start_time_1': [Pulse1, Pulse2],
+                'start_time_2': [Pulse3, Pulse4],
+                }
+            """
+            self.multi_ro_pulses = {}
+            for pulse in self.sequence.ro_pulses:
+                if pulse.start not in self.multi_ro_pulses:
+                    self.multi_ro_pulses[pulse.start] = []
+                self.multi_ro_pulses[pulse.start].append(pulse)
+
         super().__init__(soc, asdict(qpcfg))
 
     def acquire(
@@ -517,6 +532,8 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
             load_pulse, progress, debug (bool): internal Qick parameters
             average (bool): if true return averaged res, otherwise single shots
         """
+        self.cfg["start"] = 0
+        self.cfg["step"] = 0
         _, i_val, q_val = super().acquire(
             soc,
             readouts_per_experiment=readouts_per_experiment,
@@ -635,6 +652,15 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
           (if first pulse for channel, otherwise it will be done in the body)
         """
 
+        # declare nyquist zones for all used channels
+        self.declare_nqz_zones(self.sequence.qd_pulses)
+        self.declare_nqz_zones(self.sequence.qf_pulses)
+        if self.is_mux:
+            self.declare_gen_mux_ro()
+        else:
+            self.declare_nqz_zones(self.sequence.ro_pulses)
+
+        # sweeper things
         if self.sweeper.parameter is Parameter.bias:
             for idx in self.sweeper.indexes:
                 gen_ch = self.qubits[idx].flux.ports[0][1]
@@ -646,7 +672,7 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
                 self.temp_regs.append(new_reg)
 
         else:
-            for idx in self.sweeper.indexe:
+            for idx in self.sweeper.indexes:
                 pulse = self.sequence[idx]
                 qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
                 ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
@@ -661,14 +687,6 @@ class ExecuteSingleSweep(RAveragerProgram, QickRegisterManagerMixin):
 
             # TODO: should stop if nyquist zone changes in the sweep
             # TODO: should stop if amp goes over 1
-
-        # declare nyquist zones for all used channels
-        self.declare_nqz_zones(self.sequence.qd_pulses)
-        self.declare_nqz_zones(self.sequence.qf_pulses)
-        if self.is_mux:
-            self.declare_gen_mux_ro()
-        else:
-            self.declare_nqz_zones(self.sequence.ro_pulses)
 
         # declare readouts
         self.declare_readout_freq()
