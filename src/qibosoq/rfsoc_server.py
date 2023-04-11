@@ -59,11 +59,6 @@ class ExecutePulseSequence(AveragerProgram):
         self.max_sampling_rate = qpcfg.sampling_rate
         self.reps = qpcfg.reps
 
-        # TODO maybe better elsewhere
-        # relax_delay is the time waited at the end of the program (for ADC)
-        # syncdelay is the time waited at the end of every measure (overall t)
-        # wait_initialize is the time waited at the end of initialize
-        # all of these are converted using tproc CLK
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
@@ -211,7 +206,7 @@ class ExecutePulseSequence(AveragerProgram):
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=1,  # TODO: check if correct
+                    delta=1,
                     alpha=pulse.shape.beta,
                     length=soc_length,
                 )
@@ -304,11 +299,6 @@ class ExecuteSingleSweep(RAveragerProgram):
         self.reps = qpcfg.reps
         self.expts = qpcfg.expts
 
-        # TODO maybe better elsewhere
-        # relax_delay is the time waited at the end of the program (for ADC)
-        # syncdelay is the time waited at the end of every measure
-        # wait_initialize is the time waited at the end of initialize
-        # all of these are converted using tproc CLK
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
@@ -396,8 +386,6 @@ class ExecuteSingleSweep(RAveragerProgram):
             self.sweeper_reg = self.sreg(gen_ch, "freq")
             self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
             self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
-
-            # TODO: should maybe stop if nyquist zone changes in the sweep
 
         elif self.sweeper.parameter == Parameter.amplitude:
             self.sweeper_reg = self.sreg(gen_ch, "gain")
@@ -501,7 +489,7 @@ class ExecuteSingleSweep(RAveragerProgram):
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=1,  # TODO: check if correct
+                    delta=1,
                     alpha=pulse.shape.beta,
                     length=soc_length,
                 )
