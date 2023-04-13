@@ -69,5 +69,3 @@ def signal_handler(sig, frame):
 
 # initialize QickSoc object (firmware and clocks)
 global_soc = QickSoc()
-# starts handler for system interruption (ex. Ctrl-C)
-signal.signal(signal.SIGINT, signal_handler)
