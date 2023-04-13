@@ -1,3 +1,9 @@
+"""Qibosoq server for qibolab-qick.
+
+Supports the following FPGA:
+    * RFSoc4x2
+"""
+
 import pickle
 import signal
 import socket
@@ -10,17 +16,20 @@ from qick import QickSoc
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
 
-def signal_handler(sig, frame):
-    """Signal handling for Ctrl-C (closing the server)"""
-    print("Server closing")
-    sys.exit(0)
-
-
 class MyTCPHandler(BaseRequestHandler):
-    """Class to handle requesto to the server"""
+    """Class to handle requests to the server"""
 
     def handle(self):
-        """This function gets called when a connection to the server is opened"""
+        """Gets called when a connection to the server is opened.
+
+        Logs the time of the connection and the client IP.
+        The communication protocol is:
+        * first the server receives  a 4 bytes integer with the length
+        of the message to actually receive
+        * waits for the message and unpickles it
+        * execute the program depending on the op_code
+        * returns a pickled dictionary of results to the client
+        """
 
         # print a log message when receive a connection
         now = datetime.now()
@@ -29,9 +38,7 @@ class MyTCPHandler(BaseRequestHandler):
         # set the server in non-blocking mode
         self.server.socket.setblocking(False)
 
-        # receive 4 bytes (integer) with len of the pickled dictionary
         count = int.from_bytes(self.request.recv(4), "big")
-        # wait for a message with len count
         received = self.request.recv(count, socket.MSG_WAITALL)
         data = pickle.loads(received)
 
@@ -55,18 +62,22 @@ class MyTCPHandler(BaseRequestHandler):
         self.request.sendall(pickle.dumps(results))
 
 
+def signal_handler(sig, frame):
+    """Signal handling for Ctrl-C (closing the server)"""
+    print("Server closing")
+    sys.exit(0)
+
+
 # starts handler for system interruption (ex. Ctrl-C)
 signal.signal(signal.SIGINT, signal_handler)
 # initialize QickSoc object (firmware and clocks)
 global_soc = QickSoc()
 
 if __name__ == "__main__":
-    HOST = "192.168.0.72"  # Serverinterface address
-    PORT = 6000  # Port to listen on (non-privileged ports are > 1023)
+    HOST = "192.168.0.72"  # Server address
+    PORT = 6000  # Port to listen on
     TCPServer.allow_reuse_address = True
 
     with TCPServer((HOST, PORT), MyTCPHandler) as server:
-        # Activate the server; this will keep running until you
-        # interrupt the program with Ctrl-C
         print("Server Listening")
         server.serve_forever()

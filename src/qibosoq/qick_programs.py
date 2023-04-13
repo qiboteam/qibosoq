@@ -4,7 +4,7 @@ Supports the following FPGA:
  *   RFSoC 4x2
 """
 
-import math
+from abc import ABC, abstractmethod
 from dataclasses import asdict
 from typing import List, Tuple
 
@@ -14,29 +14,30 @@ from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
 from qick import AveragerProgram, QickSoc, RAveragerProgram
-from qick.qick_asm import QickProgram
 
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
 
-class GeneralQickProgram:
+class GeneralQickProgram(ABC):
+    """Abstract class for QickPrograms"""
+
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
         """In this function we define the most important settings.
+
         In detail:
-            * max_gain, adc_trig_offset, max_sampling_rate are imported from
+            * max_gain, adc_trig_offset, max_sampling_rate, reps are imported from
               qpcfg (runcard settings)
-            * relaxdelay (for each execution) is taken from cfg (runcard)
+            * relaxdelay (for each execution) is taken from qpcfg (runcard)
             * syncdelay (for each measurement) is defined explicitly
             * wait_initialize is defined explicitly
-            * super.__init__
+            * super.__init__ (this will init AveragerProgram or RAveragerProgram)
         """
 
         self.soc = soc
-        # No need for a different soc config object since qick is on board
-        self.soccfg = soc
-        # fill the self.pulse_sequence and the self.readout_pulses oject
+        self.soccfg = soc  # this is used by qick
+
         self.sequence = sequence
         self.qubits = qubits
 
@@ -55,7 +56,12 @@ class GeneralQickProgram:
         super().__init__(soc, asdict(qpcfg))
 
     def declare_nqz_zones(self, sequence: PulseSequence):
-        """Declare nqz zone (1-2) for all signal generators used"""
+        """Declare nqz zone (1-2) for a given PulseSequence
+
+        Args:
+            sequence (PulseSequence): sequence of pulses to consider
+        """
+
         ch_already_declared = []
         for pulse in self.sequence:
             if pulse.type is PulseType.DRIVE:
@@ -71,6 +77,8 @@ class GeneralQickProgram:
                 self.declare_gen(ch, nqz=zone)
 
     def declare_readout_freq(self):
+        """Declare ADCs downconversion frequencies"""
+
         adc_ch_already_declared = []
         for readout_pulse in self.sequence.ro_pulses:
             adc_ch = self.qubits[readout_pulse.qubit].feedback.ports[0][1]
@@ -85,12 +93,13 @@ class GeneralQickProgram:
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
     def add_pulse_to_register(self, pulse: Pulse):
-        """This function calls the set_pulse_registers function
+        """Calls the set_pulse_registers function, needed before firing a pulse
 
         Args:
             pulse (Pulse): pulse object to load in the register
         """
 
+        # check if the pulse is sweeped
         is_sweeped = self.is_pulse_sweeped(pulse)
 
         # find channels relevant for this pulse
@@ -170,10 +179,9 @@ class GeneralQickProgram:
     def body(self):
         """Execute sequence of pulses.
 
-        For each pulses calls the add_pulse_to_register function
-        before firing it. If the pulse is a readout, it does a measurement
-        with an adc trigger, it does not wait.
-        At the end of the pulse wait for clock.
+        For each pulses calls the add_pulse_to_register function (if not already registered)
+        before firing it. If the pulse is a readout, it does a measurement and does
+        not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
 
         for pulse in self.sequence:
@@ -212,6 +220,7 @@ class GeneralQickProgram:
         average: bool = False,
     ) -> Tuple[List[float], List[float]]:
         """Calls the super() acquire function.
+
         Args:
             readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
@@ -227,12 +236,14 @@ class GeneralQickProgram:
             debug=debug,
         )
         if average:
+            # for sequences res has 3 parameters, the first is not used
             return res[-2:]
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
 
     def collect_shots(self) -> Tuple[List[float], List[float]]:
         """Reads the internal buffers and returns single shots (i,q)"""
+
         tot_i = []
         tot_q = []
 
@@ -249,7 +260,7 @@ class GeneralQickProgram:
 
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            if self.expts:
+            if self.expts:  # self.expts is None if this is not a sweep
                 shape = (count, self.expts, self.reps)
             else:
                 shape = (count, self.reps)
@@ -260,21 +271,38 @@ class GeneralQickProgram:
             tot_q.append(q_val)
         return tot_i, tot_q
 
+    @abstractmethod
+    def initialize(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_pulse_sweeped(self, pulse: Pulse) -> bool:
+        raise NotImplementedError
+
 
 class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
+    """Class to execute arbitrary PulseSequences"""
+
     def initialize(self):
+        """Function called by AveragerProgram.__init__"""
+
         self.declare_nqz_zones(self.sequence)
         self.declare_readout_freq()
         self.sync_all(self.wait_initialize)
 
-    def is_pulse_sweeped(self, pulse):
+    def is_pulse_sweeped(self, pulse: Pulse) -> bool:
+        """ExecutePulseSequence does not have sweeps so always returns False"""
         return False
 
 
 class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
+    """Class to execute arbitrary PulseSequences with a single sweep"""
+
     def __init__(
         self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], sweeper: Sweeper
     ):
+        """Init function, sets sweepers parameters before calling super.__init__"""
+
         # sweeper Settings
         self.sweeper = sweeper
         self.sweeper_reg = None
@@ -284,9 +312,10 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def add_sweep_info(self):
+        """Find the page and register of the sweeped values, sets start and step"""
+
         pulse = self.sweeper.pulses[0]
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-        adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
         ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
         gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
@@ -312,6 +341,8 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
                 raise ValueError("Amplitude higher than maximum!")
 
     def initialize(self):
+        """Function called by RAveragerProgram.__init__"""
+
         self.add_sweep_info()
         self.declare_nqz_zones(self.sequence)
         self.declare_readout_freq()
@@ -322,7 +353,14 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
 
         self.sync_all(self.wait_initialize)
 
-    def is_pulse_sweeped(self, pulse):
+    def is_pulse_sweeped(self, pulse: Pulse) -> bool:
+        """Check if a pulse is sweeped
+
+        Args:
+            pulse (Pulse): pulse to check
+        Returns:
+            (bool): True if the pulse is sweeped
+        """
         return self.sweeper.pulses[0] == pulse
 
     def update(self):
