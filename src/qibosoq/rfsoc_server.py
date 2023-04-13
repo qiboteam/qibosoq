@@ -1,4 +1,4 @@
-"""Qibosoq server for qibolab-qick.
+"""Qibosoq server for qibolab-qick integration.
 
 Supports the following FPGA:
     * RFSoc4x2
