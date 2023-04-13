@@ -54,10 +54,6 @@ class GeneralQickProgram:
 
         super().__init__(soc, asdict(qpcfg))
 
-    # TODO add     @abstractmethod from abc
-    def collect_shots(self):
-        pass
-
     def declare_nqz_zones(self, sequence: PulseSequence):
         """Declare nqz zone (1-2) for all signal generators used"""
         ch_already_declared = []
@@ -95,16 +91,22 @@ class GeneralQickProgram:
             pulse (Pulse): pulse object to load in the register
         """
 
+        is_sweeped = self.is_pulse_sweeped(pulse)
+
         # find channels relevant for this pulse
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
         adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
         ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
         gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-        # convert amplitude in gain and check is valid
-        gain = int(pulse.amplitude * self.max_gain)
-        if abs(gain) > self.max_gain:
-            raise ValueError("Amp must be in [-1,1], was: {pulse.amplitude}")
+        # assign gain parameter
+        gain_set = False
+        if is_sweeped:
+            if self.sweeper.parameter == Parameter.amplitude:
+                gain = self.cfg["start"]
+                gain_set = True
+        if not gain_set:
+            gain = int(pulse.amplitude * self.max_gain)
 
         # phase converted from rad (qibolab) to deg (qick) and then to reg vals
         phase = self.deg2reg(np.degrees(pulse.relative_phase), gen_ch=gen_ch)
@@ -119,7 +121,13 @@ class GeneralQickProgram:
 
         # pulse freq converted with frequency matching
         if pulse.type is PulseType.DRIVE:
-            freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
+            freq_set = False
+            if is_sweeped:
+                if self.sweeper.parameter == Parameter.frequency:
+                    freq = self.cfg["start"]
+                    freq_set = True
+            if not freq_set:
+                freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
             freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
@@ -259,6 +267,9 @@ class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
         self.declare_readout_freq()
         self.sync_all(self.wait_initialize)
 
+    def is_pulse_sweeped(self, pulse):
+        return False
+
 
 class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
     def __init__(
@@ -311,86 +322,8 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
 
         self.sync_all(self.wait_initialize)
 
-    def add_pulse_to_register(self, pulse):
-        """This function calls the set_pulse_registers function
-
-        Args:
-            pulse (Pulse): pulse object to load in the register
-        """
-
-        is_sweeped = self.sweeper.pulses[0] == pulse
-
-        # find channels relevant for this pulse
-        qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-        adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-        ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-        gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-        # assign gain parameter
-        if is_sweeped and self.sweeper.parameter == Parameter.amplitude:
-            gain = self.cfg["start"]
-        else:
-            gain = int(pulse.amplitude * self.max_gain)
-
-        if abs(gain) > self.max_gain:
-            raise ValueError("Amp must be in [-1,1], was: {pulse.amplitude}")
-
-        # phase converted from rad (qibolab) to deg (qick) and to register vals
-        phase = self.deg2reg(math.degrees(pulse.relative_phase), gen_ch=gen_ch)
-
-        # pulse length converted with DAC CLK
-        us_length = pulse.duration * NS_TO_US
-        soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
-
-        is_drag = isinstance(pulse.shape, Drag)
-        is_gaus = isinstance(pulse.shape, Gaussian)
-        is_rect = isinstance(pulse.shape, Rectangular)
-
-        # pulse freq converted with frequency matching
-        if pulse.type is PulseType.DRIVE:
-            if is_sweeped and self.sweeper.parameter == Parameter.frequency:
-                freq = self.cfg["start"]
-            else:
-                freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
-
-        elif pulse.type is PulseType.READOUT:
-            freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
-        else:
-            raise NotImplementedError(f"Pulse type {pulse.type} not supported!")
-
-        # if pulse is drag or gaus first define the i-q shape and then set regs
-        if is_drag or is_gaus:
-            name = pulse.serial
-            sigma = soc_length / pulse.shape.rel_sigma
-
-            if is_gaus:
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
-
-            elif is_drag:
-                self.add_DRAG(
-                    ch=gen_ch,
-                    name=name,
-                    sigma=sigma,
-                    delta=1,
-                    alpha=pulse.shape.beta,
-                    length=soc_length,
-                )
-
-            self.set_pulse_registers(
-                ch=gen_ch,
-                style="arb",
-                freq=freq,
-                phase=phase,
-                gain=gain,
-                waveform=name,
-            )
-
-        # if pulse is rectangular set directly register
-        elif is_rect:
-            self.set_pulse_registers(ch=gen_ch, style="const", freq=freq, phase=phase, gain=gain, length=soc_length)
-
-        else:
-            raise NotImplementedError(f"Shape {pulse.shape} not supported!")
+    def is_pulse_sweeped(self, pulse):
+        return self.sweeper.pulses[0] == pulse
 
     def update(self):
         """Update function for sweeper"""
