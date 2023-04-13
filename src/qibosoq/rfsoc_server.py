@@ -62,6 +62,8 @@ class GeneralQickProgram:
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
+        self.pulses_registered = False
+
         super().__init__(soc, asdict(qpcfg))
 
     # TODO add     @abstractmethod from abc
@@ -187,7 +189,8 @@ class GeneralQickProgram:
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-            self.add_pulse_to_register(pulse)
+            if not self.pulses_registered:
+                self.add_pulse_to_register(pulse)
 
             if pulse.type is PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -203,8 +206,6 @@ class GeneralQickProgram:
         self.wait_all()
         self.sync_all(self.relax_delay)
 
-
-class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
     def acquire(
         self,
         soc: QickSoc,
@@ -230,9 +231,9 @@ class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
             debug=debug,
         )
         if average:
-            return res
+            return res[-2:]
         # super().acquire function fill buffers used in collect_shots
-        return self.collect_shots()
+        return self.collect_shots()[-2:]
 
     def collect_shots(self) -> Tuple[List[float], List[float]]:
         """Reads the internal buffers and returns single shots (i,q)"""
@@ -252,13 +253,19 @@ class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
 
         for idx, adc_ch in enumerate(adcs):
             count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.reps)) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.reps)) / lengths[idx]
+            if self.expts:
+                shape = (count, self.expts, self.reps)
+            else:
+                shape = (count, self.reps)
+            i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
+            q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
 
             tot_i.append(i_val)
             tot_q.append(q_val)
         return tot_i, tot_q
 
+
+class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
     def initialize(self):
         self.declare_nqz_zones(self.sequence)
         self.declare_readout_freq()
@@ -277,61 +284,7 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
 
         super().__init__(soc, qpcfg, sequence, qubits)
 
-    def acquire(
-        self,
-        soc: QickSoc,
-        readouts_per_experiment: int = 1,
-        load_pulses: bool = True,
-        progress: bool = False,
-        debug: bool = False,
-        average: bool = False,
-    ) -> Tuple[List[float], List[float]]:
-        """Calls the super() acquire function.
-        Args:
-            readouts_per_experiment (int): relevant for internal acquisition
-            load_pulse, progress, debug (bool): internal Qick parameters
-            progress (bool): if true shows a progress bar, slows down things
-            debug (bool): if true prints the program actually executed
-            average (bool): if true return averaged res, otherwise single shots
-        """
-        _, i_val, q_val = super().acquire(
-            soc,
-            readouts_per_experiment=readouts_per_experiment,
-            load_pulses=load_pulses,
-            progress=progress,
-            debug=debug,
-        )
-        if average:
-            return i_val, q_val
-        # super().acquire function fill buffers used in collect_shots
-        return self.collect_shots()
-
-    def collect_shots(self) -> Tuple[List[float], List[float]]:
-        """Reads the internal buffers and returns single shots (i,q)"""
-        tot_i = []
-        tot_q = []
-
-        adcs = []  # list of adcs per readouts (not unique values)
-        lengths = []  # length of readouts (only one per adcs)
-        for pulse in self.sequence.ro_pulses:
-            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            if adc_ch not in adcs:
-                lengths.append(self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=ro_ch))
-            adcs.append(adc_ch)
-
-        adcs, adc_count = np.unique(adcs, return_counts=True)
-
-        for idx, adc_ch in enumerate(adcs):
-            count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.expts, self.reps)) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.expts, self.reps)) / lengths[idx]
-
-            tot_i.append(i_val)
-            tot_q.append(q_val)
-        return tot_i, tot_q
-
-    def initialize(self):
+    def add_sweep_info(self):
         pulse = self.sweeper.pulses[0]
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
         adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
@@ -359,9 +312,12 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
             if self.cfg["start"] + self.cfg["step"] * self.cfg["expts"] > self.max_gain:
                 raise ValueError("Amplitude higher than maximum!")
 
+    def initialize(self):
+        self.add_sweep_info()
         self.declare_nqz_zones(self.sequence)
         self.declare_readout_freq()
 
+        self.pulses_registered = True
         for pulse in self.sequence:
             self.add_pulse_to_register(pulse)
 
@@ -451,38 +407,6 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
     def update(self):
         """Update function for sweeper"""
         self.mathi(self.sweeper_page, self.sweeper_reg, self.sweeper_reg, "+", self.cfg["step"])
-
-    def body(self):
-        """Execute sequence of pulses.
-
-        For each pulses calls the add_pulse_to_register function
-        before firing it. If the pulse is a readout, it does a measurement
-        with an adc trigger, it does not wait.
-        At the end of the pulse wait for clock.
-        """
-
-        for pulse in self.sequence:
-            # time follows tproc CLK
-            time = self.soc.us2cycles(pulse.start * NS_TO_US)
-
-            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-            if pulse.type is PulseType.DRIVE:
-                self.pulse(ch=gen_ch, t=time)
-            elif pulse.type is PulseType.READOUT:
-                self.measure(
-                    pulse_ch=gen_ch,
-                    adcs=[adc_ch],
-                    adc_trig_offset=time + self.adc_trig_offset,
-                    t=time,
-                    wait=False,
-                    syncdelay=self.syncdelay,
-                )
-        self.wait_all()
-        self.sync_all(self.relax_delay)
 
 
 class MyTCPHandler(BaseRequestHandler):
