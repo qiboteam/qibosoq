@@ -15,11 +15,6 @@ from qick import QickSoc
 
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
-# starts handler for system interruption (ex. Ctrl-C)
-signal.signal(signal.SIGINT, signal_handler)
-
 
 class MyTCPHandler(BaseRequestHandler):
     """Class to handle requests to the server"""
@@ -70,3 +65,9 @@ def signal_handler(sig, frame):
     """Signal handling for Ctrl-C (closing the server)"""
     print("Server closing")
     sys.exit(0)
+
+
+# initialize QickSoc object (firmware and clocks)
+global_soc = QickSoc()
+# starts handler for system interruption (ex. Ctrl-C)
+signal.signal(signal.SIGINT, signal_handler)

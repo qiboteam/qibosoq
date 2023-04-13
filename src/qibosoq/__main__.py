@@ -1,6 +1,7 @@
-from socketserver import TCPServer
+"""Main qibosoq program, starts the server"""
 
-from qick import QickSoc
+import os
+from socketserver import TCPServer
 
 from qibosoq.rfsoc_server import MyTCPHandler
 
@@ -9,6 +10,5 @@ PORT = 6000  # Port to listen on
 
 TCPServer.allow_reuse_address = True
 with TCPServer((HOST, PORT), MyTCPHandler) as server:
-    print("Server Listening")
-
+    print(f"Server Listening, PID {os.getpid()}")
     server.serve_forever()
