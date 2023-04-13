@@ -15,6 +15,11 @@ from qick import QickSoc
 
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
+# initialize QickSoc object (firmware and clocks)
+global_soc = QickSoc()
+# starts handler for system interruption (ex. Ctrl-C)
+signal.signal(signal.SIGINT, signal_handler)
+
 
 class MyTCPHandler(BaseRequestHandler):
     """Class to handle requests to the server"""
@@ -30,7 +35,6 @@ class MyTCPHandler(BaseRequestHandler):
         * execute the program depending on the op_code
         * returns a pickled dictionary of results to the client
         """
-
         # print a log message when receive a connection
         now = datetime.now()
         print(f'{now.strftime("%d/%m/%Y %H:%M:%S")}\tGot connection from {self.client_address}')
@@ -66,18 +70,3 @@ def signal_handler(sig, frame):
     """Signal handling for Ctrl-C (closing the server)"""
     print("Server closing")
     sys.exit(0)
-
-
-# starts handler for system interruption (ex. Ctrl-C)
-signal.signal(signal.SIGINT, signal_handler)
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
-
-if __name__ == "__main__":
-    HOST = "192.168.0.72"  # Server address
-    PORT = 6000  # Port to listen on
-    TCPServer.allow_reuse_address = True
-
-    with TCPServer((HOST, PORT), MyTCPHandler) as server:
-        print("Server Listening")
-        server.serve_forever()
