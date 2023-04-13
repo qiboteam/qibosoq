@@ -4,6 +4,7 @@ Supports the following FPGA:
     * RFSoc4x2
 """
 
+import os
 import pickle
 import signal
 import socket
@@ -65,6 +66,15 @@ def signal_handler(sig, frame):
     """Signal handling for Ctrl-C (closing the server)"""
     print("Server closing")
     sys.exit(0)
+
+
+def serve(host, port):
+    # starts handler for system interruption (ex. Ctrl-C)
+    signal.signal(signal.SIGINT, signal_handler)
+    TCPServer.allow_reuse_address = True
+    with TCPServer((host, port), MyTCPHandler) as server:
+        print(f"Server Listening, PID {os.getpid()}")
+        server.serve_forever()
 
 
 # initialize QickSoc object (firmware and clocks)
