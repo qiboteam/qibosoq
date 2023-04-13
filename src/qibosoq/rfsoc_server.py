@@ -20,7 +20,7 @@ from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
 from qick import AveragerProgram, QickSoc, RAveragerProgram
-from qick_asm import QickProgram
+from qick.qick_asm import QickProgram
 
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
@@ -33,7 +33,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-class GeneralQickProgram(QickProgram):
+class GeneralQickProgram:
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
         """In this function we define the most important settings.
         In detail:
@@ -63,35 +63,6 @@ class GeneralQickProgram(QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         super().__init__(soc, asdict(qpcfg))
-
-    def acquire(
-        self,
-        soc: QickSoc,
-        readouts_per_experiment: int = 1,
-        load_pulses: bool = True,
-        progress: bool = False,
-        debug: bool = False,
-        average: bool = False,
-    ) -> Tuple[List[float], List[float]]:
-        """Calls the super() acquire function.
-        Args:
-            readouts_per_experiment (int): relevant for internal acquisition
-            load_pulse, progress, debug (bool): internal Qick parameters
-            progress (bool): if true shows a progress bar, slows down things
-            debug (bool): if true prints the program actually executed
-            average (bool): if true return averaged res, otherwise single shots
-        """
-        res = super().acquire(
-            soc,
-            readouts_per_experiment=readouts_per_experiment,
-            load_pulses=load_pulses,
-            progress=progress,
-            debug=debug,
-        )
-        if average:
-            return res
-        # super().acquire function fill buffers used in collect_shots
-        return self.collect_shots()
 
     # TODO add     @abstractmethod from abc
     def collect_shots(self):
@@ -234,6 +205,35 @@ class GeneralQickProgram(QickProgram):
 
 
 class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
+    def acquire(
+        self,
+        soc: QickSoc,
+        readouts_per_experiment: int = 1,
+        load_pulses: bool = True,
+        progress: bool = False,
+        debug: bool = False,
+        average: bool = False,
+    ) -> Tuple[List[float], List[float]]:
+        """Calls the super() acquire function.
+        Args:
+            readouts_per_experiment (int): relevant for internal acquisition
+            load_pulse, progress, debug (bool): internal Qick parameters
+            progress (bool): if true shows a progress bar, slows down things
+            debug (bool): if true prints the program actually executed
+            average (bool): if true return averaged res, otherwise single shots
+        """
+        res = super().acquire(
+            soc,
+            readouts_per_experiment=readouts_per_experiment,
+            load_pulses=load_pulses,
+            progress=progress,
+            debug=debug,
+        )
+        if average:
+            return res
+        # super().acquire function fill buffers used in collect_shots
+        return self.collect_shots()
+
     def collect_shots(self) -> Tuple[List[float], List[float]]:
         """Reads the internal buffers and returns single shots (i,q)"""
         tot_i = []
@@ -275,7 +275,7 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
         self.sweeper_page = None
         qpcfg.expts = len(sweeper.values)
 
-        super().__init__(soc, qpcfg, sequence, qubits, sweeper)
+        super().__init__(soc, qpcfg, sequence, qubits)
 
     def acquire(
         self,
