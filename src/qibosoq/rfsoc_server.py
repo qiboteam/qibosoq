@@ -20,6 +20,7 @@ from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
 from qick import AveragerProgram, QickSoc, RAveragerProgram
+from qick_asm import QickProgram
 
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
@@ -32,9 +33,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-class ExecutePulseSequence(AveragerProgram):
-    """This qick AveragerProgram handles a qibo sequence of pulses"""
-
+class GeneralQickProgram(QickProgram):
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
         """In this function we define the most important settings.
         In detail:
@@ -94,67 +93,39 @@ class ExecutePulseSequence(AveragerProgram):
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()
 
-    def collect_shots(self) -> Tuple[List[float], List[float]]:
-        """Reads the internal buffers and returns single shots (i,q)"""
-        tot_i = []
-        tot_q = []
+    # TODO add     @abstractmethod from abc
+    def collect_shots(self):
+        pass
 
-        adcs = []  # list of adcs per readouts (not unique values)
-        lengths = []  # length of readouts (only one per adcs)
-        for pulse in self.sequence.ro_pulses:
-            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            if adc_ch not in adcs:
-                lengths.append(self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=ro_ch))
-            adcs.append(adc_ch)
-
-        adcs, adc_count = np.unique(adcs, return_counts=True)
-
-        for idx, adc_ch in enumerate(adcs):
-            count = adc_count[adc_ch]
-            i_val = self.di_buf[idx].reshape((count, self.reps)) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape((count, self.reps)) / lengths[idx]
-
-            tot_i.append(i_val)
-            tot_q.append(q_val)
-        return tot_i, tot_q
-
-    def initialize(self):
-        """This function gets called automatically by qick super.__init__,
-        it contains:
-        * declaration of channels and nyquist zones
-        * declaration of readouts (just one per channel, otherwise ignores it)
-        """
-
-        # declare nyquist zones for all used channels
-        # if zone already declared assumes it's the same without checking
+    def declare_nqz_zones(self, sequence: PulseSequence):
+        """Declare nqz zone (1-2) for all signal generators used"""
         ch_already_declared = []
         for pulse in self.sequence:
-            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
+            if pulse.type is PulseType.DRIVE:
+                ch = self.qubits[pulse.qubit].drive.ports[0][1]
+            elif pulse.type is PulseType.READOUT:
+                ch = self.qubits[pulse.qubit].readout.ports[0][1]
 
-            if gen_ch not in ch_already_declared:
-                ch_already_declared.append(gen_ch)
+            freq = pulse.frequency
 
-                zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
-                self.declare_gen(gen_ch, nqz=zone)
+            if ch not in ch_already_declared:
+                ch_already_declared.append(ch)
+                zone = 1 if freq < self.max_sampling_rate / 2 else 2
+                self.declare_gen(ch, nqz=zone)
 
-        # declare readouts
-        # if channel already declared assumes it's compatible without checking
-        ro_ch_already_declared = []
+    def declare_readout_freq(self):
+        adc_ch_already_declared = []
         for readout_pulse in self.sequence.ro_pulses:
             adc_ch = self.qubits[readout_pulse.qubit].feedback.ports[0][1]
             ro_ch = self.qubits[readout_pulse.qubit].readout.ports[0][1]
-            if adc_ch not in ro_ch_already_declared:
-                ro_ch_already_declared.append(adc_ch)
+            if adc_ch not in adc_ch_already_declared:
+                adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
+
                 freq = readout_pulse.frequency * HZ_TO_MHZ
+
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
-
-        # sync all channels and wait some time
-        self.sync_all(self.wait_initialize)
 
     def add_pulse_to_register(self, pulse: Pulse):
         """This function calls the set_pulse_registers function
@@ -262,48 +233,49 @@ class ExecutePulseSequence(AveragerProgram):
         self.sync_all(self.relax_delay)
 
 
-class ExecuteSingleSweep(RAveragerProgram):
-    """This qick AveragerProgram handles a qibo sequence of pulses"""
+class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
+    def collect_shots(self) -> Tuple[List[float], List[float]]:
+        """Reads the internal buffers and returns single shots (i,q)"""
+        tot_i = []
+        tot_q = []
 
+        adcs = []  # list of adcs per readouts (not unique values)
+        lengths = []  # length of readouts (only one per adcs)
+        for pulse in self.sequence.ro_pulses:
+            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
+            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+            if adc_ch not in adcs:
+                lengths.append(self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=ro_ch))
+            adcs.append(adc_ch)
+
+        adcs, adc_count = np.unique(adcs, return_counts=True)
+
+        for idx, adc_ch in enumerate(adcs):
+            count = adc_count[adc_ch]
+            i_val = self.di_buf[idx].reshape((count, self.reps)) / lengths[idx]
+            q_val = self.dq_buf[idx].reshape((count, self.reps)) / lengths[idx]
+
+            tot_i.append(i_val)
+            tot_q.append(q_val)
+        return tot_i, tot_q
+
+    def initialize(self):
+        self.declare_nqz_zones(self.sequence)
+        self.declare_readout_freq()
+        self.sync_all(self.wait_initialize)
+
+
+class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
     def __init__(
         self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], sweeper: Sweeper
     ):
-        """In this function we define the most important settings.
-        In detail:
-            * max_gain, adc_trig_offset, max_sampling_rate are imported from
-              qpcfg (runcard settings)
-            * relaxdelay (for each execution) is taken from cfg (runcard )
-            * syncdelay (for each measurement) is defined explicitly
-            * wait_initialize is defined explicitly
-            * the cfg["expts"] (number of sweeped values) is set
-            * super.__init__
-        """
-
-        self.soc = soc
-        # No need for a different soc config object since qick is on board
-        self.soccfg = soc
-        # fill the self.pulse_sequence and the self.readout_pulses oject
-        self.sequence = sequence
-        self.qubits = qubits
-
         # sweeper Settings
         self.sweeper = sweeper
         self.sweeper_reg = None
         self.sweeper_page = None
         qpcfg.expts = len(sweeper.values)
 
-        # settings
-        self.max_gain = qpcfg.max_gain
-        self.adc_trig_offset = qpcfg.adc_trig_offset
-        self.max_sampling_rate = qpcfg.sampling_rate
-        self.reps = qpcfg.reps
-        self.expts = qpcfg.expts
-
-        self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
-        self.syncdelay = self.us2cycles(0)
-        self.wait_initialize = self.us2cycles(2.0)
-
-        super().__init__(soc, asdict(qpcfg))
+        super().__init__(soc, qpcfg, sequence, qubits, sweeper)
 
     def acquire(
         self,
@@ -360,14 +332,6 @@ class ExecuteSingleSweep(RAveragerProgram):
         return tot_i, tot_q
 
     def initialize(self):
-        """This function gets called automatically by qick super.__init__,
-        it contains:
-        * declaration of sweeper register settings
-        * declaration of channels and nyquist zones
-        * declaration of readouts (just one per channel, otherwise ignores it)
-        """
-
-        # find channels of sweeper pulse
         pulse = self.sweeper.pulses[0]
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
         adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
@@ -395,38 +359,12 @@ class ExecuteSingleSweep(RAveragerProgram):
             if self.cfg["start"] + self.cfg["step"] * self.cfg["expts"] > self.max_gain:
                 raise ValueError("Amplitude higher than maximum!")
 
-        # declare nyquist zones for all used channels
-        # if zone already declared assumes it's the same without checking
-        ch_already_declared = []
-        for pulse in self.sequence:
-            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
+        self.declare_nqz_zones(self.sequence)
+        self.declare_readout_freq()
 
-            if gen_ch not in ch_already_declared:
-                ch_already_declared.append(gen_ch)
-
-                zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
-                self.declare_gen(gen_ch, nqz=zone)
-
-        # declare readouts
-        # if channel already declared assumes it's compatible without checking
-        ro_ch_already_declared = []
-        for readout_pulse in self.sequence.ro_pulses:
-            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            if adc_ch not in ro_ch_already_declared:
-                ro_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
-                freq = readout_pulse.frequency * HZ_TO_MHZ
-                # for declare_readout freqs in MHz and not in register values
-                self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
-
-        #
         for pulse in self.sequence:
             self.add_pulse_to_register(pulse)
 
-        # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
 
     def add_pulse_to_register(self, pulse):
