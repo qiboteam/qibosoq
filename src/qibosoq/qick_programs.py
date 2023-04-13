@@ -1,8 +1,4 @@
-""" RFSoC FPGA driver.
-This driver needs the library Qick installed
-Supports the following FPGA:
- *   RFSoC 4x2
-"""
+""" QickPrograms used by qibosoq to execute sequences and sweeps """
 
 from abc import ABC, abstractmethod
 from dataclasses import asdict
