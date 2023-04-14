@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qibosoq"
-version = "0.0.1.dev0"
+version = "0.0.1"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = ["Rodolfo Carobene <rodolfo.carobene@gmail.com>", "Javier Serrano <javier.serrano@tii.ae>"]
 license = "Apache License 2.0"
@@ -18,8 +18,7 @@ packages = [{ include = "qibosoq", from = "src" }]
 python = ">=3.8, <3.12"
 # TODO replace with qibolab = "0.0.3" when released
 qibolab = { git = "https://github.com/qiboteam/qibolab.git", rev  = "d5b6a02"}
-# TODO replace with qick when released
-qick = { git = "https://github.com/openquantumhardware/qick.git", rev = "2f0c6f"}
+qick = "^0.2"
 
 
 [build-system]
