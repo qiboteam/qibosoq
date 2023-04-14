@@ -6,7 +6,7 @@
 What is Qibosoq?
 ================
 
-Qibosoq is the server needed for integrating Qick in the Qibolab ecosystem and executing arbitrary circuits and pulse sequences.
+Qibosoq is the server that integrates Qick in the Qibolab ecosystem for executing arbitrary circuits and pulse sequences.
 
 Contents
 ========

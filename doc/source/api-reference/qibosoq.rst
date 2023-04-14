@@ -1,7 +1,7 @@
 .. _generalpurpose:
 
 Programs
-"""""""""""""""""
+""""""""
 
 .. autoclass:: qibosoq.rfsoc_server.ExecutePulseSequence
     :members:

@@ -1,6 +1,6 @@
 Getting started
 ===============
-In this section we present the basic aspects of Qibolab design and provide installation instructions.
+In this section we present the basic aspects of Qibosoq and provide installation instructions.
 
 .. toctree::
     :maxdepth: 1
