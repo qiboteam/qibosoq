@@ -3,7 +3,7 @@ name: Deploy docs
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [sphinx]
     tags:
       - "*"
 
@@ -16,10 +16,10 @@ jobs:
       - name: checks for the label
         id: label_step
         run: |
-          if [[ "${{ github.ref  }}" == "refs/heads/main" ]]; then
+          if [[ "${{ github.ref  }}" == "refs/heads/sphinx" ]]; then
                 echo "version=latest" >> $GITHUB_OUTPUT
           fi
-          if [[ "${{ github.ref_type }}" == "branch" ]] && [[ "${{ github.ref  }}" != "refs/heads/main" ]]; then
+          if [[ "${{ github.ref_type }}" == "branch" ]] && [[ "${{ github.ref  }}" != "refs/heads/sphinx" ]]; then
                 exit 1
           fi
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
