@@ -16,7 +16,7 @@ HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
 
-class FluxProgram:
+class FluxProgram:  # TODO include and test
     def set_bias(self, mode="sweetspot"):
         duration = 48  # minimum len
         self.sync_all()
@@ -101,6 +101,7 @@ class GeneralQickProgram(ABC):
             * super.__init__ (this will init AveragerProgram or RAveragerProgram)
         """
         # TODO is_mux should be in config
+        self.is_mux = is_mux
 
         self.soc = soc
         self.soccfg = soc  # this is used by qick
@@ -290,9 +291,7 @@ class GeneralQickProgram(ABC):
             raise NotImplementedError(f"Shape {pulse.shape} not supported!")
 
     def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
-        mask = []
-        for pulse in ro_pulses:
-            mask.append(pulse.qubit)
+        mask = [0, 1, 2]  # TODO now hardcoded
 
         pulse = ro_pulses[0]
         gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
@@ -324,10 +323,9 @@ class GeneralQickProgram(ABC):
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-            if not self.pulses_registered:
-                self.add_pulse_to_register(pulse)
-
             if pulse.type is PulseType.DRIVE:
+                if not self.pulses_registered:
+                    self.add_pulse_to_register(pulse)
                 self.pulse(ch=gen_ch, t=time)
             elif pulse.type is PulseType.READOUT:
                 if self.is_mux:
@@ -347,7 +345,8 @@ class GeneralQickProgram(ABC):
                             syncdelay=self.syncdelay,
                         )
                 else:
-                    self.add_pulse_to_register(pulse)
+                    if not self.pulses_registered:
+                        self.add_pulse_to_register(pulse)
                     adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
                     self.measure(
                         pulse_ch=ro_ch,

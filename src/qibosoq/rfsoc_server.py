@@ -50,9 +50,10 @@ class MyTCPHandler(BaseRequestHandler):
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
+        # TODO remove data["readouts_per_experiment"],
+
         toti, totq = program.acquire(
             global_soc,
-            data["readouts_per_experiment"],
             load_pulses=True,
             progress=False,
             debug=False,
@@ -79,4 +80,4 @@ def serve(host, port):
 
 
 # initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
+global_soc = QickSoc(bitfile="/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit")
