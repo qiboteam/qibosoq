@@ -40,8 +40,6 @@ class ExecutePulseSequence(AveragerProgram):
         """In this function we define the most important settings.
 
         In detail:
-            * set the conversion coefficients to be used for frequency and
-              time values
             * max_gain, adc_trig_offset, max_sampling_rate are imported from
               qpcfg (runcard settings)
             * relaxdelay (for each execution) is taken from cfg (runcard)
@@ -63,11 +61,6 @@ class ExecutePulseSequence(AveragerProgram):
         self.max_sampling_rate = qpcfg.sampling_rate
         self.reps = qpcfg.reps
 
-        # TODO maybe better elsewhere
-        # relax_delay is the time waited at the end of the program (for ADC)
-        # syncdelay is the time waited at the end of every measure (overall t)
-        # wait_initialize is the time waited at the end of initialize
-        # all of these are converted using tproc CLK
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
@@ -88,6 +81,8 @@ class ExecutePulseSequence(AveragerProgram):
         Args:
             readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
+            progress (bool): if true shows a progress bar, slows down things
+            debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
         res = super().acquire(
@@ -133,11 +128,10 @@ class ExecutePulseSequence(AveragerProgram):
         It contains:
         * declaration of channels and nyquist zones
         * declaration of readouts (just one per channel, otherwise ignores it)
-        * for element in sequence calls the add_pulse_to_register function
-        (if first pulse for channel, otherwise it will be done in the body)
         """
 
         # declare nyquist zones for all used channels
+        # if zone already declared assumes it's the same without checking
         ch_already_declared = []
         for pulse in self.sequence:
             qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -147,12 +141,11 @@ class ExecutePulseSequence(AveragerProgram):
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
 
-                if pulse.frequency < self.max_sampling_rate / 2:
-                    self.declare_gen(gen_ch, nqz=1)
-                else:
-                    self.declare_gen(gen_ch, nqz=2)
+                zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
+                self.declare_gen(gen_ch, nqz=zone)
 
         # declare readouts
+        # if channel already declared assumes it's compatible without checking
         ro_ch_already_declared = []
         for readout_pulse in self.sequence.ro_pulses:
             adc_ch = self.qubits[readout_pulse.qubit].feedback.ports[0][1]
@@ -167,8 +160,12 @@ class ExecutePulseSequence(AveragerProgram):
         # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
 
-    def add_pulse_to_register(self, pulse: Pulse, first=False):
-        """This function calls the set_pulse_registers function"""
+    def add_pulse_to_register(self, pulse: Pulse):
+        """This function calls the set_pulse_registers function
+
+        Args:
+            pulse (Pulse): pulse object to load in the register
+        """
 
         # find channels relevant for this pulse
         qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -213,8 +210,8 @@ class ExecutePulseSequence(AveragerProgram):
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=sigma,  # TODO: check if correct
-                    alpha=pulse.beta,
+                    delta=1,
+                    alpha=pulse.shape.beta,
                     length=soc_length,
                 )
 
@@ -237,9 +234,9 @@ class ExecutePulseSequence(AveragerProgram):
     def body(self):
         """Execute sequence of pulses.
 
-        If the pulse is already loaded in the register just launch it,
-        otherwise first calls the add_pulse_to_register function.
-        If readout it does a measurement with an adc trigger, it does not wait.
+        For each pulses calls the add_pulse_to_register function
+        before firing it. If the pulse is a readout, it does a measurement
+        with an adc trigger, it does not wait.
         At the end of the pulse wait for clock.
         """
 
@@ -277,7 +274,6 @@ class ExecuteSingleSweep(RAveragerProgram):
     ):
         """In this function we define the most important settings.
         In detail:
-            * set the conversion coefficients to be used for frequency and time
             * max_gain, adc_trig_offset, max_sampling_rate are imported from
               qpcfg (runcard settings)
             * relaxdelay (for each execution) is taken from cfg (runcard )
@@ -307,11 +303,6 @@ class ExecuteSingleSweep(RAveragerProgram):
         self.reps = qpcfg.reps
         self.expts = qpcfg.expts
 
-        # TODO maybe better elsewhere
-        # relax_delay is the time waited at the end of the program (for ADC)
-        # syncdelay is the time waited at the end of every measure
-        # wait_initialize is the time waited at the end of initialize
-        # all of these are converted using tproc CLK
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
@@ -332,6 +323,8 @@ class ExecuteSingleSweep(RAveragerProgram):
         Args:
             readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
+            progress (bool): if true shows a progress bar, slows down things
+            debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
         _, i_val, q_val = super().acquire(
@@ -378,8 +371,6 @@ class ExecuteSingleSweep(RAveragerProgram):
         * declaration of sweeper register settings
         * declaration of channels and nyquist zones
         * declaration of readouts (just one per channel, otherwise ignores it)
-        * for element in sequence calls the add_pulse_to_register function
-        (if first pulse for channel, otherwise it will be done in the body)
         """
 
         # find channels of sweeper pulse
@@ -402,8 +393,6 @@ class ExecuteSingleSweep(RAveragerProgram):
             self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
             self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
 
-            # TODO: should stop if nyquist zone changes in the sweep
-
         elif self.sweeper.parameter == Parameter.amplitude:
             self.sweeper_reg = self.sreg(gen_ch, "gain")
             self.cfg["start"] = int(start * self.max_gain)
@@ -413,6 +402,7 @@ class ExecuteSingleSweep(RAveragerProgram):
                 raise ValueError("Amplitude higher than maximum!")
 
         # declare nyquist zones for all used channels
+        # if zone already declared assumes it's the same without checking
         ch_already_declared = []
         for pulse in self.sequence:
             qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
@@ -422,12 +412,11 @@ class ExecuteSingleSweep(RAveragerProgram):
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
 
-                if pulse.frequency < self.max_sampling_rate / 2:
-                    self.declare_gen(gen_ch, nqz=1)
-                else:
-                    self.declare_gen(gen_ch, nqz=2)
+                zone = 1 if pulse.frequency < self.max_sampling_rate / 2 else 2
+                self.declare_gen(gen_ch, nqz=zone)
 
         # declare readouts
+        # if channel already declared assumes it's compatible without checking
         ro_ch_already_declared = []
         for readout_pulse in self.sequence.ro_pulses:
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
@@ -439,12 +428,19 @@ class ExecuteSingleSweep(RAveragerProgram):
                 # for declare_readout freqs in MHz and not in register values
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
+        #
+        for pulse in self.sequence:
+            self.add_pulse_to_register(pulse)
+
         # sync all channels and wait some time
         self.sync_all(self.wait_initialize)
 
     def add_pulse_to_register(self, pulse):
-        """This function calls the set_pulse_registers function"""
-        # TODO check
+        """This function calls the set_pulse_registers function
+
+        Args:
+            pulse (Pulse): pulse object to load in the register
+        """
 
         is_sweeped = self.sweeper.pulses[0] == pulse
 
@@ -499,8 +495,8 @@ class ExecuteSingleSweep(RAveragerProgram):
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=sigma,  # TODO: check if correct
-                    alpha=pulse.beta,
+                    delta=1,
+                    alpha=pulse.shape.beta,
                     length=soc_length,
                 )
 
@@ -527,10 +523,10 @@ class ExecuteSingleSweep(RAveragerProgram):
     def body(self):
         """Execute sequence of pulses.
 
-        If the pulse is already loaded in the register just launch it,
-        otherwise first calls the add_pulse_to_register function.
-        If readout it does a measurement with an adc trigger, it does not wait.
-        At the end of the pulse wait for clock and call update function.
+        For each pulses calls the add_pulse_to_register function
+        before firing it. If the pulse is a readout, it does a measurement
+        with an adc trigger, it does not wait.
+        At the end of the pulse wait for clock.
         """
 
         for pulse in self.sequence:
@@ -541,8 +537,6 @@ class ExecuteSingleSweep(RAveragerProgram):
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-            self.add_pulse_to_register(pulse)
 
             if pulse.type is PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -560,21 +554,31 @@ class ExecuteSingleSweep(RAveragerProgram):
 
 
 class MyTCPHandler(BaseRequestHandler):
+    """Class to handle requesto to the server"""
+
     def handle(self):
+        """This function gets called when a connection to the server is opened"""
+
+        # print a log message when receive a connection
         now = datetime.now()
         print(f'{now.strftime("%d/%m/%Y %H:%M:%S")}\tGot connection from {self.client_address}')
 
+        # set the server in non-blocking mode
         self.server.socket.setblocking(False)
 
+        # receive 4 bytes (integer) with len of the pickled dictionary
         count = int.from_bytes(self.request.recv(4), "big")
+        # wait for a message with len count
         received = self.request.recv(count, socket.MSG_WAITALL)
-
         data = pickle.loads(received)
 
         if data["operation_code"] == "execute_pulse_sequence":
             program = ExecutePulseSequence(global_soc, data["cfg"], data["sequence"], data["qubits"])
         elif data["operation_code"] == "execute_single_sweep":
             program = ExecuteSingleSweep(global_soc, data["cfg"], data["sequence"], data["qubits"], data["sweeper"])
+        else:
+            raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
+
         toti, totq = program.acquire(
             global_soc,
             data["readouts_per_experiment"],
@@ -588,15 +592,16 @@ class MyTCPHandler(BaseRequestHandler):
         self.request.sendall(pickle.dumps(results))
 
 
-# starts the handler
+# starts handler for system interruption (ex. Ctrl-C)
 signal.signal(signal.SIGINT, signal_handler)
+# initialize QickSoc object (firmware and clocks)
 global_soc = QickSoc()
 
 if __name__ == "__main__":
     HOST = "192.168.0.72"  # Serverinterface address
     PORT = 6000  # Port to listen on (non-privileged ports are > 1023)
     TCPServer.allow_reuse_address = True
-    # Create the server, binding to localhost on port 6000
+
     with TCPServer((HOST, PORT), MyTCPHandler) as server:
         # Activate the server; this will keep running until you
         # interrupt the program with Ctrl-C
