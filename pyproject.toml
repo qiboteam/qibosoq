@@ -17,10 +17,31 @@ packages = [{ include = "qibosoq", from = "src" }]
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
 # TODO replace with qibolab = "0.0.3" when released
-qibolab = { git = "https://github.com/qiboteam/qibolab.git", rev  = "d5b6a02"}
+qibolab = { git = "https://github.com/qiboteam/qibolab.git", branch  = "main"}
 qick = "^0.2"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^6.1.3"
+furo = "^2023.3.27"
+recommonmark = "^0.7.1"
+sphinxcontrib-bibtex = "^2.5.0"
+sphinx-markdown-tables = "^0.0.17"
+nbsphinx = "^0.9.1"
+ipython = "^8.12.0"
+sphinx-copybutton = "^0.5.1"
+
+[tool.poe.tasks]
+test = "pytest"
+#lint = "pylint src --errors-only"
+#lint-warnings = "pylint src --exit-zero"
+docs = "make -C doc html"
+docs-clean = "make -C doc clean"
+test-docs = "make -C doc doctest"

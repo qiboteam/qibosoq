@@ -1,4 +1,5 @@
 """ RFSoC FPGA driver.
+
 This driver needs the library Qick installed
 Supports the following FPGA:
  *   RFSoC 4x2
@@ -37,6 +38,7 @@ class ExecutePulseSequence(AveragerProgram):
 
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
         """In this function we define the most important settings.
+
         In detail:
             * max_gain, adc_trig_offset, max_sampling_rate are imported from
               qpcfg (runcard settings)
@@ -75,6 +77,7 @@ class ExecutePulseSequence(AveragerProgram):
         average: bool = False,
     ) -> Tuple[List[float], List[float]]:
         """Calls the super() acquire function.
+
         Args:
             readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
@@ -120,8 +123,9 @@ class ExecutePulseSequence(AveragerProgram):
         return tot_i, tot_q
 
     def initialize(self):
-        """This function gets called automatically by qick super.__init__,
-        it contains:
+        """This function gets called automatically by qick super.__init__.
+
+        It contains:
         * declaration of channels and nyquist zones
         * declaration of readouts (just one per channel, otherwise ignores it)
         """
@@ -315,6 +319,7 @@ class ExecuteSingleSweep(RAveragerProgram):
         average: bool = False,
     ) -> Tuple[List[float], List[float]]:
         """Calls the super() acquire function.
+
         Args:
             readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
@@ -361,6 +366,7 @@ class ExecuteSingleSweep(RAveragerProgram):
 
     def initialize(self):
         """This function gets called automatically by qick super.__init__,
+
         it contains:
         * declaration of sweeper register settings
         * declaration of channels and nyquist zones
