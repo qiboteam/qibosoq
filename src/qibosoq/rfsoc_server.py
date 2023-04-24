@@ -7,7 +7,6 @@ Supports the following FPGA:
 import logging
 import os
 import pickle
-import signal
 import socket
 import sys
 from datetime import datetime
