@@ -4,6 +4,7 @@ Supports the following FPGA:
     * RFSoc4x2
 """
 
+import logging
 import os
 import pickle
 import signal
@@ -16,32 +17,37 @@ from qick import QickSoc
 
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
+logger = logging.getLogger("__name__")
+
+
+# initialize QickSoc object (firmware and clocks)
+global_soc = QickSoc()
+
 
 class MyTCPHandler(BaseRequestHandler):
     """Class to handle requests to the server"""
 
-    def handle(self):
-        """Gets called when a connection to the server is opened.
+    def receive_command(self) -> dict:
+        """Receive commands from qibolab client
 
-        Logs the time of the connection and the client IP.
         The communication protocol is:
         * first the server receives  a 4 bytes integer with the length
         of the message to actually receive
         * waits for the message and unpickles it
-        * execute the program depending on the op_code
-        * returns a pickled dictionary of results to the client
+        * returns the unpcikled dictionary
         """
-        # print a log message when receive a connection
-        now = datetime.now()
-        print(f'{now.strftime("%d/%m/%Y %H:%M:%S")}\tGot connection from {self.client_address}')
-
-        # set the server in non-blocking mode
-        self.server.socket.setblocking(False)
 
         count = int.from_bytes(self.request.recv(4), "big")
         received = self.request.recv(count, socket.MSG_WAITALL)
         data = pickle.loads(received)
+        return data
 
+    def execute_program(self, data: dict) -> dict:
+        """Creates and execute qick programs
+
+        Returns:
+            (dict): dictionary with two keys (i, q) to lists of values
+        """
         if data["operation_code"] == "execute_pulse_sequence":
             program = ExecutePulseSequence(global_soc, data["cfg"], data["sequence"], data["qubits"])
         elif data["operation_code"] == "execute_single_sweep":
@@ -58,24 +64,32 @@ class MyTCPHandler(BaseRequestHandler):
             average=data["average"],
         )
 
-        results = {"i": toti, "q": totq}
-        self.request.sendall(pickle.dumps(results))
+        return {"i": toti, "q": totq}
 
+    def handle(self):
+        """Gets called when a connection to the server is opened.
 
-def signal_handler(sig, frame):
-    """Signal handling for Ctrl-C (closing the server)"""
-    print("Server closing")
-    sys.exit(0)
+        * Receives command from client
+        * Executes qick program
+        * Return results
+        """
+        # print a log message when receive a connection
+        logger.debug(f"Got connection from {self.client_address}")
+
+        # set the server in non-blocking mode
+        self.server.socket.setblocking(False)
+
+        try:
+            data = self.receive_command()
+            results = self.execute_program(data)
+            self.request.sendall(pickle.dumps(results))
+        except:
+            logger.exception("")
+            logger.error(f"Faling command: {data}")
 
 
 def serve(host, port):
-    # starts handler for system interruption (ex. Ctrl-C)
-    signal.signal(signal.SIGINT, signal_handler)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), MyTCPHandler) as server:
-        print(f"Server Listening, PID {os.getpid()}")
+        logger.info(f"Server listening, PID {os.getpid()}")
         server.serve_forever()
-
-
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
