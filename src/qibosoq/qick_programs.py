@@ -34,6 +34,8 @@ class FluxProgram:  # TODO include and test
                 i_wf = np.full(duration, value)
                 q_wf = np.zeros(len(i_wf))
                 self.add_pulse(ch, f"const_{value}_{idx}", i_wf, q_wf)
+
+                print(f"Setting bias of ch {ch} to gain {self.max_flux_gain}")
                 self.set_pulse_registers(
                     ch=ch,
                     waveform=f"const_{value}_{idx}",
@@ -42,7 +44,7 @@ class FluxProgram:  # TODO include and test
                     stdysel="last",
                     freq=0,
                     phase=0,
-                    gain=self.max_gain,
+                    gain=self.max_flux_gain,
                 )
                 self.pulse(ch=ch)
         self.sync_all()
@@ -64,7 +66,7 @@ class FluxProgram:  # TODO include and test
             else:
                 padding += 1
 
-        amp = int(pulse.amplitude * self.max_gain) + sweetspot
+        amp = int(pulse.amplitude * self.max_flux_gain) + sweetspot
 
         i = np.full(duration, amp)
         i = np.append(i, np.full(padding, sweetspot))
@@ -79,7 +81,7 @@ class FluxProgram:  # TODO include and test
             stdysel="last",
             freq=0,
             phase=0,
-            gain=self.max_gain,
+            gain=self.max_flux_gain,
         )
         self.pulse(ch=gen_ch, t=time)
 
@@ -111,6 +113,7 @@ class GeneralQickProgram(ABC):
 
         # general settings
         self.max_gain = qpcfg.max_gain
+        self.max_flux_gain = 24000  # TODO not hardcode
         self.adc_trig_offset = qpcfg.adc_trig_offset
         self.max_sampling_rate = qpcfg.sampling_rate
         self.mixer_freq = qpcfg.mixer_freq
@@ -143,7 +146,7 @@ class GeneralQickProgram(ABC):
         """
 
         ch_already_declared = []
-        for pulse in self.sequence:
+        for pulse in sequence:
             if pulse.type is PulseType.DRIVE:
                 ch = self.qubits[pulse.qubit].drive.ports[0][1]
             elif pulse.type is PulseType.READOUT:
@@ -428,7 +431,7 @@ class GeneralQickProgram(ABC):
         raise NotImplementedError
 
 
-class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
+class ExecutePulseSequence(GeneralQickProgram, AveragerProgram, FluxProgram):
     """Class to execute arbitrary PulseSequences"""
 
     def initialize(self):
@@ -448,7 +451,7 @@ class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
         return False
 
 
-class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
+class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram, FluxProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
 
     def __init__(
