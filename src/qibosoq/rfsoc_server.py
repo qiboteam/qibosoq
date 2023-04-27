@@ -23,8 +23,8 @@ logger = logging.getLogger("__name__")
 global_soc = QickSoc()
 
 
-class MyTCPHandler(BaseRequestHandler):
-    """Class to handle requests to the server"""
+class ConnectionHandler(BaseRequestHandler):
+    """Handle requests to the server"""
 
     def receive_command(self) -> dict:
         """Receive commands from qibolab client
@@ -66,7 +66,7 @@ class MyTCPHandler(BaseRequestHandler):
         return {"i": toti, "q": totq}
 
     def handle(self):
-        """Gets called when a connection to the server is opened.
+        """Handle a connection to the server.
 
         * Receives command from client
         * Executes qick program
@@ -89,6 +89,6 @@ class MyTCPHandler(BaseRequestHandler):
 
 def serve(host, port):
     TCPServer.allow_reuse_address = True
-    with TCPServer((host, port), MyTCPHandler) as server:
+    with TCPServer((host, port), ConnectionHandler) as server:
         logger.info(f"Server listening, PID {os.getpid()}")
         server.serve_forever()
