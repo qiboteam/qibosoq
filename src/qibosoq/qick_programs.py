@@ -152,19 +152,20 @@ class GeneralQickProgram(ABC):
 
         ch_already_declared = []
         for pulse in sequence:
+            freq = pulse.frequency
             if pulse.type is PulseType.DRIVE:
                 ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                max_sampling_rate = self.max_sampling_rate
             elif pulse.type is PulseType.READOUT:
                 ch = self.qubits[pulse.qubit].readout.ports[0][1]
 
             if pulse.type is PulseType.READOUT:
-                freq = pulse.frequency - self.mixer_freq - self.LO_freq
-            else:
-                freq = pulse.frequency
+                freq = freq - self.mixer_freq - self.LO_freq
+                max_sampling_rate = 1_536_000_000  # TODO this should be in config
 
             if ch not in ch_already_declared:
                 ch_already_declared.append(ch)
-                zone = 1 if freq < self.max_sampling_rate / 2 else 2
+                zone = 1 if freq < max_sampling_rate / 2 else 2
                 self.declare_gen(ch, nqz=zone)
 
     def declare_gen_mux_ro(self):
@@ -183,11 +184,14 @@ class GeneralQickProgram(ABC):
                 adc_ch_added.append(adc_ch)
                 # TODO add parameters to QickProgramConfig
                 freq = pulse.frequency - self.mixer_freq - self.LO_freq
-                zone = 1 if freq < self.max_sampling_rate / 2 else 2
+                max_sampling_rate = 1_536_000_000  # TODO this should be in config
+                zone = 1 if freq < max_sampling_rate / 2 else 2
                 freq = freq * HZ_TO_MHZ
 
                 mux_gains.append(pulse.amplitude)
                 mux_freqs.append(freq)
+
+        print(f"declare gen {ro_ch} {zone} {self.mixer_freq} {mux_freqs} {mux_gains} {adc_ch_added[0]}")
 
         self.declare_gen(
             ch=ro_ch,
@@ -207,11 +211,12 @@ class GeneralQickProgram(ABC):
             ro_ch = self.qubits[readout_pulse.qubit].readout.ports[0][1]
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
+                length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, ro_ch=adc_ch)
 
                 freq = readout_pulse.frequency - self.mixer_freq - self.LO_freq
                 freq = freq * HZ_TO_MHZ
                 # in declare_readout frequency in MHz
+                print(f"declare readout {adc_ch} {length} {freq} {ro_ch}")
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
     def add_pulse_to_register(self, pulse: Pulse):
@@ -305,11 +310,12 @@ class GeneralQickProgram(ABC):
         gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
 
         us_length = pulse.duration * NS_TO_US
-        soc_length = self.soc.us2cycles(us_length)
+        soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
         if not isinstance(pulse.shape, Rectangular):
             raise Exception("Only Rectangular ro pulses are supported")
 
+        print(f"set pulse register {gen_ch} {soc_length} {mask}")
         self.set_pulse_registers(ch=gen_ch, style="const", length=soc_length, mask=mask)
 
     def body(self):
@@ -344,13 +350,14 @@ class GeneralQickProgram(ABC):
                         for ro_pulse in self.multi_ro_pulses[pulse.start]:
                             adcs.append(self.qubits[ro_pulse.qubit].feedback.ports[0][1])
 
+                        print(f"measure {ro_ch} {adcs} {time} {self.adc_trig_offset} {self.syncdelay}")
                         self.measure(
                             pulse_ch=ro_ch,
                             adcs=adcs,
                             adc_trig_offset=time + self.adc_trig_offset,
                             t=time,
-                            wait=False,
-                            syncdelay=self.syncdelay,
+                            wait=True,  # False,
+                            syncdelay=200,  # self.syncdelay,
                         )
                 else:
                     if not self.pulses_registered:
@@ -436,7 +443,7 @@ class GeneralQickProgram(ABC):
         raise NotImplementedError
 
 
-class ExecutePulseSequence(GeneralQickProgram, AveragerProgram, FluxProgram):
+class ExecutePulseSequence(GeneralQickProgram, AveragerProgram):
     """Class to execute arbitrary PulseSequences"""
 
     def initialize(self):
@@ -456,7 +463,7 @@ class ExecutePulseSequence(GeneralQickProgram, AveragerProgram, FluxProgram):
         return False
 
 
-class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram, FluxProgram):
+class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
 
     def __init__(
