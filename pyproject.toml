@@ -38,6 +38,9 @@ nbsphinx = "^0.9.1"
 ipython = "^8.12.0"
 sphinx-copybutton = "^0.5.1"
 
+[tool.poetry.group.analysis.dependencies]
+pylint = ">=2.16.0"
+
 [tool.poe.tasks]
 test = "pytest"
 lint = "pylint src --errors-only"
