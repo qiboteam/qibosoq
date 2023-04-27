@@ -16,7 +16,7 @@ HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
 
-class GeneralQickProgram(ABC, QickProgram):
+class GeneralQickProgram(ABC):
     """Abstract class for QickPrograms"""
 
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
