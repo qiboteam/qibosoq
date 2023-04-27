@@ -17,6 +17,11 @@ NS_TO_US = 1e-3
 
 
 class FluxProgram:  # TODO include and test
+    @staticmethod
+    # TODO use
+    def from_volt_to_gain(volt: float, p0: int = 329, p1: int = 25634):
+        return int(p0 + volt * p1)
+
     def set_bias(self, mode="sweetspot"):
         duration = 48  # minimum len
         self.sync_all()
