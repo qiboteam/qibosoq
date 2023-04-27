@@ -9,14 +9,14 @@ from qibolab.instruments.rfsoc import QickProgramConfig
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
-from qick import AveragerProgram, QickSoc, RAveragerProgram
+from qick import AveragerProgram, QickProgram, QickSoc, RAveragerProgram
 
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
 
-class GeneralQickProgram(ABC):
+class GeneralQickProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
 
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
