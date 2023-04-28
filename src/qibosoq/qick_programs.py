@@ -142,7 +142,7 @@ class GeneralQickProgram(ABC, QickProgram):
         # if pulse is drag or gauss first define the i-q shape and then set reg
         if is_drag or is_gaus:
             name = pulse.serial
-            sigma = soc_length / pulse.shape.rel_sigma
+            sigma = (soc_length / pulse.shape.rel_sigma) * np.sqrt(2)
 
             if is_gaus:
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
@@ -153,7 +153,7 @@ class GeneralQickProgram(ABC, QickProgram):
                     name=name,
                     sigma=sigma,
                     delta=1,
-                    alpha=pulse.shape.beta,
+                    alpha=-pulse.shape.beta,
                     length=soc_length,
                 )
 
