@@ -109,6 +109,7 @@ class GeneralQickProgram(ABC, QickProgram):
         self.max_gain = qpcfg.max_gain
         self.adc_trig_offset = qpcfg.adc_trig_offset
         self.max_sampling_rate = qpcfg.sampling_rate
+        self.lo_frequency = qpcfg.LO_freq
         self.reps = qpcfg.reps
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
@@ -129,12 +130,12 @@ class GeneralQickProgram(ABC, QickProgram):
 
         ch_already_declared = []
         for pulse in sequence:
+            freq = pulse.frequency
             if pulse.type is PulseType.DRIVE:
                 gen_ch = self.qubits[pulse.qubit].drive.ports[0][1]
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-
-            freq = pulse.frequency
+                freq = freq - self.lo_frequency
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
@@ -152,7 +153,7 @@ class GeneralQickProgram(ABC, QickProgram):
                 adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
-                freq = readout_pulse.frequency * HZ_TO_MHZ
+                freq = (readout_pulse.frequency - self.lo_frequency) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
@@ -203,7 +204,8 @@ class GeneralQickProgram(ABC, QickProgram):
             if not freq_set:
                 freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
-            freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
+            freq = pulse.frequency - self.lo_frequency
+            freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
             raise NotImplementedError(f"Pulse type {pulse.type} not supported!")
 
