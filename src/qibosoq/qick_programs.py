@@ -153,7 +153,7 @@ class GeneralQickProgram(ABC, QickProgram):
                     name=name,
                     sigma=sigma,
                     delta=1,
-                    alpha=pulse.shape.beta,
+                    alpha=-pulse.shape.beta,
                     length=soc_length,
                 )
 
