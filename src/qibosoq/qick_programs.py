@@ -283,6 +283,11 @@ class GeneralQickProgram(ABC, QickProgram):
 
 
 class FluxProgram(GeneralQickProgram):
+    def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
+        self.max_flux_gain = 24000  # TODO this should not be hardcoded
+
+        super().__init__(soc, qpcfg, sequence, qubits)
+
     def set_bias(self, mode="sweetspot"):
         duration = 48  # minimum len
         self.sync_all()
@@ -308,12 +313,14 @@ class FluxProgram(GeneralQickProgram):
                     stdysel="last",
                     freq=0,
                     phase=0,
-                    gain=self.max_gain,
+                    gain=self.max_flux_gain,
                 )
                 self.pulse(ch=ch)
         self.sync_all()
 
     def flux_pulse(self, pulse, time):
+        raise NotImplementedError("This method is not complete and should not be used")
+
         qubit = self.qubits[pulse.qubit]
         gen_ch = qubit.flux.ports[0][1]
         sweetspot = qubit.flux.bias  # TODO convert units
@@ -330,7 +337,7 @@ class FluxProgram(GeneralQickProgram):
             else:
                 padding += 1
 
-        amp = int(pulse.amplitude * self.max_gain) + sweetspot
+        amp = int(pulse.amplitude * self.max_flux_gain) + sweetspot
 
         i = np.full(duration, amp)
         i = np.append(i, np.full(padding, sweetspot))
@@ -345,7 +352,7 @@ class FluxProgram(GeneralQickProgram):
             stdysel="last",
             freq=0,
             phase=0,
-            gain=self.max_gain,
+            gain=self.max_flux_gain,
         )
         self.pulse(ch=gen_ch, t=time)
 
