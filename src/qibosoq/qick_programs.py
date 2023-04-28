@@ -16,7 +16,7 @@ HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
 
-class GeneralQickProgram(ABC):
+class GeneralQickProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
 
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
@@ -49,6 +49,7 @@ class GeneralQickProgram(ABC):
 
         self.pulses_registered = False
 
+        # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
 
     def declare_nqz_zones(self, sequence: PulseSequence):
@@ -224,6 +225,7 @@ class GeneralQickProgram(ABC):
             debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
+        # pylint: disable-next=unexpected-keyword-arg
         res = super().acquire(
             soc,
             readouts_per_experiment=readouts_per_experiment,
