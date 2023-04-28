@@ -17,10 +17,6 @@ from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 logger = logging.getLogger("__name__")
 
 
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
-
-
 class ConnectionHandler(BaseRequestHandler):
     """Handle requests to the server"""
 
@@ -91,3 +87,7 @@ def serve(host, port):
     with TCPServer((host, port), ConnectionHandler) as server:
         logger.info("Server listening, PID %d", os.getpid())
         server.serve_forever()
+
+
+# initialize QickSoc object (firmware and clocks)
+global_soc = QickSoc()
