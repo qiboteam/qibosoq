@@ -148,11 +148,14 @@ class GeneralQickProgram(ABC, QickProgram):
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
 
             elif is_drag:
+                # delta will be divided for the same quantity, we are setting it = 1
+                delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+
                 self.add_DRAG(
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=1,
+                    delta=delta,
                     alpha=-pulse.shape.beta,
                     length=soc_length,
                 )
