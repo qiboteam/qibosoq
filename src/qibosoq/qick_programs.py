@@ -229,7 +229,7 @@ class GeneralQickProgram(ABC, QickProgram):
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
-        # pylint: disable=unexpected-keyword-arg, arguments-renamed
+        # pylint: disable-next=unexpected-keyword-arg, arguments-renamed
         res = super().acquire(
             soc,
             readouts_per_experiment=reads_per_rep,
