@@ -8,8 +8,6 @@ import logging
 import os
 import pickle
 import socket
-import sys
-from datetime import datetime
 from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
@@ -73,7 +71,7 @@ class ConnectionHandler(BaseRequestHandler):
         * Return results
         """
         # print a log message when receive a connection
-        logger.debug(f"Got connection from {self.client_address}")
+        logger.debug("Got connection from %s", self.client_address)
 
         # set the server in non-blocking mode
         self.server.socket.setblocking(False)
@@ -82,13 +80,14 @@ class ConnectionHandler(BaseRequestHandler):
             data = self.receive_command()
             results = self.execute_program(data)
             self.request.sendall(pickle.dumps(results))
-        except:
+        except:  # pylint: disable=bare-except
             logger.exception("")
-            logger.error(f"Faling command: {data}")
+            logger.error("Faling command: %s", data)
 
 
 def serve(host, port):
+    """Open the TCPServer and wait forever for connections"""
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
-        logger.info(f"Server listening, PID {os.getpid()}")
+        logger.info("Server listening, PID %d", os.getpid())
         server.serve_forever()

@@ -60,18 +60,18 @@ class GeneralQickProgram(ABC, QickProgram):
         """
 
         ch_already_declared = []
-        for pulse in self.sequence:
+        for pulse in sequence:
             if pulse.type is PulseType.DRIVE:
-                ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                gen_ch = self.qubits[pulse.qubit].drive.ports[0][1]
             elif pulse.type is PulseType.READOUT:
-                ch = self.qubits[pulse.qubit].readout.ports[0][1]
+                gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
 
             freq = pulse.frequency
 
-            if ch not in ch_already_declared:
-                ch_already_declared.append(ch)
+            if gen_ch not in ch_already_declared:
+                ch_already_declared.append(gen_ch)
                 zone = 1 if freq < self.max_sampling_rate / 2 else 2
-                self.declare_gen(ch, nqz=zone)
+                self.declare_gen(gen_ch, nqz=zone)
 
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies"""
@@ -225,7 +225,7 @@ class GeneralQickProgram(ABC, QickProgram):
             debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
-        # pylint: disable-next=unexpected-keyword-arg
+        # pylint: disable=unexpected-keyword-arg, arguments-renamed
         res = super().acquire(
             soc,
             readouts_per_experiment=readouts_per_experiment,
@@ -271,10 +271,12 @@ class GeneralQickProgram(ABC, QickProgram):
 
     @abstractmethod
     def initialize(self):
+        """Abstract initialization"""
         raise NotImplementedError
 
     @abstractmethod
     def is_pulse_sweeped(self, pulse: Pulse) -> bool:
+        """Given a pulse, returns if it is sweeped"""
         raise NotImplementedError
 
 
