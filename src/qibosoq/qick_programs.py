@@ -225,16 +225,23 @@ class GeneralQickProgram(ABC, QickProgram):
             debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
+
+        # if there are no readouts, temporaray set 1 so that qick can execute properly
+        reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
+
         # pylint: disable=unexpected-keyword-arg, arguments-renamed
         res = super().acquire(
             soc,
-            readouts_per_experiment=readouts_per_experiment,
+            readouts_per_experiment=reads_per_rep,
             load_pulses=load_pulses,
             progress=progress,
             debug=debug,
         )
+        # if there are no actual readouts, return empty lists
+        if readouts_per_experiment == 0:
+            return [], []
         if average:
-            # for sequences res has 3 parameters, the first is not used
+            # for sweeps res has 3 parameters, the first is not used
             return res[-2:]
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
