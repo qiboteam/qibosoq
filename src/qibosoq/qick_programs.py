@@ -16,6 +16,74 @@ HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
 
+class FluxProgram:
+    def set_bias(self, mode="sweetspot"):
+        duration = 48  # minimum len
+        self.sync_all()
+
+        for idx in self.qubits:
+            qubit = self.qubits[idx]
+            if qubit.flux:
+                ch = qubit.flux.ports[0][1]
+                if mode == "sweetspot":
+                    value = qubit.flux.bias
+                elif mode == "zero":
+                    value = 0
+                else:
+                    raise NotImplementedError(f"Mode {mode} not supported")
+                i_wf = np.full(duration, value)
+                q_wf = np.zeros(len(i_wf))
+                self.add_pulse(ch, f"const_{value}_{idx}", i_wf, q_wf)
+                self.set_pulse_registers(
+                    ch=ch,
+                    waveform=f"const_{value}_{idx}",
+                    style="arb",
+                    outsel="input",
+                    stdysel="last",
+                    freq=0,
+                    phase=0,
+                    gain=self.max_gain,
+                )
+                self.pulse(ch=ch)
+        self.sync_all()
+
+    def flux_pulse(self, pulse, time):
+        qubit = self.qubits[pulse.qubit]
+        gen_ch = qubit.flux.ports[0][1]
+        sweetspot = qubit.flux.bias  # TODO convert units
+
+        duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
+        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
+        duration *= samples_per_clk
+
+        padding = samples_per_clk
+        while True:
+            tot_len = padding + duration
+            if tot_len % samples_per_clk == 0 and tot_len > 48:
+                break
+            else:
+                padding += 1
+
+        amp = int(pulse.amplitude * self.max_gain) + sweetspot
+
+        i = np.full(duration, amp)
+        i = np.append(i, np.full(padding, sweetspot))
+        q = np.zeros(len(i))
+
+        self.add_pulse(gen_ch, pulse.serial, i, q)
+        self.set_pulse_registers(
+            ch=gen_ch,
+            waveform=pulse.serial,
+            style="arb",
+            outsel="input",
+            stdysel="last",
+            freq=0,
+            phase=0,
+            gain=self.max_gain,
+        )
+        self.pulse(ch=gen_ch, t=time)
+
+
 class GeneralQickProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
 

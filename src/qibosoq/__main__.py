@@ -29,7 +29,7 @@ def define_logger():
 
 logger = define_logger()
 
-HOST = "192.168.0.72"  # Server address
+HOST = "192.168.0.81"  # Server address
 PORT = 6000  # Port to listen on
 
 try:
