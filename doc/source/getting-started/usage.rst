@@ -44,6 +44,30 @@ We suggest to add to your ``.bashrc`` some aliases to speed up the process. Some
 .. code-block::
 
     alias server-run="sudo -i python -m qibosoq"  # run the server in attached mode
-    alias server-run-bkg="nohup sudo -i python -m qibosoq > logs/mylog &"  # run the server in detached mode
-    alias server-info="cat logs/mylog | head -2 | tail -1 | awk '{print \$3 \" \" \$4}'"  # prints PID
-    alias server-close="sudo kill $(cat logs/mylog | head -2 | tail -1 | awk '{print $4}')"  # close the server running in bkg
+    alias server-run-bkg="nohup sudo -i python -m qibosoq &"  # run the server in detached mode
+    alias server-pid="cat /home/xilinx/logs/qibosoq.log | head -2 | tail -1 | awk '{print \$9}'"  # prints PID
+
+    # print PID of server running in bkg (if it is running)
+    serverinfo () {
+      num=$(sudo netstat -lnp | grep 6000 | wc -l)
+
+      if [ $num == 1 ]
+      then
+          echo "Server running at PID $(server-pid)"
+      else
+          echo "No running server"
+      fi
+    }
+
+    # close the server running in bkg (if it is running)
+    serverclose () {
+      num=$(sudo netstat -lnp | grep 6000 | wc -l)
+
+      if [ $num == 1 ]
+      then
+          echo "Closing server"
+          sudo kill $(server-pid)
+      else
+          echo "No running server"
+      fi
+    }

@@ -38,10 +38,13 @@ nbsphinx = "^0.9.1"
 ipython = "^8.12.0"
 sphinx-copybutton = "^0.5.1"
 
+[tool.poetry.group.analysis.dependencies]
+pylint = ">=2.16.0"
+
 [tool.poe.tasks]
 test = "pytest"
-#lint = "pylint src --errors-only"
-#lint-warnings = "pylint src --exit-zero"
+lint = "pylint src --errors-only"
+lint-warnings = "pylint src --exit-zero"
 docs = "make -C doc html"
 docs-clean = "make -C doc clean"
 test-docs = "make -C doc doctest"
