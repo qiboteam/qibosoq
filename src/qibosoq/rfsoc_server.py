@@ -79,10 +79,13 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = self.execute_program(data)
-            self.request.sendall(pickle.dumps(results))
-        except:  # pylint: disable=bare-except
+        except Exception as exception:  # pylint: disable=bare-except
             logger.exception("")
             logger.error("Faling command: %s", data)
+            results = exception
+            global_soc.reset_gens()
+
+        self.request.sendall(pickle.dumps(results))
 
 
 def serve(host, port):

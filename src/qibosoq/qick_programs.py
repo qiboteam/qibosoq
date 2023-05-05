@@ -1,5 +1,6 @@
 """ QickPrograms used by qibosoq to execute sequences and sweeps """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from typing import List, Tuple
@@ -10,6 +11,9 @@ from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
 from qick import AveragerProgram, QickProgram, QickSoc, RAveragerProgram
+
+logger = logging.getLogger("__name__")
+
 
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
@@ -150,11 +154,12 @@ class GeneralQickProgram(ABC, QickProgram):
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
 
             elif is_drag:
+                delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
                 self.add_DRAG(
                     ch=gen_ch,
                     name=name,
                     sigma=sigma,
-                    delta=1,
+                    delta=delta,
                     alpha=-pulse.shape.beta,
                     length=soc_length,
                 )
@@ -228,6 +233,8 @@ class GeneralQickProgram(ABC, QickProgram):
             average (bool): if true return averaged res, otherwise single shots
         """
         # pylint: disable=unexpected-keyword-arg, arguments-renamed
+        if readouts_per_experiment == 0:
+            readouts_per_experiment = 1
         res = super().acquire(
             soc,
             readouts_per_experiment=readouts_per_experiment,
@@ -284,7 +291,7 @@ class GeneralQickProgram(ABC, QickProgram):
 
 class FluxProgram(GeneralQickProgram):
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
-        self.max_flux_gain = 24000  # TODO this should not be hardcoded
+        self.max_flux_gain = 32000  # TODO this should not be hardcoded
 
         super().__init__(soc, qpcfg, sequence, qubits)
 
@@ -294,29 +301,34 @@ class FluxProgram(GeneralQickProgram):
 
         for idx in self.qubits:
             qubit = self.qubits[idx]
-            if qubit.flux:
+            if qubit.flux and idx in self.sequence.qubits:
                 ch = qubit.flux.ports[0][1]
+                if qubit.flux.bias == 0:
+                    continue
                 if mode == "sweetspot":
-                    value = qubit.flux.bias
+                    value = int(qubit.flux.bias * self.max_flux_gain)
                 elif mode == "zero":
                     value = 0
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
+
+                logger.debug("Setting bias value of %d at %f", idx, value)
+
                 i_wf = np.full(duration, value)
                 q_wf = np.zeros(len(i_wf))
-                self.add_pulse(ch, f"const_{value}_{idx}", i_wf, q_wf)
+                self.add_pulse(ch, f"const_{value}_{ch}", i_wf, q_wf)
                 self.set_pulse_registers(
                     ch=ch,
-                    waveform=f"const_{value}_{idx}",
+                    waveform=f"const_{value}_{ch}",
                     style="arb",
                     outsel="input",
                     stdysel="last",
                     freq=0,
                     phase=0,
-                    gain=self.max_flux_gain,
+                    gain=self.max_gain,
                 )
                 self.pulse(ch=ch)
-        self.sync_all()
+        self.sync_all(50)
 
     def flux_pulse(self, pulse, time):
         raise NotImplementedError("This method is not complete and should not be used")
@@ -359,7 +371,8 @@ class FluxProgram(GeneralQickProgram):
     def body(self):
         self.set_bias("sweetspot")
         super().body()
-        self.set_bias("zeros")
+        self.set_bias("zero")
+        self.soc.reset_gens()
         self.sync_all(self.relax_delay)  # TODO in this way the delay is doubled
 
 
@@ -390,7 +403,7 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         self.sweeper = sweeper
         self.sweeper_reg = None
         self.sweeper_page = None
-        qpcfg.expts = len(sweeper.values)
+        qpcfg.expts = sweeper.expts
 
         super().__init__(soc, qpcfg, sequence, qubits)
 
@@ -406,8 +419,8 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         self.sweeper_page = self.ch_page(gen_ch)
 
         # define start and step values
-        start = self.sweeper.values[0]
-        step = self.sweeper.values[1] - self.sweeper.values[0]
+        start = self.sweeper.starts[0]
+        step = self.sweeper.steps[0]
 
         # find register of sweeped parameter and assign start and step
         if self.sweeper.parameter == Parameter.frequency:
