@@ -526,9 +526,6 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
 
-        for sweeper in self.sweepers:
-            self.add_sweep_info(sweeper)
-
         self.declare_nqz_zones(self.sequence.qd_pulses)
         if self.is_mux:
             self.declare_gen_mux_ro()
@@ -539,6 +536,9 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         self.pulses_registered = True
         for pulse in self.sequence:
             self.add_pulse_to_register(pulse)
+
+        for sweeper in self.sweepers:
+            self.add_sweep_info(sweeper)
 
         self.sync_all(self.wait_initialize)
 
