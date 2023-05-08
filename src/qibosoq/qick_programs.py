@@ -361,7 +361,7 @@ class FluxProgram(GeneralQickProgram):
         i = np.append(i, np.full(padding, sweetspot))
         q = np.zeros(len(i))
 
-        logger.debug("Flux pulse at ch %d, amp %d, len %d, padding %d", idx, amp, len(i), padding)
+        logger.debug("Flux pulse at ch %d, amp %d, len %d, padding %d", gen_ch, amp, len(i), padding)
 
         self.add_pulse(gen_ch, pulse.serial, i, q)
         self.set_pulse_registers(
