@@ -18,7 +18,7 @@ logger = logging.getLogger("__name__")
 
 
 # initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
+global_soc = QickSoc(bitfile="/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit")
 
 
 class ConnectionHandler(BaseRequestHandler):
