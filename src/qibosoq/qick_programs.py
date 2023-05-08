@@ -10,7 +10,8 @@ from qibolab.instruments.rfsoc import QickProgramConfig
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
-from qick import AveragerProgram, QickProgram, QickSoc, RAveragerProgram
+from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
+from qick.averager_program import QickSweep, merge_sweeps
 
 logger = logging.getLogger("__name__")
 
@@ -487,7 +488,7 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         return False
 
 
-class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
+class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
 
     def __init__(
@@ -496,46 +497,38 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         """Init function, sets sweepers parameters before calling super.__init__"""
 
         # sweeper Settings
-        self.sweeper = sweeper
-        self.sweeper_reg = None
-        self.sweeper_page = None
-        qpcfg.expts = sweeper.expts
+        self.sweepers = [sweeper]  # TODO make it accept multiple sweepers
+        # qpcfg.expts = sweeper.expts  TODO remove
 
         super().__init__(soc, qpcfg, sequence, qubits)
 
-    def add_sweep_info(self):
-        """Find the page and register of the sweeped values, sets start and step"""
+    def add_sweep_info(self, sweeper: Sweeper):
+        sweep_list = []
+        for idx, pulse in enumerate(sweeper.pulses):
+            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
+            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-        pulse = self.sweeper.pulses[0]
-        qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-        ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-        gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
+            sweep_type = SWEEPERS_TYPE[sweeper.parameter]
+            self.register = self.get_gen_reg(gen_ch, sweep_type)
 
-        # find page of sweeper pulse channel
-        self.sweeper_page = self.ch_page(gen_ch)
+            new_sweep = QickSweep(
+                self,
+                self.register,
+                sweeper.starts[idx],
+                sweeper.starts[idx] + sweeper.expts * sweeper.steps[idx],
+                sweeper.expts,
+            )
+            sweep_list.append(new_sweep)
 
-        # define start and step values
-        start = self.sweeper.starts[0]
-        step = self.sweeper.steps[0]
-
-        # find register of sweeped parameter and assign start and step
-        if self.sweeper.parameter == Parameter.frequency:
-            self.sweeper_reg = self.sreg(gen_ch, "freq")
-            self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
-            self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
-
-        elif self.sweeper.parameter == Parameter.amplitude:
-            self.sweeper_reg = self.sreg(gen_ch, "gain")
-            self.cfg["start"] = int(start * self.max_gain)
-            self.cfg["step"] = int(step * self.max_gain)
-
-            if self.cfg["start"] + self.cfg["step"] * self.cfg["expts"] > self.max_gain:
-                raise ValueError("Amplitude higher than maximum!")
+        self.add_sweep(merge_sweeps(sweep_list))
 
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
 
-        self.add_sweep_info()
+        for sweeper in self.sweepers:
+            self.add_sweep_info(sweeper)
+
         self.declare_nqz_zones(self.sequence.qd_pulses)
         if self.is_mux:
             self.declare_gen_mux_ro()
@@ -559,6 +552,9 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         """
         return self.sweeper.pulses[0] == pulse
 
-    def update(self):
-        """Update function for sweeper"""
-        self.mathi(self.sweeper_page, self.sweeper_reg, self.sweeper_reg, "+", self.cfg["step"])
+
+SWEEPERS_TYPE = {
+    Parameter.frequency: "freq",
+    Parameter.amplitude: "gain",
+    Parameter.relative_phase: "phase",
+}
