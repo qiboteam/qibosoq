@@ -19,6 +19,8 @@ logger = logging.getLogger("__name__")
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
+MUX_SAMPLING_FREQ = 1_536_000_000  # TODO
+
 
 class GeneralQickProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
@@ -48,11 +50,19 @@ class GeneralQickProgram(ABC, QickProgram):
         self.lo_frequency = qpcfg.LO_freq
         self.reps = qpcfg.reps
 
+        # mux settings
+        self.mux_sampling_frequency = MUX_SAMPLING_FREQ  # TODO qpcfg.mux_sampling_frequency
+        self.is_mux = self.mux_sampling_frequency is not None
+        self.readouts_per_experiment = None  # TODO this should be defined for acquire
+
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
+
+        if self.is_mux:
+            self.multi_ro_pulses = self.create_mux_ro_dict()
 
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
@@ -188,6 +198,8 @@ class GeneralQickProgram(ABC, QickProgram):
         not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
 
+        muxed_ro_executed_time = []
+
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * NS_TO_US)
@@ -197,19 +209,31 @@ class GeneralQickProgram(ABC, QickProgram):
             ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-            if not self.pulses_registered:
-                self.add_pulse_to_register(pulse)
-
             if pulse.type is PulseType.DRIVE:
+                if not self.pulses_registered:
+                    self.add_pulse_to_register(pulse)
                 self.pulse(ch=gen_ch, t=time)
             elif pulse.type is PulseType.READOUT:
+                if self.is_mux:
+                    if pulse.start not in muxed_ro_executed_time:
+                        self.add_muxed_readout_to_register(self.multi_ro_pulses[pulse.start])
+                        muxed_ro_executed_time.append(pulse.start)
+                        adcs = [
+                            self.qubits[ro_pulse.qubit].feedback.ports[0][1]
+                            for ro_pulse in self.multi_ro_pulses[pulse.start]
+                        ]
+                else:
+                    if not self.pulses_registered:
+                        self.add_pulse_to_register(pulse)
+                    adcs = [adc_ch]
+
                 self.measure(
                     pulse_ch=gen_ch,
-                    adcs=[adc_ch],
+                    adcs=adcs,
                     adc_trig_offset=time + self.adc_trig_offset,
                     t=time,
-                    wait=False,
-                    syncdelay=self.syncdelay,
+                    wait=False,  # TODO maybe true for mux
+                    syncdelay=self.syncdelay,  # maybe != 0 for mux
                 )
         self.wait_all()
         self.sync_all(self.relax_delay)
@@ -235,6 +259,8 @@ class GeneralQickProgram(ABC, QickProgram):
         # pylint: disable=unexpected-keyword-arg, arguments-renamed
         if readouts_per_experiment == 0:
             readouts_per_experiment = 1
+        if self.readouts_per_experiment:
+            readouts_per_experiment = self.readouts_per_experiment
         res = super().acquire(
             soc,
             readouts_per_experiment=readouts_per_experiment,
@@ -277,6 +303,63 @@ class GeneralQickProgram(ABC, QickProgram):
             tot_i.append(i_val)
             tot_q.append(q_val)
         return tot_i, tot_q
+
+    def declare_gen_mux_ro(self):
+        """Declare nqz zone for multiplexed readout"""
+
+        adc_ch_added = []
+
+        mux_freqs = []
+        mux_gains = []
+
+        for pulse in self.sequence.ro_pulses:
+            adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
+            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+
+            if adc_ch not in adc_ch_added:
+                adc_ch_added.append(adc_ch)
+                freq = (pulse.frequency - self.lo_frequency) * HZ_TO_MHZ
+                zone = 1 if freq < self.mux_sampling_frequency / 2 else 2
+                mux_freqs.append(freq)
+                mux_gains.append(pulse.amplitude)
+        self.declare_gen(
+            ch=ro_ch,
+            nqz=zone,
+            mixer_freq=0,  # TODO is this value completly useless?
+            mux_freqs=mux_freqs,
+            mux_gains=mux_gains,
+            ro_ch=adc_ch_added[0],
+        )
+
+    def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
+        """Register multiplexed pulse before firing it"""
+
+        mask = [0, 1, 2]  # TODO remove hardcode
+
+        pulse = ro_pulses[0]
+        gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+        length = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
+
+        if not isinstance(pulse.shape, Rectangular):
+            raise TypeError("Only rectangular pulses can be multiplexed")
+
+        self.set_pulse_registers(ch=gen_ch, style="const", length=length, mask=mask)
+
+    def create_mux_ro_dict(self) -> dict:
+        """Creates a dictionary containing grouped readout pulses
+
+        Example of dictionary:
+        { 'start_time_0': [pulse1, pulse2],
+          'start_time_1': [pulse3]}
+        """
+
+        mux_dict = {}
+        for pulse in self.sequence.ro_pulses:
+            if pulse.start not in mux_dict:
+                mux_dict[pulse.start] = []
+            mux_dict[pulse.start].append(pulse)
+        self.readouts_per_experiment = len(mux_dict)
+        return mux_dict
 
     @abstractmethod
     def initialize(self):
@@ -391,7 +474,11 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
     def initialize(self):
         """Function called by AveragerProgram.__init__"""
 
-        self.declare_nqz_zones(self.sequence)
+        self.declare_nqz_zones(self.sequence.qd_pulses)
+        if self.is_mux:
+            self.declare_gen_mux_ro()
+        else:
+            self.declare_nqz_zones(self.sequence.ro_pulses)
         self.declare_readout_freq()
         self.sync_all(self.wait_initialize)
 
@@ -449,7 +536,11 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         """Function called by RAveragerProgram.__init__"""
 
         self.add_sweep_info()
-        self.declare_nqz_zones(self.sequence)
+        self.declare_nqz_zones(self.sequence.qd_pulses)
+        if self.is_mux:
+            self.declare_gen_mux_ro()
+        else:
+            self.declare_nqz_zones(self.sequence.ro_pulses)
         self.declare_readout_freq()
 
         self.pulses_registered = True
