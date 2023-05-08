@@ -290,23 +290,27 @@ class GeneralQickProgram(ABC, QickProgram):
 
 
 class FluxProgram(GeneralQickProgram):
-    def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
-        self.max_flux_gain = 32000  # TODO this should not be hardcoded
+    """Abstract class for flux-tunable qubits programs"""
 
-        super().__init__(soc, qpcfg, sequence, qubits)
+    def set_bias(self, mode: str = "sweetspot"):
+        """Set qubits flux lines to a bias level
 
-    def set_bias(self, mode="sweetspot"):
+        Note that this fuction acts only on the qubits used in self.sequence.
+        Args:
+            mode (str): can be 'sweetspot' or 'zero'
+        """
+
         duration = 48  # minimum len
-        self.sync_all()
 
         for idx in self.qubits:
             qubit = self.qubits[idx]
             if qubit.flux and idx in self.sequence.qubits:
                 ch = qubit.flux.ports[0][1]
+
                 if qubit.flux.bias == 0:
-                    continue
+                    continue  # if bias is zero, just skip the qubit
                 if mode == "sweetspot":
-                    value = int(qubit.flux.bias * self.max_flux_gain)
+                    value = int(qubit.flux.bias * self.max_gain)
                 elif mode == "zero":
                     value = 0
                 else:
@@ -328,32 +332,36 @@ class FluxProgram(GeneralQickProgram):
                     gain=self.max_gain,
                 )
                 self.pulse(ch=ch)
-        self.sync_all(50)
+        self.sync_all(50)  # wait all pulses are fired + 50 clks
 
-    def flux_pulse(self, pulse, time):
-        raise NotImplementedError("This method is not complete and should not be used")
+    def flux_pulse(self, pulse: Pulse, time: int):
+        """Fires a fast flux pulse the starts and ends in sweetspot"""
+
+        logger.warning("The flux_pulse method has not been tested properly")
 
         qubit = self.qubits[pulse.qubit]
         gen_ch = qubit.flux.ports[0][1]
-        sweetspot = qubit.flux.bias  # TODO convert units
+        sweetspot = int(qubit.flux.bias * self.max_gain)
 
         duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
-        duration *= samples_per_clk
+        duration *= samples_per_clk  # the duration here is expressed in samples
 
         padding = samples_per_clk
-        while True:
+        while True:  # compute padding length
             tot_len = padding + duration
             if tot_len % samples_per_clk == 0 and tot_len > 48:
                 break
             else:
                 padding += 1
 
-        amp = int(pulse.amplitude * self.max_flux_gain) + sweetspot
+        amp = int(pulse.amplitude * self.max_gain) + sweetspot
 
         i = np.full(duration, amp)
         i = np.append(i, np.full(padding, sweetspot))
         q = np.zeros(len(i))
+
+        logger.debug("Flux pulse at ch %d, amp %d, len %d, padding %d", idx, amp, len(i), padding)
 
         self.add_pulse(gen_ch, pulse.serial, i, q)
         self.set_pulse_registers(
@@ -364,16 +372,17 @@ class FluxProgram(GeneralQickProgram):
             stdysel="last",
             freq=0,
             phase=0,
-            gain=self.max_flux_gain,
+            gain=self.max_gain,
         )
         self.pulse(ch=gen_ch, t=time)
 
     def body(self):
+        """Body program with flux biases set"""
+
         self.set_bias("sweetspot")
         super().body()
         self.set_bias("zero")
-        self.soc.reset_gens()
-        self.sync_all(self.relax_delay)  # TODO in this way the delay is doubled
+        self.soc.reset_gens()  # here for security reasons, should not be needed
 
 
 class ExecutePulseSequence(FluxProgram, AveragerProgram):
