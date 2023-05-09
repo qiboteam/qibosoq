@@ -125,7 +125,7 @@ class GeneralQickProgram(ABC, QickProgram):
         gain_set = False
         if is_sweeped:
             if self.sweeper.parameter == Parameter.amplitude:
-                gain = self.cfg["start"]
+                gain = self.get_start_sweep(pulse)
                 gain_set = True
         if not gain_set:
             gain = int(pulse.amplitude * self.max_gain)
@@ -146,7 +146,7 @@ class GeneralQickProgram(ABC, QickProgram):
             freq_set = False
             if is_sweeped:
                 if self.sweeper.parameter == Parameter.frequency:
-                    freq = self.cfg["start"]
+                    freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
                 freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
@@ -372,6 +372,10 @@ class GeneralQickProgram(ABC, QickProgram):
         """Given a pulse, returns if it is sweeped"""
         raise NotImplementedError
 
+    @abstractmethod
+    def get_start_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
+        raise NotImplementedError
+
 
 class FluxProgram(GeneralQickProgram):
     """Abstract class for flux-tunable qubits programs"""
@@ -512,6 +516,15 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
             sweep_type = SWEEPERS_TYPE[sweeper.parameter]
             self.register = self.get_gen_reg(gen_ch, sweep_type)
 
+            # TODO check conversion coefficients
+            if sweeper.parameter is Parameter.frequency:
+                starts = sweeper.starts * HZ_TO_MHZ
+                steps = sweeper.steps * HZ_TO_MHZ
+            elif sweeper.parameter is Parameter.amplitude:
+                starts = int(sweeper.starts * self.max_gain)
+                steps = int(sweeper.steps * self.max_gain)
+            else:
+                raise NotImplementedError("Sweep type conversion not implemented")
             new_sweep = QickSweep(
                 self,
                 self.register,
@@ -550,7 +563,19 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         Returns:
             (bool): True if the pulse is sweeped
         """
-        return self.sweeper.pulses[0] == pulse
+        for sweep in self.sweepers:
+            # this is valid only for pulse sweeps, not bias
+            for idx, pulse in enumerate(sweep.pulses):
+                if pulse == sweeped_pulse:
+                    return True
+        return False
+
+    def get_start_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
+        for sweep in self.sweepers:
+            # this is valid only for pulse sweeps, not bias
+            for idx, pulse in enumerate(sweep.pulses):
+                if pulse == sweeped_pulse:
+                    return sweep.starts[idx]
 
 
 SWEEPERS_TYPE = {
