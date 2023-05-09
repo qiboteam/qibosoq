@@ -8,8 +8,8 @@ import sys
 from qibosoq.rfsoc_server import serve
 
 
-def define_logger():
-    """Define logger format and handler"""
+def define_main_logger():
+    """Define main logger format and handler"""
 
     new_logger = logging.getLogger("__name__")
     new_logger.setLevel(logging.DEBUG)
@@ -27,7 +27,24 @@ def define_logger():
     return new_logger
 
 
-logger = define_logger()
+def define_program_logger():
+    """Define qick logger format and handler"""
+
+    new_logger = logging.getLogger("qick_program")
+    new_logger.setLevel(logging.DEBUG)
+
+    filename = "/home/xilinx/logs/program.log"
+    formatter = logging.Formatter("%(levelname)s :: %(asctime)s\n%(message)s", "%Y-%m-%d %H:%M:%S")
+
+    handler = logging.handlers.RotatingFileHandler(filename, mode="w", backupCount=3)
+    handler.setFormatter(formatter)
+
+    new_logger.addHandler(handler)
+    return new_logger
+
+
+logger = define_main_logger()
+program_logger = define_program_logger()
 
 HOST = "192.168.0.72"  # Server address
 PORT = 6000  # Port to listen on

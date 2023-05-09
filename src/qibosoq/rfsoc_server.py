@@ -15,6 +15,7 @@ from qick import QickSoc
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
 logger = logging.getLogger("__name__")
+qick_logger = logging.getLogger("qick_program")
 
 
 class ConnectionHandler(BaseRequestHandler):
@@ -47,6 +48,10 @@ class ConnectionHandler(BaseRequestHandler):
             program = ExecuteSingleSweep(global_soc, data["cfg"], data["sequence"], data["qubits"], data["sweeper"])
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
+
+        qick_logger.handlers[0].doRollover()
+        qick_logger.info(program.asm())
+        logger.info("Program logged!")
 
         toti, totq = program.acquire(
             global_soc,
