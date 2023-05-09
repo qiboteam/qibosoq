@@ -184,6 +184,10 @@ class GeneralQickProgram(ABC, QickProgram):
         not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
 
+        last_pulse_registered = {}
+        for idx in self.gen_chs:
+            last_pulse_registered[str(idx)] = None
+
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * NS_TO_US)
@@ -194,7 +198,9 @@ class GeneralQickProgram(ABC, QickProgram):
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
             if not self.pulses_registered:
-                self.add_pulse_to_register(pulse)
+                if not self.is_pulse_equal(last_pulse_registered[gen_ch], pulse):
+                    self.add_pulse_to_register(pulse)
+                    last_pulse_registered[gen_ch] = pulse
 
             if pulse.type is PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -209,6 +215,17 @@ class GeneralQickProgram(ABC, QickProgram):
                 )
         self.wait_all()
         self.sync_all(self.relax_delay)
+
+    def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
+        """Check if two pulses are equal, does not check the start time"""
+        return (
+            pulse_a.frequency == pulse_b.frequency
+            and pulse_a.amplitude == pulse_b.amplitude
+            and pulse_a.shape == pulse_b.shape
+            and pulse_a.relative_phase == pulse_b.relative_phase
+            and pulse_a.duration == pulse_b.duration
+            and pulse_a.type == pulse_b.type
+        )
 
     def acquire(
         self,
