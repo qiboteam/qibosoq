@@ -45,7 +45,6 @@ class GeneralQickProgram(ABC, QickProgram):
         self.max_gain = qpcfg.max_gain
         self.adc_trig_offset = qpcfg.adc_trig_offset
         self.max_sampling_rate = qpcfg.sampling_rate
-        self.lo_frequency = qpcfg.LO_freq
         self.reps = qpcfg.reps
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
@@ -63,20 +62,25 @@ class GeneralQickProgram(ABC, QickProgram):
         Args:
             sequence (PulseSequence): sequence of pulses to consider
         """
+        # TODO some code repeated
 
         ch_already_declared = []
         for pulse in sequence:
             freq = pulse.frequency
             if pulse.type is PulseType.DRIVE:
                 gen_ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-                freq = freq - self.lo_frequency
+                local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+            freq = freq - lo_freq
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
                 zone = 1 if freq < self.max_sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
+                logger.debug(f"Zone {zone} declared for ch {gen_ch}, maxgain {self.max_gain}, amp {pulse.amplitude}")
 
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies"""
@@ -89,7 +93,9 @@ class GeneralQickProgram(ABC, QickProgram):
                 adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
-                freq = (readout_pulse.frequency - self.lo_frequency) * HZ_TO_MHZ
+                local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+                freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
@@ -138,9 +144,13 @@ class GeneralQickProgram(ABC, QickProgram):
                     freq = self.cfg["start"]
                     freq_set = True
             if not freq_set:
-                freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
+                local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+                freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
-            freq = pulse.frequency - self.lo_frequency
+            local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+            freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
             raise NotImplementedError(f"Pulse type {pulse.type} not supported!")
@@ -428,7 +438,9 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         self.sweeper_page = self.ch_page(gen_ch)
 
         # define start and step values
-        start = self.sweeper.starts[0]
+        local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+        lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+        start = self.sweeper.starts[0] - lo_freq
         step = self.sweeper.steps[0]
 
         # find register of sweeped parameter and assign start and step
