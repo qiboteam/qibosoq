@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 from qibolab.instruments.rfsoc import QickProgramConfig
@@ -53,7 +53,7 @@ class GeneralQickProgram(ABC, QickProgram):
 
         # mux settings
         self.mux_sampling_frequency = MUX_SAMPLING_FREQ  # TODO qpcfg.mux_sampling_frequency
-        self.is_mux = self.mux_sampling_frequency is not None
+        self.is_mux = True  # TODO self.mux_sampling_frequency is not None
         self.readouts_per_experiment = None  # TODO this should be defined for acquire
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration * NS_TO_US)
@@ -124,7 +124,7 @@ class GeneralQickProgram(ABC, QickProgram):
         # assign gain parameter
         gain_set = False
         if is_sweeped:
-            if self.sweeper.parameter == Parameter.amplitude:
+            if self.get_type_sweep == Parameter.amplitude:
                 gain = self.get_start_sweep(pulse)
                 gain_set = True
         if not gain_set:
@@ -145,7 +145,7 @@ class GeneralQickProgram(ABC, QickProgram):
         if pulse.type is PulseType.DRIVE:
             freq_set = False
             if is_sweeped:
-                if self.sweeper.parameter == Parameter.frequency:
+                if self.get_type_sweep == Parameter.frequency:
                     freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
@@ -223,6 +223,8 @@ class GeneralQickProgram(ABC, QickProgram):
                             self.qubits[ro_pulse.qubit].feedback.ports[0][1]
                             for ro_pulse in self.multi_ro_pulses[pulse.start]
                         ]
+                    else:
+                        continue
                 else:
                     if not self.pulses_registered:
                         self.add_pulse_to_register(pulse)
@@ -518,11 +520,11 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
             # TODO check conversion coefficients
             if sweeper.parameter is Parameter.frequency:
-                starts = sweeper.starts * HZ_TO_MHZ
-                steps = sweeper.steps * HZ_TO_MHZ
+                starts = np.array(sweeper.starts) * HZ_TO_MHZ  # TODO move them to array by default
+                steps = np.array(sweeper.steps) * HZ_TO_MHZ
             elif sweeper.parameter is Parameter.amplitude:
-                starts = int(sweeper.starts * self.max_gain)
-                steps = int(sweeper.steps * self.max_gain)
+                starts = int(np.array(sweeper.starts) * self.max_gain)
+                steps = int(np.array(sweeper.steps) * self.max_gain)
             else:
                 raise NotImplementedError("Sweep type conversion not implemented")
             new_sweep = QickSweep(
@@ -547,7 +549,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         self.declare_readout_freq()
 
         self.pulses_registered = True
-        for pulse in self.sequence:
+        for pulse in self.sequence.qd_pulses:
             self.add_pulse_to_register(pulse)
 
         for sweeper in self.sweepers:
@@ -555,7 +557,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
         self.sync_all(self.wait_initialize)
 
-    def is_pulse_sweeped(self, pulse: Pulse) -> bool:
+    def is_pulse_sweeped(self, sweeped_pulse: Pulse) -> bool:
         """Check if a pulse is sweeped
 
         Args:
@@ -569,6 +571,13 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
                 if pulse == sweeped_pulse:
                     return True
         return False
+
+    def get_type_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
+        for sweep in self.sweepers:
+            # this is valid only for pulse sweeps, not bias
+            for idx, pulse in enumerate(sweep.pulses):
+                if pulse == sweeped_pulse:
+                    return sweep.parameter
 
     def get_start_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
         for sweep in self.sweepers:
