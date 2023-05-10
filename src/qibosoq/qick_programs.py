@@ -312,6 +312,9 @@ class FluxProgram(GeneralQickProgram):
                 if mode == "sweetspot":
                     value = int(qubit.flux.bias * self.max_gain)
                 elif mode == "zero":
+                    if self.is_qubit_bias_sweeped:
+                        self.non_sweeper_reg.set_to(0)
+                    # TODO if sweeped set register to zero bias reg
                     value = 0
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
@@ -332,6 +335,8 @@ class FluxProgram(GeneralQickProgram):
                     gain=self.max_gain,
                 )
                 self.pulse(ch=ch)
+                if self.is_qubit_bias_sweeped and mode == "zero":
+                    self.non_sweeper_reg.set_to(self.sweeper_reg)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
     def flux_pulse(self, pulse: Pulse, time: int):
@@ -419,31 +424,52 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
     def add_sweep_info(self):
         """Find the page and register of the sweeped values, sets start and step"""
 
-        pulse = self.sweeper.pulses[0]
-        qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-        ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-        gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
+        is_freq = self.sweeper.parameter is Parameter.frequency
+        is_amp = self.sweeper.parameter is Parameter.amplitude
+        is_bias = self.sweeper.parameter is Parameter.bias
 
-        # find page of sweeper pulse channel
-        self.sweeper_page = self.ch_page(gen_ch)
+        if is_amp or is_freq:
+            pulse = self.sweeper.pulses[0]
+            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
+            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-        # define start and step values
-        start = self.sweeper.starts[0]
-        step = self.sweeper.steps[0]
+            # find page of sweeper pulse channel
+            self.sweeper_page = self.ch_page(gen_ch)
 
-        # find register of sweeped parameter and assign start and step
-        if self.sweeper.parameter == Parameter.frequency:
-            self.sweeper_reg = self.sreg(gen_ch, "freq")
-            self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
-            self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
+            # define start and step values
+            start = self.sweeper.starts[0]
+            step = self.sweeper.steps[0]
 
-        elif self.sweeper.parameter == Parameter.amplitude:
-            self.sweeper_reg = self.sreg(gen_ch, "gain")
+            # find register of sweeped parameter and assign start and step
+            if is_freq:
+                self.sweeper_reg = self.sreg(gen_ch, "freq")
+                self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
+                self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
+
+            elif is_amp:
+                self.sweeper_reg = self.sreg(gen_ch, "gain")
+                self.cfg["start"] = int(start * self.max_gain)
+                self.cfg["step"] = int(step * self.max_gain)
+
+                if self.cfg["start"] + self.cfg["step"] * self.cfg["expts"] > self.max_gain:
+                    # TODO remove qibolab redundancy
+                    raise ValueError("Amplitude higher than maximum!")
+
+        elif is_bias:
+            start = self.sweeper.starts[0]  # TODO remove repetition
+            step = self.sweeper.steps[0]
             self.cfg["start"] = int(start * self.max_gain)
             self.cfg["step"] = int(step * self.max_gain)
 
-            if self.cfg["start"] + self.cfg["step"] * self.cfg["expts"] > self.max_gain:
-                raise ValueError("Amplitude higher than maximum!")
+            qubit = self.sweeper.qubits[0]
+            flux_ch = self.qubits[qubit].flux.ports[0][1]
+
+            # find page of sweeper pulse channel
+            self.sweeper_page = self.ch_page(flux_ch)
+
+            self.non_sweeper_reg = self.get_gen_reg(flux_ch, "gain")
+            self.sweeper_reg = self.new_gen_reg(flux_ch, init_val=self.cfg["start"], name="sweep_bias")
 
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
@@ -456,6 +482,8 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         for pulse in self.sequence:
             self.add_pulse_to_register(pulse)
 
+        if self.sweeper.parameter is Parameter.bias:
+            self.non_sweeper_reg.set_to(self.sweeper_reg)
         self.sync_all(self.wait_initialize)
 
     def is_pulse_sweeped(self, pulse: Pulse) -> bool:
