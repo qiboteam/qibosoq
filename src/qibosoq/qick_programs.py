@@ -10,7 +10,14 @@ from qibolab.instruments.rfsoc import QickProgramConfig
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
-from qick import AveragerProgram, QickProgram, QickSoc, RAveragerProgram
+from qick import (
+    AveragerProgram,
+    NDAveragerProgram,
+    QickProgram,
+    QickSoc,
+    RAveragerProgram,
+)
+from qick.qick_asm import QickRegisterManagerMixin
 
 logger = logging.getLogger("__name__")
 
@@ -302,6 +309,13 @@ class GeneralQickProgram(ABC, QickProgram):
 class FluxProgram(GeneralQickProgram):
     """Abstract class for flux-tunable qubits programs"""
 
+    def declare_bias_nqz(self):
+        for idx in self.qubits:
+            qubit = self.qubits[idx]
+            if qubit.flux and idx in self.sequence.qubits:
+                gen_ch = qubit.flux.ports[0][1]
+                self.declare_gen(gen_ch, nqz=1)
+
     def set_bias(self, mode: str = "sweetspot"):
         """Set qubits flux lines to a bias level
 
@@ -322,7 +336,7 @@ class FluxProgram(GeneralQickProgram):
                 if mode == "sweetspot":
                     value = int(qubit.flux.bias * self.max_gain)
                 elif mode == "zero":
-                    if self.is_qubit_bias_sweeped:
+                    if self.is_qubit_bias_sweeped(idx):
                         self.non_sweeper_reg.set_to(0)
                     # TODO if sweeped set register to zero bias reg
                     value = 0
@@ -345,7 +359,7 @@ class FluxProgram(GeneralQickProgram):
                     gain=self.max_gain,
                 )
                 self.pulse(ch=ch)
-                if self.is_qubit_bias_sweeped and mode == "zero":
+                if self.is_qubit_bias_sweeped(idx) and mode == "zero":
                     self.non_sweeper_reg.set_to(self.sweeper_reg)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
@@ -415,7 +429,7 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         return False
 
 
-class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
+class ExecuteSingleSweep(QickRegisterManagerMixin, FluxProgram, RAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
 
     def __init__(
@@ -476,7 +490,7 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
             self.cfg["start"] = int(start * self.max_gain)
             self.cfg["step"] = int(step * self.max_gain)
 
-            qubit = self.sweeper.qubits[0]
+            qubit = self.sweeper.indexes[0]
             flux_ch = self.qubits[qubit].flux.ports[0][1]
 
             # find page of sweeper pulse channel
@@ -488,9 +502,11 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
 
-        self.add_sweep_info()
         self.declare_nqz_zones(self.sequence)
+        self.declare_bias_nqz()
         self.declare_readout_freq()
+
+        self.add_sweep_info()
 
         self.pulses_registered = True
         for pulse in self.sequence:
@@ -508,7 +524,13 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         Returns:
             (bool): True if the pulse is sweeped
         """
+        if self.sweeper.parameter is Parameter.bias:
+            return False
         return self.sweeper.pulses[0] == pulse
+
+    def is_qubit_bias_sweeped(self, idx: int) -> bool:
+        """Check if a qubit bias is sweeped"""
+        return self.sweeper.indexes[0] == idx
 
     def update(self):
         """Update function for sweeper"""
