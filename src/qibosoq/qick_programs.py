@@ -48,7 +48,6 @@ class GeneralQickProgram(ABC, QickProgram):
         self.max_gain = qpcfg.max_gain
         self.adc_trig_offset = qpcfg.adc_trig_offset
         self.max_sampling_rate = qpcfg.sampling_rate
-        self.lo_frequency = qpcfg.LO_freq
         self.reps = qpcfg.reps
 
         # mux settings
@@ -74,15 +73,19 @@ class GeneralQickProgram(ABC, QickProgram):
         Args:
             sequence (PulseSequence): sequence of pulses to consider
         """
+        # TODO some code repeated
 
         ch_already_declared = []
         for pulse in sequence:
             freq = pulse.frequency
             if pulse.type is PulseType.DRIVE:
                 gen_ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-                freq = freq - self.lo_frequency
+                local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator
+            freq = freq - lo_freq
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
@@ -100,7 +103,9 @@ class GeneralQickProgram(ABC, QickProgram):
                 adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
-                freq = (readout_pulse.frequency - self.lo_frequency) * HZ_TO_MHZ
+                local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator
+                freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
@@ -149,9 +154,13 @@ class GeneralQickProgram(ABC, QickProgram):
                     freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
-                freq = self.soc.freq2reg(pulse.frequency * HZ_TO_MHZ, gen_ch=gen_ch)
+                local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator
+                freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
-            freq = pulse.frequency - self.lo_frequency
+            local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator
+            freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
             raise NotImplementedError(f"Pulse type {pulse.type} not supported!")
@@ -407,8 +416,6 @@ class FluxProgram(GeneralQickProgram):
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
 
-                logger.debug("Setting bias value of %d at %f", idx, value)
-
                 i_wf = np.full(duration, value)
                 q_wf = np.zeros(len(i_wf))
                 self.add_pulse(flux_ch, f"const_{value}_{flux_ch}", i_wf, q_wf)
@@ -427,8 +434,6 @@ class FluxProgram(GeneralQickProgram):
 
     def flux_pulse(self, pulse: Pulse, time: int):
         """Fires a fast flux pulse the starts and ends in sweetspot"""
-
-        logger.warning("The flux_pulse method has not been tested properly")
 
         qubit = self.qubits[pulse.qubit]
         gen_ch = qubit.flux.ports[0][1]
@@ -450,8 +455,6 @@ class FluxProgram(GeneralQickProgram):
         i_vals = np.full(duration, amp)
         i_vals = np.append(i_vals, np.full(padding, sweetspot))
         q_vals = np.zeros(len(i_vals))
-
-        logger.debug("Flux pulse at ch %d, amp %d, len %d, padding %d", gen_ch, amp, len(i_vals), padding)
 
         self.add_pulse(gen_ch, pulse.serial, i_vals, q_vals)
         self.set_pulse_registers(
@@ -511,6 +514,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         # qpcfg.expts = sweeper.expts  TODO remove
 
         super().__init__(soc, qpcfg, sequence, qubits)
+        self.cfg["expts"] = sweeper.expts
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register QickSweep objects
