@@ -416,8 +416,8 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         self.sweeper_reg = None
         self.sweeper_page = None
 
+        qpcfg.expts = sweeper.expts
         super().__init__(soc, qpcfg, sequence, qubits)
-        self.cfg["expts"] = sweeper.expts
 
     def add_sweep_info(self):
         """Find the page and register of the sweeped values, sets start and step"""
