@@ -73,14 +73,13 @@ class GeneralQickProgram(ABC, QickProgram):
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
                 local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+            lo_freq = 0 if local_oscillator is None else local_oscillator
             freq = freq - lo_freq
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
                 zone = 1 if freq < self.max_sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
-                logger.debug(f"Zone {zone} declared for ch {gen_ch}, maxgain {self.max_gain}, amp {pulse.amplitude}")
 
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies"""
@@ -94,7 +93,7 @@ class GeneralQickProgram(ABC, QickProgram):
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
                 local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
-                lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+                lo_freq = 0 if local_oscillator is None else local_oscillator
                 freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
@@ -145,11 +144,11 @@ class GeneralQickProgram(ABC, QickProgram):
                     freq_set = True
             if not freq_set:
                 local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-                lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+                lo_freq = 0 if local_oscillator is None else local_oscillator
                 freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
             local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+            lo_freq = 0 if local_oscillator is None else local_oscillator
             freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
@@ -326,8 +325,6 @@ class FluxProgram(GeneralQickProgram):
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
 
-                logger.debug("Setting bias value of %d at %f", idx, value)
-
                 i_wf = np.full(duration, value)
                 q_wf = np.zeros(len(i_wf))
                 self.add_pulse(ch, f"const_{value}_{ch}", i_wf, q_wf)
@@ -346,8 +343,6 @@ class FluxProgram(GeneralQickProgram):
 
     def flux_pulse(self, pulse: Pulse, time: int):
         """Fires a fast flux pulse the starts and ends in sweetspot"""
-
-        logger.warning("The flux_pulse method has not been tested properly")
 
         qubit = self.qubits[pulse.qubit]
         gen_ch = qubit.flux.ports[0][1]
@@ -370,8 +365,6 @@ class FluxProgram(GeneralQickProgram):
         i = np.full(duration, amp)
         i = np.append(i, np.full(padding, sweetspot))
         q = np.zeros(len(i))
-
-        logger.debug("Flux pulse at ch %d, amp %d, len %d, padding %d", gen_ch, amp, len(i), padding)
 
         self.add_pulse(gen_ch, pulse.serial, i, q)
         self.set_pulse_registers(
@@ -422,9 +415,9 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
         self.sweeper = sweeper
         self.sweeper_reg = None
         self.sweeper_page = None
-        qpcfg.expts = sweeper.expts
 
         super().__init__(soc, qpcfg, sequence, qubits)
+        self.cfg["expts"] = sweeper.expts
 
     def add_sweep_info(self):
         """Find the page and register of the sweeped values, sets start and step"""
@@ -439,7 +432,7 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
 
         # define start and step values
         local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-        lo_freq = 0 if local_oscillator is None else local_oscillator.frequency
+        lo_freq = 0 if local_oscillator is None else local_oscillator
         start = self.sweeper.starts[0] - lo_freq
         step = self.sweeper.steps[0]
 
