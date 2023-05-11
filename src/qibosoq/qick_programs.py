@@ -326,12 +326,16 @@ class GeneralQickProgram(ABC, QickProgram):
 
         for pulse in self.sequence.ro_pulses:
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+            ro_ch = self.qubits[pulse.qubit].readout
+
+            lo_freq = 0 if ro_ch.local_oscillator is None else ro_ch.local_oscillator
+            ro_ch = ro_ch.ports[0][1]
 
             if adc_ch not in adc_ch_added:
                 adc_ch_added.append(adc_ch)
-                freq = (pulse.frequency - self.lo_frequency) * HZ_TO_MHZ
+                freq = pulse.frequency - lo_freq
                 zone = 1 if freq < self.mux_sampling_frequency / 2 else 2
+                freq = freq * HZ_TO_MHZ
                 mux_freqs.append(freq)
                 mux_gains.append(pulse.amplitude)
         self.declare_gen(
