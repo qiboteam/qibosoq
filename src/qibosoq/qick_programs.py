@@ -1,5 +1,6 @@
 """ QickPrograms used by qibosoq to execute sequences and sweeps """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from typing import List, Tuple
@@ -14,6 +15,8 @@ from qick import AveragerProgram, QickProgram, QickSoc, RAveragerProgram
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
+
+logger = logging.getLogger("__name__")
 
 
 class GeneralQickProgram(ABC, QickProgram):
@@ -218,16 +221,16 @@ class GeneralQickProgram(ABC, QickProgram):
 
     def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
         """Check if two pulses are equal, does not check the start time"""
-        if pulse_a is None:
+        if pulse_a is None or pulse_b is None:
             return False
         return (
             pulse_a.frequency == pulse_b.frequency
             and pulse_a.amplitude == pulse_b.amplitude
-            and pulse_a.shape == pulse_b.shape
             and pulse_a.relative_phase == pulse_b.relative_phase
             and pulse_a.duration == pulse_b.duration
             and pulse_a.type == pulse_b.type
         )
+        # and pulse_a.shape == pulse_b.shape
 
     def acquire(
         self,
