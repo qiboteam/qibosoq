@@ -186,7 +186,7 @@ class GeneralQickProgram(ABC, QickProgram):
 
         last_pulse_registered = {}
         for idx in self.gen_chs:
-            last_pulse_registered[str(idx)] = None
+            last_pulse_registered[idx] = None
 
         for pulse in self.sequence:
             # time follows tproc CLK
@@ -218,6 +218,8 @@ class GeneralQickProgram(ABC, QickProgram):
 
     def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
         """Check if two pulses are equal, does not check the start time"""
+        if pulse_a is None:
+            return False
         return (
             pulse_a.frequency == pulse_b.frequency
             and pulse_a.amplitude == pulse_b.amplitude

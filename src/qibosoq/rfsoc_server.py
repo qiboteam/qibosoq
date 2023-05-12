@@ -51,7 +51,6 @@ class ConnectionHandler(BaseRequestHandler):
 
         qick_logger.handlers[0].doRollover()
         qick_logger.info(program.asm())
-        logger.info("Program logged!")
 
         toti, totq = program.acquire(
             global_soc,
@@ -71,8 +70,6 @@ class ConnectionHandler(BaseRequestHandler):
         * Executes qick program
         * Return results
         """
-        # print a log message when receive a connection
-        logger.debug("Got connection from %s", self.client_address)
 
         # set the server in non-blocking mode
         self.server.socket.setblocking(False)
