@@ -26,6 +26,8 @@ logger = logging.getLogger("__name__")
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
+logger = logging.getLogger("__name__")
+
 
 class GeneralQickProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
@@ -170,7 +172,9 @@ class GeneralQickProgram(ABC, QickProgram):
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
 
             elif is_drag:
+                # delta will be divided for the same quantity, we are setting it = 1
                 delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+
                 self.add_DRAG(
                     ch=gen_ch,
                     name=name,
@@ -204,6 +208,10 @@ class GeneralQickProgram(ABC, QickProgram):
         not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
 
+        last_pulse_registered = {}
+        for idx in self.gen_chs:
+            last_pulse_registered[idx] = None
+
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * NS_TO_US)
@@ -214,7 +222,9 @@ class GeneralQickProgram(ABC, QickProgram):
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
             if not self.pulses_registered:
-                self.add_pulse_to_register(pulse)
+                if not self.is_pulse_equal(last_pulse_registered[gen_ch], pulse):
+                    self.add_pulse_to_register(pulse)
+                    last_pulse_registered[gen_ch] = pulse
 
             if pulse.type is PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -229,6 +239,19 @@ class GeneralQickProgram(ABC, QickProgram):
                 )
         self.wait_all()
         self.sync_all(self.relax_delay)
+
+    def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
+        """Check if two pulses are equal, does not check the start time"""
+        if pulse_a is None or pulse_b is None:
+            return False
+        return (
+            pulse_a.frequency == pulse_b.frequency
+            and pulse_a.amplitude == pulse_b.amplitude
+            and pulse_a.relative_phase == pulse_b.relative_phase
+            and pulse_a.duration == pulse_b.duration
+            and pulse_a.type == pulse_b.type
+        )
+        # and pulse_a.shape == pulse_b.shape
 
     def acquire(
         self,
@@ -248,18 +271,23 @@ class GeneralQickProgram(ABC, QickProgram):
             debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
-        # pylint: disable=unexpected-keyword-arg, arguments-renamed
-        if readouts_per_experiment == 0:
-            readouts_per_experiment = 1
+
+        # if there are no readouts, temporaray set 1 so that qick can execute properly
+        reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
+
+        # pylint: disable-next=unexpected-keyword-arg, arguments-renamed
         res = super().acquire(
             soc,
-            readouts_per_experiment=readouts_per_experiment,
+            readouts_per_experiment=reads_per_rep,
             load_pulses=load_pulses,
             progress=progress,
             debug=debug,
         )
+        # if there are no actual readouts, return empty lists
+        if readouts_per_experiment == 0:
+            return [], []
         if average:
-            # for sequences res has 3 parameters, the first is not used
+            # for sweeps res has 3 parameters, the first is not used
             return res[-2:]
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
