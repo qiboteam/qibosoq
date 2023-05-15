@@ -313,7 +313,7 @@ class FluxProgram(GeneralQickProgram):
 
         for idx in self.qubits:
             qubit = self.qubits[idx]
-            if qubit.flux and idx in self.sequence.qubits:
+            if qubit.flux:
                 ch = qubit.flux.ports[0][1]
 
                 if qubit.flux.bias == 0:
