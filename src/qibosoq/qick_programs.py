@@ -73,7 +73,7 @@ class GeneralQickProgram(ABC, QickProgram):
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
                 local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            lo_freq = 0 if local_oscillator is None else local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
             freq = freq - lo_freq
 
             if gen_ch not in ch_already_declared:
@@ -93,7 +93,7 @@ class GeneralQickProgram(ABC, QickProgram):
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
                 local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
-                lo_freq = 0 if local_oscillator is None else local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
@@ -144,11 +144,11 @@ class GeneralQickProgram(ABC, QickProgram):
                     freq_set = True
             if not freq_set:
                 local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-                lo_freq = 0 if local_oscillator is None else local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
             local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            lo_freq = 0 if local_oscillator is None else local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
             freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
@@ -432,7 +432,7 @@ class ExecuteSingleSweep(FluxProgram, RAveragerProgram):
 
         # define start and step values
         local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-        lo_freq = 0 if local_oscillator is None else local_oscillator
+        lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
         start = self.sweeper.starts[0] - lo_freq
         step = self.sweeper.steps[0]
 
