@@ -15,10 +15,7 @@ from qick import QickSoc
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
 logger = logging.getLogger("__name__")
-
-
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
+qick_logger = logging.getLogger("qick_program")
 
 
 class ConnectionHandler(BaseRequestHandler):
@@ -52,6 +49,9 @@ class ConnectionHandler(BaseRequestHandler):
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
+        qick_logger.handlers[0].doRollover()
+        qick_logger.info(program.asm())
+
         toti, totq = program.acquire(
             global_soc,
             data["readouts_per_experiment"],
@@ -70,8 +70,6 @@ class ConnectionHandler(BaseRequestHandler):
         * Executes qick program
         * Return results
         """
-        # print a log message when receive a connection
-        logger.debug("Got connection from %s", self.client_address)
 
         # set the server in non-blocking mode
         self.server.socket.setblocking(False)
@@ -79,12 +77,11 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = self.execute_program(data)
-        except Exception as exception:  # pylint: disable=bare-except
+        except Exception as exception:
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = exception
             global_soc.reset_gens()
-
         self.request.sendall(pickle.dumps(results))
 
 
@@ -94,3 +91,7 @@ def serve(host, port):
     with TCPServer((host, port), ConnectionHandler) as server:
         logger.info("Server listening, PID %d", os.getpid())
         server.serve_forever()
+
+
+# initialize QickSoc object (firmware and clocks)
+global_soc = QickSoc()
