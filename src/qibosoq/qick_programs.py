@@ -357,7 +357,7 @@ class FluxProgram(GeneralQickProgram):
                 self.pulse(ch=ch)
                 if self.is_qubit_bias_sweeped(idx) and mode == "zero":
                     self.non_sweeper_reg.set_to(self.sweeper_reg)
-        self.sync_all(50)  # wait all pulses are fired + 50 clks
+        self.sync_all(200)  # wait all pulses are fired + 200 clks
 
     def flux_pulse(self, pulse: Pulse, time: int):
         """Fires a fast flux pulse the starts and ends in sweetspot"""
@@ -420,6 +420,10 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         """ExecutePulseSequence does not have sweeps so always returns False"""
         return False
 
+    def is_qubit_bias_sweeped(self, idx: int) -> bool:
+        """Check if a qubit bias is sweeped"""
+        return False
+
 
 class ExecuteSingleSweep(QickRegisterManagerMixin, FluxProgram, RAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
@@ -463,12 +467,12 @@ class ExecuteSingleSweep(QickRegisterManagerMixin, FluxProgram, RAveragerProgram
                 lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 start = self.sweeper.starts[0] - lo_freq
 
-                self.sweeper_reg = self.sreg(gen_ch, "freq")
+                self.sweeper_reg = self.get_gen_reg(gen_ch, "freq")
                 self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
                 self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
 
             elif is_amp:
-                self.sweeper_reg = self.sreg(gen_ch, "gain")
+                self.sweeper_reg = self.get_gen_reg(gen_ch, "gain")
                 self.cfg["start"] = int(start * self.max_gain)
                 self.cfg["step"] = int(step * self.max_gain)
 
@@ -522,8 +526,12 @@ class ExecuteSingleSweep(QickRegisterManagerMixin, FluxProgram, RAveragerProgram
 
     def is_qubit_bias_sweeped(self, idx: int) -> bool:
         """Check if a qubit bias is sweeped"""
-        return self.sweeper.indexes[0] == idx
+        if self.sweeper.parameter is Parameter.bias:
+            return self.sweeper.indexes[0] == idx
+        else:
+            return False
 
     def update(self):
         """Update function for sweeper"""
-        self.mathi(self.sweeper_page, self.sweeper_reg, self.sweeper_reg, "+", self.cfg["step"])
+        self.sweeper_reg.set_to(self.sweeper_reg, "+", self.cfg["step"])
+        # self.mathi(self.sweeper_page, self.sweeper_reg, self.sweeper_reg, "+", self.cfg["step"])
