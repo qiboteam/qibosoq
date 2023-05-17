@@ -412,6 +412,8 @@ class FluxProgram(GeneralQickProgram):
                 if mode == "sweetspot":
                     value = int(qubit.flux.bias * self.max_gain)
                 elif mode == "zero":
+                    if flux_ch in self.bias_sweep_registers:
+                        self.bias_sweep_registers[flux_ch][1].set_to(0)  # TODO maybe not needed
                     value = 0
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
@@ -430,6 +432,9 @@ class FluxProgram(GeneralQickProgram):
                     gain=self.max_gain,
                 )
                 self.pulse(ch=flux_ch)
+                if flux_ch in self.bias_sweep_registers:
+                    swept_reg, non_swept_reg = self.bias_sweep_registers[bias_swept_ch]
+                    non_swept_reg.set_to(swept_reg)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
     def flux_pulse(self, pulse: Pulse, time: int):
@@ -515,6 +520,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
         super().__init__(soc, qpcfg, sequence, qubits)
         self.cfg["expts"] = sweeper.expts
+        self.bias_sweep_registers = {}  # TODO find better way, pylint will complain
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register QickSweep objects
@@ -522,6 +528,15 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         Args:
             sweeper (Sweeper): single qibolab sweeper object to register
         """
+
+        if sweeper.parameter is Parameter.frequency:
+            starts = np.array(sweeper.starts) * HZ_TO_MHZ  # TODO move them to array by default
+            steps = np.array(sweeper.steps) * HZ_TO_MHZ
+        elif sweeper.parameter is Parameter.amplitude or sweeper.parameter is Parameter.bias:
+            starts = int(np.array(sweeper.starts) * self.max_gain)
+            steps = int(np.array(sweeper.steps) * self.max_gain)
+        else:
+            raise NotImplementedError("Sweep type conversion not implemented")
 
         sweep_list = []
         for idx, pulse in enumerate(sweeper.pulses):
@@ -532,21 +547,19 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
             sweep_type = SWEEPERS_TYPE[sweeper.parameter]
             register = self.get_gen_reg(gen_ch, sweep_type)
 
-            # TODO check conversion coefficients
-            if sweeper.parameter is Parameter.frequency:
-                starts = np.array(sweeper.starts) * HZ_TO_MHZ  # TODO move them to array by default
-                steps = np.array(sweeper.steps) * HZ_TO_MHZ
-            elif sweeper.parameter is Parameter.amplitude:
-                starts = int(np.array(sweeper.starts) * self.max_gain)
-                steps = int(np.array(sweeper.steps) * self.max_gain)
-            else:
-                raise NotImplementedError("Sweep type conversion not implemented")
+            if sweeper.parameter is Parameter.bias:
+                new_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
+                register, new_register = new_register, register
+                self.bias_sweep_registers[gen_ch] = (register, new_register)
+                # register is not the default reg, but we will sweep with it
+                # new_register is the default and will be changed from zero to register value
+
             new_sweep = QickSweep(
                 self,
-                register,
-                starts[idx],
-                starts[idx] + sweeper.expts * steps[idx],
-                sweeper.expts,
+                register,  # sweeper_register
+                starts[idx],  # start
+                starts[idx] + sweeper.expts * steps[idx],  # stop
+                sweeper.expts,  # number of points
             )
             sweep_list.append(new_sweep)
 
@@ -568,6 +581,10 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
         for sweeper in self.sweepers:
             self.add_sweep_info(sweeper)
+
+        for bias_swept_ch in self.bias_sweep_registers:
+            swept_reg, non_swept_reg = self.bias_sweep_registers[bias_swept_ch]
+            non_swept_reg.set_to(swept_reg)
 
         self.sync_all(self.wait_initialize)
 
