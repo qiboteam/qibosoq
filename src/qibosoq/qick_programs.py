@@ -392,6 +392,10 @@ class GeneralQickProgram(ABC, QickProgram):
 class FluxProgram(GeneralQickProgram):
     """Abstract class for flux-tunable qubits programs"""
 
+    def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
+        self.bias_sweep_registers = {}
+        super().__init__(soc, qpcfg, sequence, qubits)
+
     def set_bias(self, mode: str = "sweetspot"):
         """Set qubits flux lines to a bias level
 
@@ -433,7 +437,7 @@ class FluxProgram(GeneralQickProgram):
                 )
                 self.pulse(ch=flux_ch)
                 if flux_ch in self.bias_sweep_registers:
-                    swept_reg, non_swept_reg = self.bias_sweep_registers[bias_swept_ch]
+                    swept_reg, non_swept_reg = self.bias_sweep_registers[flux_ch]
                     non_swept_reg.set_to(swept_reg)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
@@ -520,7 +524,6 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
         super().__init__(soc, qpcfg, sequence, qubits)
         self.cfg["expts"] = sweeper.expts
-        self.bias_sweep_registers = {}  # TODO find better way, pylint will complain
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register QickSweep objects
