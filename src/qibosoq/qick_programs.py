@@ -19,9 +19,6 @@ from qick import (
 )
 from qick.qick_asm import QickRegisterManagerMixin
 
-logger = logging.getLogger("__name__")
-
-
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
@@ -497,7 +494,7 @@ class ExecuteSingleSweep(QickRegisterManagerMixin, FluxProgram, RAveragerProgram
 
                 self.sweeper_reg = self.get_gen_reg(gen_ch, "freq")
                 self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
-                self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
+                self.cfg["step"] = step * HZ_TO_MHZ
 
             elif is_amp:
                 self.sweeper_reg = self.get_gen_reg(gen_ch, "gain")
