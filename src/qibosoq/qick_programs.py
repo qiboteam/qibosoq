@@ -129,14 +129,20 @@ class GeneralQickProgram(ABC, QickProgram):
         # assign gain parameter
         gain_set = False
         if is_sweeped:
-            if self.get_type_sweep == Parameter.amplitude:
+            if self.get_type_sweep(pulse) is Parameter.amplitude:
                 gain = self.get_start_sweep(pulse)
                 gain_set = True
         if not gain_set:
             gain = int(pulse.amplitude * self.max_gain)
 
-        # phase converted from rad (qibolab) to deg (qick) and then to reg vals
-        phase = self.deg2reg(np.degrees(pulse.relative_phase), gen_ch=gen_ch)
+        phase_set = False
+        if is_sweeped:
+            if self.get_type_sweep(pulse) is Parameter.relative_phase:
+                phase = self.get_start_sweep(pulse)
+                phase_set = True
+        if not phase_set:
+            # phase converted from rad (qibolab) to deg (qick) and then to reg vals
+            phase = self.deg2reg(np.degrees(pulse.relative_phase), gen_ch=gen_ch)
 
         # pulse length converted with DAC CLK
         us_length = pulse.duration * NS_TO_US
@@ -150,7 +156,7 @@ class GeneralQickProgram(ABC, QickProgram):
         if pulse.type is PulseType.DRIVE:
             freq_set = False
             if is_sweeped:
-                if self.get_type_sweep == Parameter.frequency:
+                if self.get_type_sweep(pulse) == Parameter.frequency:
                     freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
@@ -542,6 +548,10 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         elif sweeper.parameter is Parameter.amplitude or sweeper.parameter is Parameter.bias:
             starts = int(np.array(sweeper.starts) * self.max_gain)
             steps = int(np.array(sweeper.steps) * self.max_gain)
+        elif sweeper.parameter is Parameter.relative_phase:
+            starts = np.degrees(np.array(sweeper.starts))
+            steps = np.degrees(np.array(sweeper.steps))
+
         else:
             raise NotImplementedError("Sweep type conversion not implemented")
 
@@ -620,6 +630,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
     def get_start_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
         """Given a sweeped pulse, it returns the first value of its sweeped parameter"""
+        # TODO check if this is needed, could be included
         for sweep in self.sweepers:
             # this is valid only for pulse sweeps, not bias
             for idx, pulse in enumerate(sweep.pulses):
