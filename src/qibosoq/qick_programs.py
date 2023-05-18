@@ -20,6 +20,8 @@ logger = logging.getLogger("__name__")
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
 
+logger = logging.getLogger("__name__")
+
 
 class GeneralQickProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
@@ -156,7 +158,7 @@ class GeneralQickProgram(ABC, QickProgram):
             freq_set = False
             if is_sweeped:
                 if self.get_type_sweep(pulse) == Parameter.frequency:
-                    freq = self.soc.freq2reg(self.get_start_sweep(pulse), gen_ch=gen_ch)
+                    freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
                 local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
@@ -179,7 +181,9 @@ class GeneralQickProgram(ABC, QickProgram):
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
 
             elif is_drag:
+                # delta will be divided for the same quantity, we are setting it = 1
                 delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+
                 self.add_DRAG(
                     ch=gen_ch,
                     name=name,
@@ -214,6 +218,9 @@ class GeneralQickProgram(ABC, QickProgram):
         """
 
         muxed_ro_executed_time = []
+        last_pulse_registered = {}
+        for idx in self.gen_chs:
+            last_pulse_registered[idx] = None
 
         for pulse in self.sequence:
             # time follows tproc CLK
@@ -227,6 +234,7 @@ class GeneralQickProgram(ABC, QickProgram):
             if pulse.type is PulseType.DRIVE:
                 if not self.pulses_registered:
                     self.add_pulse_to_register(pulse)
+                    last_pulse_registered[gen_ch] = pulse
                 self.pulse(ch=gen_ch, t=time)
             elif pulse.type is PulseType.READOUT:
                 if self.is_mux:
@@ -255,6 +263,19 @@ class GeneralQickProgram(ABC, QickProgram):
         self.wait_all()
         self.sync_all(self.relax_delay)
 
+    def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
+        """Check if two pulses are equal, does not check the start time"""
+        if pulse_a is None or pulse_b is None:
+            return False
+        return (
+            pulse_a.frequency == pulse_b.frequency
+            and pulse_a.amplitude == pulse_b.amplitude
+            and pulse_a.relative_phase == pulse_b.relative_phase
+            and pulse_a.duration == pulse_b.duration
+            and pulse_a.type == pulse_b.type
+        )
+        # and pulse_a.shape == pulse_b.shape
+
     # pylint: disable=unexpected-keyword-arg, arguments-renamed
     def acquire(
         self,
@@ -276,19 +297,21 @@ class GeneralQickProgram(ABC, QickProgram):
         """
         if self.readouts_per_experiment is not None:
             readouts_per_experiment = self.readouts_per_experiment
-        if readouts_per_experiment == 0:
-            readouts_per_experiment = 1
-        if self.readouts_per_experiment:
-            readouts_per_experiment = self.readouts_per_experiment
+        # if there are no readouts, temporaray set 1 so that qick can execute properly
+        reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
+
         res = super().acquire(
             soc,
-            readouts_per_experiment=readouts_per_experiment,
+            readouts_per_experiment=reads_per_rep,
             load_pulses=load_pulses,
             progress=progress,
             debug=debug,
         )
+        # if there are no actual readouts, return empty lists
+        if readouts_per_experiment == 0:
+            return [], []
         if average:
-            # for sequences res has 3 parameters, the first is not used
+            # for sweeps res has 3 parameters, the first is not used
             return res[-2:]
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
@@ -419,7 +442,7 @@ class FluxProgram(GeneralQickProgram):
 
         for idx in self.qubits:
             qubit = self.qubits[idx]
-            if qubit.flux and idx in self.sequence.qubits:
+            if qubit.flux:
                 flux_ch = qubit.flux.ports[0][1]
 
                 if qubit.flux.bias == 0:
@@ -489,6 +512,14 @@ class FluxProgram(GeneralQickProgram):
         )
         self.pulse(ch=gen_ch, t=time)
 
+    def declare_nqz_flux(self):
+        """Declare nqz = 1 for used flux channel"""
+        for idx in self.qubits:
+            qubit = self.qubits[idx]
+            if qubit.flux:
+                flux_ch = qubit.flux.ports[0][1]
+                self.declare_gen(flux_ch, nqz=1)
+
     def body(self):
         """Body program with flux biases set"""
 
@@ -505,6 +536,7 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         """Function called by AveragerProgram.__init__"""
 
         self.declare_nqz_zones(self.sequence.qd_pulses)
+        self.declare_nqz_flux()
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
@@ -525,15 +557,23 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit], sweeper: Sweeper
+        self,
+        soc: QickSoc,
+        qpcfg: QickProgramConfig,
+        sequence: PulseSequence,
+        qubits: List[Qubit],
+        sweeper: Sweeper,  # TODO typehint not correct
     ):
         """Init function, sets sweepers parameters before calling super.__init__"""
 
-        # sweeper Settings
-        self.sweepers = [sweeper]  # TODO make it accept multiple sweepers
+        # sweepers Settings
+        # TODO temporary solution
+        if not type(sweeper) == tuple:
+            self.sweepers = [sweeper]  # TODO make it accept multiple sweepers
+        else:
+            self.sweepers = list(sweeper)[::-1]
 
         super().__init__(soc, qpcfg, sequence, qubits)
-        self.cfg["expts"] = sweeper.expts
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register QickSweep objects
@@ -546,8 +586,8 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
             starts = np.array(sweeper.starts) * HZ_TO_MHZ
             steps = np.array(sweeper.steps) * HZ_TO_MHZ
         elif sweeper.parameter is Parameter.amplitude or sweeper.parameter is Parameter.bias:
-            starts = int(np.array(sweeper.starts) * self.max_gain)
-            steps = int(np.array(sweeper.steps) * self.max_gain)
+            starts = (np.array(sweeper.starts) * self.max_gain).astype(int)
+            steps = (np.array(sweeper.steps) * self.max_gain).astype(int)
         elif sweeper.parameter is Parameter.relative_phase:
             starts = np.degrees(np.array(sweeper.starts))
             steps = np.degrees(np.array(sweeper.steps))
@@ -556,37 +596,53 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
             raise NotImplementedError("Sweep type conversion not implemented")
 
         sweep_list = []
-        for idx, pulse in enumerate(sweeper.pulses):
-            qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-            ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-            gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
-
-            sweep_type = SWEEPERS_TYPE[sweeper.parameter]
-            register = self.get_gen_reg(gen_ch, sweep_type)
-
-            if sweeper.parameter is Parameter.bias:
+        if sweeper.parameter is Parameter.bias:
+            for idx in sweeper.indexes:
+                gen_ch = self.qubits[idx].flux.ports[0][1]
+                sweep_type = SWEEPERS_TYPE[sweeper.parameter]
+                register = self.get_gen_reg(gen_ch, sweep_type)
                 new_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
                 register, new_register = new_register, register
                 self.bias_sweep_registers[gen_ch] = (register, new_register)
-                # register is not the default reg, but we will sweep with it
-                # new_register is the default and will be changed from zero to register value
 
-            new_sweep = QickSweep(
-                self,
-                register,  # sweeper_register
-                starts[idx],  # start
-                starts[idx] + sweeper.expts * steps[idx],  # stop
-                sweeper.expts,  # number of points
-            )
-            sweep_list.append(new_sweep)
+                new_sweep = QickSweep(
+                    self,
+                    register,  # sweeper_register
+                    starts[idx],  # start
+                    starts[idx] + sweeper.expts * steps[idx],  # stop
+                    sweeper.expts,  # number of points
+                )
+                sweep_list.append(new_sweep)
+        else:
+            for idx, pulse in enumerate(sweeper.pulses):
+                qd_ch = self.qubits[pulse.qubit].drive.ports[0][1]
+                ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
+                gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-        print(f"Addign sweepers {sweep_list}")
+                local_oscillator = None
+                if sweeper.parameter is Parameter.frequency:  # only for drive
+                    local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
+
+                sweep_type = SWEEPERS_TYPE[sweeper.parameter]
+                register = self.get_gen_reg(gen_ch, sweep_type)
+
+                new_sweep = QickSweep(
+                    self,
+                    register,  # sweeper_register
+                    starts[idx] - lo_freq * HZ_TO_MHZ,  # start
+                    starts[idx] + sweeper.expts * steps[idx] - lo_freq * HZ_TO_MHZ,  # stop
+                    sweeper.expts,  # number of points
+                )
+                sweep_list.append(new_sweep)
+
         self.add_sweep(merge_sweeps(sweep_list))
 
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
 
         self.declare_nqz_zones(self.sequence.qd_pulses)
+        self.declare_nqz_flux()
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
@@ -600,7 +656,8 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         for sweeper in self.sweepers:
             self.add_sweep_info(sweeper)
 
-        for swept_reg, non_swept_reg in self.bias_sweep_registers.items():
+        for _, registers in self.bias_sweep_registers.items():
+            swept_reg, non_swept_reg = registers
             non_swept_reg.set_to(swept_reg)
 
         self.sync_all(self.wait_initialize)
@@ -615,25 +672,30 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         """
         for sweep in self.sweepers:
             # this is valid only for pulse sweeps, not bias
-            for pulse in sweep.pulses:
-                if pulse == sweeped_pulse:
-                    return True
+            if sweep.parameter is not Parameter.bias:
+                for pulse in sweep.pulses:
+                    if pulse == sweeped_pulse:
+                        return True
         return False
 
     def get_type_sweep(self, sweeped_pulse: Pulse) -> Parameter:
         """From a sweeped pulse, returns the sweeped parameter"""
         for sweep in self.sweepers:
             # this is valid only for pulse sweeps, not bias
+            if sweep.parameter is Parameter.bias:
+                continue
             for pulse in sweep.pulses:
                 if pulse == sweeped_pulse:
                     return sweep.parameter
-        raise ValueError(f"Pulse {sweeped_pulse} was not found!")
+        return Parameter.bias
 
     def get_start_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
         """Given a sweeped pulse, it returns the first value of its sweeped parameter"""
         # TODO check if this is needed, could be included
         for sweep in self.sweepers:
             # this is valid only for pulse sweeps, not bias
+            if sweep.parameter is Parameter.bias:
+                continue
             for idx, pulse in enumerate(sweep.pulses):
                 if pulse == sweeped_pulse:
                     return sweep.starts[idx]
@@ -643,5 +705,6 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 SWEEPERS_TYPE = {
     Parameter.frequency: "freq",
     Parameter.amplitude: "gain",
+    Parameter.bias: "gain",
     Parameter.relative_phase: "phase",
 }
