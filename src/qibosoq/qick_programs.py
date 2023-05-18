@@ -83,7 +83,7 @@ class GeneralQickProgram(ABC, QickProgram):
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
                 local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            lo_freq = 0 if local_oscillator is None else local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
             freq = freq - lo_freq
 
             if gen_ch not in ch_already_declared:
@@ -103,7 +103,7 @@ class GeneralQickProgram(ABC, QickProgram):
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
                 local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
-                lo_freq = 0 if local_oscillator is None else local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
@@ -156,15 +156,15 @@ class GeneralQickProgram(ABC, QickProgram):
             freq_set = False
             if is_sweeped:
                 if self.get_type_sweep(pulse) == Parameter.frequency:
-                    freq = self.get_start_sweep(pulse)
+                    freq = self.soc.freq2reg(self.get_start_sweep(pulse), gen_ch=gen_ch)
                     freq_set = True
             if not freq_set:
                 local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-                lo_freq = 0 if local_oscillator is None else local_oscillator
+                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
             local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            lo_freq = 0 if local_oscillator is None else local_oscillator
+            lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
             freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
@@ -335,7 +335,7 @@ class GeneralQickProgram(ABC, QickProgram):
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
             ro_ch = self.qubits[pulse.qubit].readout
 
-            lo_freq = 0 if ro_ch.local_oscillator is None else ro_ch.local_oscillator
+            lo_freq = 0 if ro_ch.local_oscillator is None else ro_ch.local_oscillator._frequency
             ro_ch = ro_ch.ports[0][1]
 
             if adc_ch not in adc_ch_added:
@@ -580,6 +580,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
             )
             sweep_list.append(new_sweep)
 
+        print(f"Addign sweepers {sweep_list}")
         self.add_sweep(merge_sweeps(sweep_list))
 
     def initialize(self):
