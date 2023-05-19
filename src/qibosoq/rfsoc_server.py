@@ -18,6 +18,10 @@ logger = logging.getLogger("__name__")
 qick_logger = logging.getLogger("qick_program")
 
 
+# initialize QickSoc object (firmware and clocks)
+global_soc = QickSoc(bitfile="/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit")
+
+
 class ConnectionHandler(BaseRequestHandler):
     """Handle requests to the server"""
 
@@ -77,11 +81,12 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = self.execute_program(data)
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=bare-except
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = exception
             global_soc.reset_gens()
+
         self.request.sendall(pickle.dumps(results))
 
 
@@ -91,7 +96,3 @@ def serve(host, port):
     with TCPServer((host, port), ConnectionHandler) as server:
         logger.info("Server listening, PID %d", os.getpid())
         server.serve_forever()
-
-
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc()
