@@ -576,6 +576,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         else:
             self.sweepers = list(sweeper)[::-1]
 
+        qpcfg.expts = sweeper.expts
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def add_sweep_info(self, sweeper: Sweeper):
