@@ -448,10 +448,8 @@ class FluxProgram(GeneralQickProgram):
                 if qubit.flux.bias == 0:
                     continue  # if bias is zero, just skip the qubit
                 if mode == "sweetspot":
-                    value = int(qubit.flux.bias * self.max_gain)
+                    value = self.max_gain
                 elif mode == "zero":
-                    if flux_ch in self.bias_sweep_registers:
-                        self.bias_sweep_registers[flux_ch][1].set_to(0)  # TODO maybe not needed
                     value = 0
                 else:
                     raise NotImplementedError(f"Mode {mode} not supported")
@@ -467,12 +465,17 @@ class FluxProgram(GeneralQickProgram):
                     stdysel="last",
                     freq=0,
                     phase=0,
-                    gain=self.max_gain,
+                    gain=int(self.max_gain * qubit.flux.bias),
                 )
-                self.pulse(ch=flux_ch)
+
                 if flux_ch in self.bias_sweep_registers:
                     swept_reg, non_swept_reg = self.bias_sweep_registers[flux_ch]
-                    non_swept_reg.set_to(swept_reg)
+                    if mode == "sweetspot":
+                        non_swept_reg.set_to(swept_reg)
+                    elif mode == "zero":
+                        non_swept_reg.set_to(0)
+
+                self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
     def flux_pulse(self, pulse: Pulse, time: int):
@@ -597,17 +600,16 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
         sweep_list = []
         if sweeper.parameter is Parameter.bias:
-            for idx in sweeper.indexes:
-                gen_ch = self.qubits[idx].flux.ports[0][1]
+            for idx, jdx in enumerate(sweeper.indexes):
+                gen_ch = self.qubits[jdx].flux.ports[0][1]
                 sweep_type = SWEEPERS_TYPE[sweeper.parameter]
-                register = self.get_gen_reg(gen_ch, sweep_type)
-                new_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
-                register, new_register = new_register, register
-                self.bias_sweep_registers[gen_ch] = (register, new_register)
+                std_register = self.get_gen_reg(gen_ch, sweep_type)
+                swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
+                self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
 
                 new_sweep = QickSweep(
                     self,
-                    register,  # sweeper_register
+                    swept_register,  # sweeper_register
                     starts[idx],  # start
                     starts[idx] + sweeper.expts * steps[idx],  # stop
                     sweeper.expts,  # number of points
