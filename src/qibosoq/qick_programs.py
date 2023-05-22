@@ -207,7 +207,7 @@ class GeneralQickProgram(ABC, QickProgram):
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
             if not self.pulses_registered:
-                if not self.is_pulse_equal(last_pulse_registered[gen_ch], pulse):
+                if not pulse.is_pulse_equal_ignoring_start(last_pulse_registered[gen_ch]):
                     self.add_pulse_to_register(pulse)
                     last_pulse_registered[gen_ch] = pulse
 
@@ -224,19 +224,6 @@ class GeneralQickProgram(ABC, QickProgram):
                 )
         self.wait_all()
         self.sync_all(self.relax_delay)
-
-    def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
-        """Check if two pulses are equal, does not check the start time"""
-        if pulse_a is None or pulse_b is None:
-            return False
-        return (
-            pulse_a.frequency == pulse_b.frequency
-            and pulse_a.amplitude == pulse_b.amplitude
-            and pulse_a.relative_phase == pulse_b.relative_phase
-            and pulse_a.duration == pulse_b.duration
-            and pulse_a.type == pulse_b.type
-        )
-        # and pulse_a.shape == pulse_b.shape
 
     def acquire(
         self,
