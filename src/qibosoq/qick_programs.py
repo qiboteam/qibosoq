@@ -23,7 +23,7 @@ NS_TO_US = 1e-3
 logger = logging.getLogger("__name__")
 
 
-class GeneralQickProgram(ABC, QickProgram):
+class BaseProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
 
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
@@ -423,7 +423,7 @@ class GeneralQickProgram(ABC, QickProgram):
         raise NotImplementedError
 
 
-class FluxProgram(GeneralQickProgram):
+class FluxProgram(BaseProgram):
     """Abstract class for flux-tunable qubits programs"""
 
     def __init__(self, soc: QickSoc, qpcfg: QickProgramConfig, sequence: PulseSequence, qubits: List[Qubit]):
@@ -595,7 +595,9 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         elif sweeper.parameter is Parameter.relative_phase:
             starts = np.degrees(np.array(sweeper.starts))
             steps = np.degrees(np.array(sweeper.steps))
-
+        elif sweeper.parameter is Parameter.delay:
+            starts = np.array(sweeper.starts)
+            steps = np.array(sweeper.steps)
         else:
             raise NotImplementedError("Sweep type conversion not implemented")
 
@@ -710,4 +712,5 @@ SWEEPERS_TYPE = {
     Parameter.amplitude: "gain",
     Parameter.bias: "gain",
     Parameter.relative_phase: "phase",
+    Parameter.delay: "t",
 }
