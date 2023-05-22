@@ -81,10 +81,16 @@ class BaseProgram(ABC, QickProgram):
             freq = pulse.frequency
             if pulse.type is PulseType.DRIVE:
                 gen_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-                local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                try:
+                    local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                except NotImplementedError:
+                    local_oscillator = None
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-                local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+                try:
+                    local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+                except NotImplementedError:
+                    local_oscillator = None
             lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
             freq = freq - lo_freq
 
@@ -104,7 +110,10 @@ class BaseProgram(ABC, QickProgram):
                 adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
-                local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
+                try:
+                    local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
+                except NotImplementedError:
+                    local_oscillator = None
                 lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
@@ -161,11 +170,17 @@ class BaseProgram(ABC, QickProgram):
                     freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
-                local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                try:
+                    local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                except NotImplementedError:
+                    local_oscillator = None
                 lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
                 freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
-            local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+            try:
+                local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
+            except NotImplementedError:
+                local_oscillator = None
             lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
             freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
@@ -358,7 +373,10 @@ class BaseProgram(ABC, QickProgram):
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
             ro_ch = self.qubits[pulse.qubit].readout
 
-            lo_freq = 0 if ro_ch.local_oscillator is None else ro_ch.local_oscillator._frequency
+            try:
+                lo_freq = ro_ch.local_oscillator._frequency
+            except:
+                lo_freq = 0
             ro_ch = ro_ch.ports[0][1]
 
             if adc_ch not in adc_ch_added:
@@ -576,7 +594,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         else:
             self.sweepers = list(sweeper)[::-1]
 
-        qpcfg.expts = sweeper.expts
+        # qpcfg.expts = sweeper.expts
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def add_sweep_info(self, sweeper: Sweeper):
@@ -626,7 +644,10 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
                 local_oscillator = None
                 if sweeper.parameter is Parameter.frequency:  # only for drive
-                    local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                    try:
+                        local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
+                    except NotImplementedError:
+                        local_oscillator = None
                 lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
 
                 sweep_type = SWEEPERS_TYPE[sweeper.parameter]
