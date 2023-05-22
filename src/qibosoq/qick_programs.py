@@ -68,30 +68,31 @@ class BaseProgram(ABC, QickProgram):
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
 
+    def get_local_oscillator_frequency(self, pulse: Pulse) -> int:
+        """Returns the local oscillator frequency, if present, otherwise 0"""
+        channel = getattr(self.qubits[pulse.qubit], pulse.type.name.lower())
+        try:
+            # access to private value to not waste time in communication
+            return channel.local_oscillator._frequency
+        except NotImplementedError:
+            return 0
+
     def declare_nqz_zones(self, sequence: PulseSequence):
         """Declare nqz zone (1-2) for a given PulseSequence
 
         Args:
             sequence (PulseSequence): sequence of pulses to consider
         """
-        # TODO some code repeated
 
         ch_already_declared = []
         for pulse in sequence:
             freq = pulse.frequency
             if pulse.type is PulseType.DRIVE:
                 gen_ch = self.qubits[pulse.qubit].drive.ports[0][1]
-                try:
-                    local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-                except NotImplementedError:
-                    local_oscillator = None
+                lo_freq = self.get_local_oscillator_frequency(pulse)
             elif pulse.type is PulseType.READOUT:
                 gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
-                try:
-                    local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-                except NotImplementedError:
-                    local_oscillator = None
-            lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
+                lo_freq = self.get_local_oscillator_frequency(pulse.qubit)
             freq = freq - lo_freq
 
             if gen_ch not in ch_already_declared:
@@ -110,11 +111,7 @@ class BaseProgram(ABC, QickProgram):
                 adc_ch_already_declared.append(adc_ch)
                 length = self.soc.us2cycles(readout_pulse.duration * NS_TO_US, gen_ch=ro_ch)
 
-                try:
-                    local_oscillator = self.qubits[readout_pulse.qubit].readout.local_oscillator
-                except NotImplementedError:
-                    local_oscillator = None
-                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
+                lo_freq = self.get_local_oscillator_frequency(readout_pulse)
                 freq = (readout_pulse.frequency - lo_freq) * HZ_TO_MHZ
 
                 # in declare_readout frequency in MHz
@@ -170,18 +167,10 @@ class BaseProgram(ABC, QickProgram):
                     freq = self.get_start_sweep(pulse)
                     freq_set = True
             if not freq_set:
-                try:
-                    local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-                except NotImplementedError:
-                    local_oscillator = None
-                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
+                lo_freq = self.get_local_oscillator_frequency(pulse)
                 freq = self.soc.freq2reg((pulse.frequency - lo_freq) * HZ_TO_MHZ, gen_ch=gen_ch)
         elif pulse.type is PulseType.READOUT:
-            try:
-                local_oscillator = self.qubits[pulse.qubit].readout.local_oscillator
-            except NotImplementedError:
-                local_oscillator = None
-            lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
+            lo_freq = self.get_local_oscillator_frequency(pulse)
             freq = pulse.frequency - lo_freq
             freq = self.soc.freq2reg(freq * HZ_TO_MHZ, gen_ch=gen_ch, ro_ch=adc_ch)
         else:
@@ -272,8 +261,8 @@ class BaseProgram(ABC, QickProgram):
                     adcs=adcs,
                     adc_trig_offset=time + self.adc_trig_offset,
                     t=time,
-                    wait=False,  # TODO maybe true for mux
-                    syncdelay=self.syncdelay,  # maybe != 0 for mux
+                    wait=False,
+                    syncdelay=self.syncdelay,
                 )
         self.wait_all()
         self.sync_all(self.relax_delay)
@@ -373,10 +362,7 @@ class BaseProgram(ABC, QickProgram):
             adc_ch = self.qubits[pulse.qubit].feedback.ports[0][1]
             ro_ch = self.qubits[pulse.qubit].readout
 
-            try:
-                lo_freq = ro_ch.local_oscillator._frequency
-            except:
-                lo_freq = 0
+            lo_freq = self.get_local_oscillator_frequency(pulse)
             ro_ch = ro_ch.ports[0][1]
 
             if adc_ch not in adc_ch_added:
@@ -398,7 +384,8 @@ class BaseProgram(ABC, QickProgram):
     def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
         """Register multiplexed pulse before firing it"""
 
-        mask = [0, 1, 2]  # TODO remove hardcode
+        # readout amplitude gets divided by len(mask), we are here fixing the values
+        mask = [0, 1, 2]
 
         pulse = ro_pulses[0]
         gen_ch = self.qubits[pulse.qubit].readout.ports[0][1]
@@ -590,7 +577,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         # sweepers Settings
         # TODO temporary solution
         if not type(sweeper) == tuple:
-            self.sweepers = [sweeper]  # TODO make it accept multiple sweepers
+            self.sweepers = [sweeper]
         else:
             self.sweepers = list(sweeper)[::-1]
 
@@ -642,13 +629,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
                 ro_ch = self.qubits[pulse.qubit].readout.ports[0][1]
                 gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
-                local_oscillator = None
-                if sweeper.parameter is Parameter.frequency:  # only for drive
-                    try:
-                        local_oscillator = self.qubits[pulse.qubit].drive.local_oscillator
-                    except NotImplementedError:
-                        local_oscillator = None
-                lo_freq = 0 if local_oscillator is None else local_oscillator._frequency
+                lo_freq = self.get_local_oscillator_frequency(pulse)
 
                 sweep_type = SWEEPERS_TYPE[sweeper.parameter]
                 register = self.get_gen_reg(gen_ch, sweep_type)
@@ -717,7 +698,6 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
 
     def get_start_sweep(self, sweeped_pulse: Pulse) -> Union[int, float]:
         """Given a sweeped pulse, it returns the first value of its sweeped parameter"""
-        # TODO check if this is needed, could be included
         for sweep in self.sweepers:
             # this is valid only for pulse sweeps, not bias
             if sweep.parameter is Parameter.bias:

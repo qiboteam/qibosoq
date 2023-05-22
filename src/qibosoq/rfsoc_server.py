@@ -81,7 +81,7 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = self.execute_program(data)
-        except Exception as exception:  # pylint: disable=bare-except
+        except Exception as exception:  # pylint: disable=bare-except, broad-exception-caught
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = exception
