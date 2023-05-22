@@ -51,6 +51,7 @@ class GeneralQickProgram(ABC, QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
+        self.registered_waveform = []
 
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
@@ -144,24 +145,29 @@ class GeneralQickProgram(ABC, QickProgram):
 
         # if pulse is drag or gauss first define the i-q shape and then set reg
         if is_drag or is_gaus:
-            name = pulse.serial
             sigma = (soc_length / pulse.shape.rel_sigma) * np.sqrt(2)
 
             if is_gaus:
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
+                if name not in self.registered_waveform:
+                    self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                    self.registered_waveform.append(name)
 
             elif is_drag:
                 # delta will be divided for the same quantity, we are setting it = 1
                 delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+                name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.shape.beta, 2)}_{round(delta, 2)}"
 
-                self.add_DRAG(
-                    ch=gen_ch,
-                    name=name,
-                    sigma=sigma,
-                    delta=delta,
-                    alpha=-pulse.shape.beta,
-                    length=soc_length,
-                )
+                if name not in self.registered_waveform:
+                    self.add_DRAG(
+                        ch=gen_ch,
+                        name=name,
+                        sigma=sigma,
+                        delta=delta,
+                        alpha=-pulse.shape.beta,
+                        length=soc_length,
+                    )
+                    self.registered_waveform.append(name)
 
             self.set_pulse_registers(
                 ch=gen_ch,
