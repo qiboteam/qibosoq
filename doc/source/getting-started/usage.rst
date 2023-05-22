@@ -28,7 +28,7 @@ To avoid it, you can use qibosoq in detached mode, redirecting the output to a l
 
 .. code-block::
 
-    nohup sudo -i python -m qibosoq > logs/mylog &
+    nohup sudo -i python -m qibosoq &
 
 To close the server you will need to find the PID of the process (present in the second line of the log file) and:
 
@@ -39,7 +39,9 @@ To close the server you will need to find the PID of the process (present in the
 Useful aliases
 """"""""""""""
 
-We suggest to add to your ``.bashrc`` some aliases to speed up the process. Some examples are:
+We suggest to add to your ``.bashrc`` some aliases to speed up the process.
+(Note that with ``server-run-bkg`` the sudo password is not requested, but if the shell does not have sudo privileges it will fail.)
+Some examples are:
 
 .. code-block::
 
