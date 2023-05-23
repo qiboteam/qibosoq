@@ -9,7 +9,7 @@ import numpy as np
 from qibolab.instruments.rfsoc import QickProgramConfig, RfsocSweep
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
-from qibolab.sweeper import Parameter, Sweeper
+from qibolab.sweeper import Parameter
 from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
@@ -524,7 +524,7 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         raise RuntimeError("ExecutePulseSequence reached sweeper function!")
 
 
-class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
+class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep"""
 
     def __init__(
@@ -533,16 +533,12 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         qpcfg: QickProgramConfig,
         sequence: PulseSequence,
         qubits: List[Qubit],
-        sweeper: RfsocSweep,
+        sweepers: List[RfsocSweep],
     ):
         """Init function, sets sweepers parameters before calling super.__init__"""
 
-        # sweepers Settings
-        # TODO temporary solution
-        if not type(sweeper) == tuple:
-            self.sweepers = [sweeper]
-        else:
-            self.sweepers = list(sweeper)[::-1]
+        # sweepers are handled by qick in the opposite order
+        self.sweepers = list(sweepers)[::-1]
 
         # qpcfg.expts = sweeper.expts
         super().__init__(soc, qpcfg, sequence, qubits)

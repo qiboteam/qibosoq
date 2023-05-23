@@ -12,7 +12,7 @@ from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
 
-from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
+from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
 logger = logging.getLogger("__name__")
 qick_logger = logging.getLogger("qick_program")
@@ -48,8 +48,8 @@ class ConnectionHandler(BaseRequestHandler):
         """
         if data["operation_code"] == "execute_pulse_sequence":
             program = ExecutePulseSequence(global_soc, data["cfg"], data["sequence"], data["qubits"])
-        elif data["operation_code"] == "execute_single_sweep":
-            program = ExecuteSingleSweep(global_soc, data["cfg"], data["sequence"], data["qubits"], data["sweeper"])
+        elif data["operation_code"] == "execute_sweeps":
+            program = ExecuteSweeps(global_soc, data["cfg"], data["sequence"], data["qubits"], data["sweepers"])
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
