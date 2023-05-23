@@ -483,43 +483,6 @@ class FluxProgram(BaseProgram):
                 self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
-    def flux_pulse(self, pulse: Pulse, time: int):
-        """Fires a fast flux pulse the starts and ends in sweetspot"""
-
-        qubit = self.qubits[pulse.qubit]
-        gen_ch = qubit.flux.ports[0][1]
-        sweetspot = int(qubit.flux.bias * self.max_gain)
-
-        duration = self.soc.us2cycles(pulse.duration * NS_TO_US, gen_ch=gen_ch)
-        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
-        duration *= samples_per_clk  # the duration here is expressed in samples
-
-        padding = samples_per_clk
-        while True:  # compute padding length
-            tot_len = padding + duration
-            if tot_len % samples_per_clk == 0 and tot_len > 48:
-                break
-            padding += 1
-
-        amp = int(pulse.amplitude * self.max_gain) + sweetspot
-
-        i_vals = np.full(duration, amp)
-        i_vals = np.append(i_vals, np.full(padding, sweetspot))
-        q_vals = np.zeros(len(i_vals))
-
-        self.add_pulse(gen_ch, pulse.serial, i_vals, q_vals)
-        self.set_pulse_registers(
-            ch=gen_ch,
-            waveform=pulse.serial,
-            style="arb",
-            outsel="input",
-            stdysel="last",
-            freq=0,
-            phase=0,
-            gain=self.max_gain,
-        )
-        self.pulse(ch=gen_ch, t=time)
-
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel"""
         for idx in self.qubits:
@@ -533,8 +496,8 @@ class FluxProgram(BaseProgram):
 
         self.set_bias("sweetspot")
         super().body()
+        # the next two lines are redunant for security reasons
         self.set_bias("zero")
-        self.soc.reset_gens()  # here for security reasons, should not be needed
 
 
 class ExecutePulseSequence(FluxProgram, AveragerProgram):
