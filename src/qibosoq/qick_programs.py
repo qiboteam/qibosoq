@@ -553,19 +553,18 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         Args:
             sweeper (RfsocSweep): single qibolab sweeper object to register
         """
-        # TODO no step, but stop
         if sweeper.parameter is Parameter.frequency:
-            starts = np.array(sweeper.starts) * HZ_TO_MHZ
-            steps = np.array(sweeper.steps) * HZ_TO_MHZ
+            starts = sweeper.starts * HZ_TO_MHZ
+            stops = sweeper.stops * HZ_TO_MHZ
         elif sweeper.parameter is Parameter.amplitude or sweeper.parameter is Parameter.bias:
-            starts = (np.array(sweeper.starts) * self.max_gain).astype(int)
-            steps = (np.array(sweeper.steps) * self.max_gain).astype(int)
+            starts = (sweeper.starts * self.max_gain).astype(int)
+            stops = (sweeper.stops * self.max_gain).astype(int)
         elif sweeper.parameter is Parameter.relative_phase:
-            starts = np.degrees(np.array(sweeper.starts))
-            steps = np.degrees(np.array(sweeper.steps))
+            starts = np.degrees(sweeper.starts)
+            stops = np.degrees(sweeper.stops)
         elif sweeper.parameter is Parameter.delay:
-            starts = np.array(sweeper.starts)
-            steps = np.array(sweeper.steps)
+            starts = sweeper.starts
+            stops = sweeper.stops
         else:
             raise NotImplementedError("Sweep type conversion not implemented")
 
@@ -582,7 +581,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
                     self,
                     swept_register,  # sweeper_register
                     starts[idx],  # start
-                    starts[idx] + sweeper.expts * steps[idx],  # stop
+                    stops[idx],  # stop
                     sweeper.expts,  # number of points
                 )
                 sweep_list.append(new_sweep)
@@ -601,7 +600,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
                     self,
                     register,  # sweeper_register
                     starts[idx] - lo_freq * HZ_TO_MHZ,  # start
-                    starts[idx] + sweeper.expts * steps[idx] - lo_freq * HZ_TO_MHZ,  # stop
+                    stops[idx] - lo_freq * HZ_TO_MHZ,  # stop
                     sweeper.expts,  # number of points
                 )
                 sweep_list.append(new_sweep)
