@@ -6,7 +6,7 @@ from dataclasses import asdict
 from typing import List, Tuple, Union
 
 import numpy as np
-from qibolab.instruments.rfsoc import QickProgramConfig
+from qibolab.instruments.rfsoc import QickProgramConfig, RfsocSweep
 from qibolab.platforms.abstract import Qubit
 from qibolab.pulses import Drag, Gaussian, Pulse, PulseSequence, PulseType, Rectangular
 from qibolab.sweeper import Parameter, Sweeper
@@ -533,7 +533,7 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         qpcfg: QickProgramConfig,
         sequence: PulseSequence,
         qubits: List[Qubit],
-        sweeper: Sweeper,  # TODO typehint not correct
+        sweeper: RfsocSweep,
     ):
         """Init function, sets sweepers parameters before calling super.__init__"""
 
@@ -547,11 +547,11 @@ class ExecuteSingleSweep(FluxProgram, NDAveragerProgram):
         # qpcfg.expts = sweeper.expts
         super().__init__(soc, qpcfg, sequence, qubits)
 
-    def add_sweep_info(self, sweeper: Sweeper):
-        """Register QickSweep objects
+    def add_sweep_info(self, sweeper: RfsocSweep):
+        """Register RfsocSweep objects
 
         Args:
-            sweeper (Sweeper): single qibolab sweeper object to register
+            sweeper (RfsocSweep): single qibolab sweeper object to register
         """
         # TODO no step, but stop
         if sweeper.parameter is Parameter.frequency:
