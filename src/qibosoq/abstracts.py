@@ -1,3 +1,5 @@
+"""Various heleper objects"""
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Union
@@ -5,59 +7,62 @@ from typing import List, Union
 
 @dataclass
 class Config:
-    """General RFSoC Configuration to send to the server"""
+    """General RFSoC Configuration"""
 
-    # sampling_rate: int = None
-    repetition_duration: int = 100_000
-    adc_trig_offset: int = 200
-    # max_gain: int = 32_000
+    repetition_duration: int = 100  # relaxation time in us
+    adc_trig_offset: int = 200  # adc clock
     reps: int = 1000
-    # adc_sampling_frequency: int = None
-    # mux_sampling_frequency: int = None
 
 
 @dataclass
 class Qubit:
-    bias: float = 0.0
-    dac: int = None
+    """Qubit object, storing flux information"""
 
-
-# pulses
+    bias: float = 0.0  # ampltitude factor
+    dac: int = None  # dac connected to flux
 
 
 @dataclass
 class Pulse:
+    """Abstract Pulse object"""
+
     frequency: float  # MHz
-    amplitude: float
-    relative_phase: int  # TODO check
-    start: float
-    duration: float
+    amplitude: float  # ampltitude factor
+    relative_phase: int  # degrees
+    start: float  # us
+    duration: float  # us
 
-    dac: int
-    adc: int
+    name: str  # name of the pulse, typically a serial
+    type: str  # 'readout', 'drive', 'flux'
+    shape: str  # 'rectangular', 'gaussian', 'drag'
 
-    name: str
-    type: str
-    shape: str
+    dac: int  # dac port related
+    adc: int = None  # adc port, for readout pulses
 
 
 @dataclass
 class Gaussian(Pulse):
+    """Gaussian pulse, as defined in qibolab"""
+
     rel_sigma: float = None
 
 
 @dataclass
 class Rectangular(Pulse):
-    """rectangular"""
+    """Rectangular pulse"""
 
 
 @dataclass
 class Drag(Pulse):
-    sigma: float = None
+    """Gaussian pulse, sigma as defined in qibolab"""
+
+    rel_sigma: float = None
     beta: float = None
 
 
 class Parameter(Enum):
+    """Available parameters for sweepers"""
+
     frequency = auto()
     amplitude = auto()
     relative_phase = auto()
@@ -71,7 +76,7 @@ class Sweeper:
     """Sweeper object"""
 
     expts: int = None  # single number of points
-    parameter: List[Parameter] = None  # parameter to sweep
+    parameter: List[Parameter] = None  # parameters to sweep
     starts: List[Union[int, float]] = None  # list of start values
     stops: List[Union[int, float]] = None  # list of stops values
     indexes: List[int] = None  # list of the indexes of the sweeped pulses or qubits
