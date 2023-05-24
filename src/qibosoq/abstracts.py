@@ -26,40 +26,35 @@ class Qubit:
 
 
 @dataclass
-class Shape:
-    """shape"""
-
-
-@dataclass
 class Pulse:
     frequency: float  # MHz
     amplitude: float
     relative_phase: int  # TODO check
     start: float
     duration: float
-    shape: Shape
 
     dac: int
     adc: int
 
     name: str
     type: str
+    shape: str
 
 
 @dataclass
-class Gaussian:
-    rel_sigma: float
+class Gaussian(Pulse):
+    rel_sigma: float = None
 
 
 @dataclass
-class Rectangular:
+class Rectangular(Pulse):
     """rectangular"""
 
 
 @dataclass
-class Drag:
-    sigma: float
-    beta: float
+class Drag(Pulse):
+    sigma: float = None
+    beta: float = None
 
 
 class Parameter(Enum):

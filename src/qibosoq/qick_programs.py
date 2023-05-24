@@ -9,16 +9,7 @@ import numpy as np
 from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
-from qibosoq.abstracts import (
-    Config,
-    Drag,
-    Gaussian,
-    Parameter,
-    Pulse,
-    Qubit,
-    Rectangular,
-    Sweeper,
-)
+from qibosoq.abstracts import Config, Parameter, Pulse, Qubit, Sweeper
 
 logger = logging.getLogger("__name__")
 
@@ -53,8 +44,7 @@ class BaseProgram(ABC, QickProgram):
 
         # mux settings
         # TODO
-        self.mux_sampling_frequency = None
-        self.is_mux = self.mux_sampling_frequency is not None
+        self.is_mux = True  # self.mux_sampling_frequency is not None
         self.readouts_per_experiment = None
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
@@ -92,7 +82,7 @@ class BaseProgram(ABC, QickProgram):
         """Declare ADCs downconversion frequencies"""
 
         adc_ch_already_declared = []
-        for readout_pulse in self.sequence.ro_pulses:
+        for readout_pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
             adc_ch = readout_pulse.adc
             ro_ch = readout_pulse.dac
             if adc_ch not in adc_ch_already_declared:
@@ -133,9 +123,9 @@ class BaseProgram(ABC, QickProgram):
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
-        is_drag = isinstance(pulse.shape, Drag)
-        is_gaus = isinstance(pulse.shape, Gaussian)
-        is_rect = isinstance(pulse.shape, Rectangular)
+        is_drag = pulse.shape == "drag"
+        is_gaus = pulse.shape == "gaussian"
+        is_rect = pulse.shape == "rectangular"
 
         # pulse freq converted with frequency matching
         freq = self.soc.freq2reg(pulse.frequency, gen_ch=gen_ch, ro_ch=pulse.adc)
@@ -143,7 +133,7 @@ class BaseProgram(ABC, QickProgram):
         # if pulse is drag or gauss first define the i-q shape and then set reg
         if is_drag or is_gaus:
             name = pulse.name
-            sigma = (soc_length / pulse.shape.rel_sigma) * np.sqrt(2)
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
 
             if is_gaus:
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
@@ -157,7 +147,7 @@ class BaseProgram(ABC, QickProgram):
                     name=name,
                     sigma=sigma,
                     delta=delta,
-                    alpha=-pulse.shape.beta,
+                    alpha=-pulse.beta,
                     length=soc_length,
                 )
 
@@ -175,7 +165,7 @@ class BaseProgram(ABC, QickProgram):
             self.set_pulse_registers(ch=gen_ch, style="const", freq=freq, phase=phase, gain=gain, length=soc_length)
 
         else:
-            raise NotImplementedError(f"Shape {pulse.shape} not supported!")
+            raise NotImplementedError(f"Shape {pulse} not supported!")
 
     def body(self):
         """Execute sequence of pulses.
@@ -235,7 +225,6 @@ class BaseProgram(ABC, QickProgram):
             and pulse_a.amplitude == pulse_b.amplitude
             and pulse_a.relative_phase == pulse_b.relative_phase
             and pulse_a.duration == pulse_b.duration
-            and pulse_a.shape == pulse_b.shape
             and pulse_a.type == pulse_b.type
         )
 
@@ -287,7 +276,7 @@ class BaseProgram(ABC, QickProgram):
 
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
-        for pulse in self.sequence.ro_pulses:
+        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
             adc_ch = pulse.adc
             ro_ch = pulse.dac
             if adc_ch not in adcs:
@@ -317,7 +306,7 @@ class BaseProgram(ABC, QickProgram):
         mux_freqs = []
         mux_gains = []
 
-        for pulse in self.sequence.ro_pulses:
+        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
             adc_ch = pulse.adc
             ro_ch = pulse.dac
 
@@ -346,7 +335,7 @@ class BaseProgram(ABC, QickProgram):
         gen_ch = pulse.dac
         length = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
 
-        if not isinstance(pulse.shape, Rectangular):
+        if pulse.shape != "rectangular":
             raise TypeError("Only rectangular pulses can be multiplexed")
 
         self.set_pulse_registers(ch=gen_ch, style="const", length=length, mask=mask)
@@ -360,7 +349,7 @@ class BaseProgram(ABC, QickProgram):
         """
 
         mux_dict = {}
-        for pulse in self.sequence.ro_pulses:
+        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
             if pulse.start not in mux_dict:
                 mux_dict[pulse.start] = []
             mux_dict[pulse.start].append(pulse)
@@ -440,9 +429,8 @@ class FluxProgram(BaseProgram):
 
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel"""
-        for idx in self.qubits:
-            qubit = self.qubits[idx]
-            if qubit.flux:
+        for qubit in self.qubits:
+            if qubit.dac is not None:
                 flux_ch = qubit.dac
                 self.declare_gen(flux_ch, nqz=1)
 
@@ -461,12 +449,12 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
     def initialize(self):
         """Function called by AveragerProgram.__init__"""
 
-        self.declare_nqz_zones(self.sequence.qd_pulses)
+        self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
-            self.declare_nqz_zones(self.sequence.ro_pulses)
+            self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "readout"])
         self.declare_readout_freq()
         self.sync_all(self.wait_initialize)
 
@@ -560,17 +548,18 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
 
-        self.declare_nqz_zones(self.sequence.qd_pulses)
+        self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
-            self.declare_nqz_zones(self.sequence.ro_pulses)
+            self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "readout"])
         self.declare_readout_freq()
 
         self.pulses_registered = True
-        for pulse in self.sequence.qd_pulses:
-            self.add_pulse_to_register(pulse)
+        for pulse in self.sequence:
+            if pulse.type == "drive":
+                self.add_pulse_to_register(pulse)
 
         for sweeper in self.sweepers:
             self.add_sweep_info(sweeper)
