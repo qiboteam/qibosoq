@@ -38,21 +38,9 @@ class Pulse:
 
     name: str
     type: str
+
     shape: str
-
-
-@dataclass
-class Gaussian(Pulse):
     rel_sigma: float = None
-
-
-@dataclass
-class Rectangular(Pulse):
-    """rectangular"""
-
-
-@dataclass
-class Drag(Pulse):
     sigma: float = None
     beta: float = None
 

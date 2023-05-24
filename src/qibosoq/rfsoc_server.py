@@ -68,14 +68,18 @@ class ConnectionHandler(BaseRequestHandler):
         qick_logger.handlers[0].doRollover()
         qick_logger.info(program.asm())
 
-        toti, totq = program.acquire(
-            global_soc,
-            data["readouts_per_experiment"],
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=data["average"],
-        )
+        try:
+            toti, totq = program.acquire(
+                global_soc,
+                data["readouts_per_experiment"],
+                load_pulses=True,
+                progress=False,
+                debug=False,
+                average=data["average"],
+            )
+        except Exception as e:
+            global_soc.reset_gens()
+            raise (e)
 
         return {"i": toti, "q": totq}
 
