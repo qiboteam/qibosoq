@@ -39,7 +39,7 @@ class Pulse:
     name: str
     type: str
 
-    shape: str
+    shape: str = None
     rel_sigma: float = None
     sigma: float = None
     beta: float = None
