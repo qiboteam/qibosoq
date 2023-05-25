@@ -99,7 +99,7 @@ class BaseProgram(ABC, QickProgram):
         """
 
         gen_ch = pulse.dac
-        max_gain = self.soccfg["gens"][gen_ch]["maxv"]  # TODO
+        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])  # TODO
 
         # assign gain parameter
         gain = int(pulse.amplitude * max_gain)
@@ -368,7 +368,9 @@ class FluxProgram(BaseProgram):
 
         for qubit in self.qubits:
             flux_ch = qubit.dac
-            max_gain = self.soccfg["gens"][flux_ch]["maxv"]
+            max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
+
+            logger.debug(f"set bias {qubit.bias} {max_gain}")
 
             if qubit.bias == 0:
                 continue  # if bias is zero, just skip the qubit
@@ -474,7 +476,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
                 self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
 
-                max_gain = self.soccfg["gens"][gen_ch]["maxv"]
+                max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                 starts = (sweeper.starts * max_gain).astype(int)
                 stops = (sweeper.stops * max_gain).astype(int)
 
@@ -495,7 +497,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 register = self.get_gen_reg(gen_ch, sweep_type)
 
                 if sweeper.parameter[idx] is Parameter.amplitude:
-                    max_gain = self.soccfg["gens"][gen_ch]["maxv"]
+                    max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                     starts = (sweeper.starts * max_gain).astype(int)
                     stops = (sweeper.stops * max_gain).astype(int)
 
