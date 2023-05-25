@@ -1,3 +1,5 @@
+"""Various heleper objects"""
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import List, Union
@@ -5,32 +7,34 @@ from typing import List, Union
 
 @dataclass
 class Config:
-    """General RFSoC Configuration to send to the server"""
+    """General RFSoC Configuration"""
 
-    repetition_duration: int = 100_000
-    adc_trig_offset: int = 200
+    repetition_duration: int = 100  # relaxation time in us
+    adc_trig_offset: int = 200  # adc clock
     reps: int = 1000
 
 
 @dataclass
 class Qubit:
-    bias: float = 0.0
-    dac: int = None
+    """Qubit object, storing flux information"""
 
-
-# pulses
+    bias: float = 0.0  # ampltitude factor
+    dac: int = None  # dac connected to flux
 
 
 @dataclass
 class Pulse:
-    frequency: float  # MHz
-    amplitude: float
-    relative_phase: int  # TODO check
-    start: float
-    duration: float
+    """Abstract Pulse object"""
 
-    dac: int
-    adc: int
+    frequency: float  # MHz
+    amplitude: float  # ampltitude factor
+    relative_phase: int  # degrees
+    start: float  # us
+    duration: float  # us
+
+    name: str  # name of the pulse, typically a serial
+    type: str  # 'readout', 'drive', 'flux'
+    shape: str  # 'rectangular', 'gaussian', 'drag'
 
     name: str
     type: str
@@ -42,6 +46,8 @@ class Pulse:
 
 
 class Parameter(Enum):
+    """Available parameters for sweepers"""
+
     frequency = auto()
     amplitude = auto()
     relative_phase = auto()
@@ -55,7 +61,7 @@ class Sweeper:
     """Sweeper object"""
 
     expts: int = None  # single number of points
-    parameter: List[Parameter] = None  # parameter to sweep
+    parameter: List[Parameter] = None  # parameters to sweep
     starts: List[Union[int, float]] = None  # list of start values
     stops: List[Union[int, float]] = None  # list of stops values
     indexes: List[int] = None  # list of the indexes of the sweeped pulses or qubits
