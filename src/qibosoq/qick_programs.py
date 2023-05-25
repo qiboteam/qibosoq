@@ -154,7 +154,7 @@ class BaseProgram(ABC, QickProgram):
         else:
             raise NotImplementedError(f"Shape {pulse} not supported!")
 
-    def body(self):
+    def body(self, wait: bool = True):
         """Execute sequence of pulses.
 
         For each pulses calls the add_pulse_to_register function (if not already registered)
@@ -201,7 +201,8 @@ class BaseProgram(ABC, QickProgram):
                     syncdelay=self.syncdelay,
                 )
         self.wait_all()
-        self.sync_all(self.relax_delay)
+        if wait:
+            self.sync_all(self.relax_delay)
 
     def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
         """Check if two pulses are equal, does not check the start time"""
@@ -414,10 +415,11 @@ class FluxProgram(BaseProgram):
         """Body program with flux biases set"""
 
         self.set_bias("sweetspot")
-        super().body()
+        super().body(wait=False)
         # the next two lines are redunant for security reasons
         self.set_bias("zero")
         self.soc.reset_gens()
+        self.sync_all(self.relax_delay)
 
 
 class ExecutePulseSequence(FluxProgram, AveragerProgram):
@@ -477,6 +479,11 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                 starts = (sweeper.starts * max_gain).astype(int)
                 stops = (sweeper.stops * max_gain).astype(int)
+                logger.debug(f"maxgain ", max_gain)
+                logger.debug(f"starts ", sweeper.starts)
+                logger.debug(f"astops ", sweeper.stops)
+                logger.debug(f"starts ", starts)
+                logger.debug(f"astops ", stops)
 
                 new_sweep = QickSweep(
                     self,
