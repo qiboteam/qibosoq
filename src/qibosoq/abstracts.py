@@ -36,6 +36,9 @@ class Pulse:
     type: str  # 'readout', 'drive', 'flux'
     shape: str  # 'rectangular', 'gaussian', 'drag'
 
+    dac: int  # dac for pulse
+    adc: int  # adc for readout pulse
+
     name: str
     type: str
 
