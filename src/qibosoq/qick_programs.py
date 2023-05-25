@@ -112,7 +112,7 @@ class GeneralQickProgram(ABC, QickProgram):
         # assign gain parameter
         gain_set = False
         if is_sweeped:
-            if self.sweeper.parameter == Parameter.amplitude:
+            if self.sweeper.parameter is Parameter.amplitude:
                 gain = self.cfg["start"]
                 gain_set = True
         if not gain_set:
@@ -133,7 +133,7 @@ class GeneralQickProgram(ABC, QickProgram):
         if pulse.type is PulseType.DRIVE:
             freq_set = False
             if is_sweeped:
-                if self.sweeper.parameter == Parameter.frequency:
+                if self.sweeper.parameter is Parameter.frequency:
                     freq = self.cfg["start"]
                     freq_set = True
             if not freq_set:
@@ -352,12 +352,12 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
         step = self.sweeper.values[1] - self.sweeper.values[0]
 
         # find register of sweeped parameter and assign start and step
-        if self.sweeper.parameter == Parameter.frequency:
+        if self.sweeper.parameter is Parameter.frequency:
             self.sweeper_reg = self.sreg(gen_ch, "freq")
             self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
             self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
 
-        elif self.sweeper.parameter == Parameter.amplitude:
+        elif self.sweeper.parameter is Parameter.amplitude:
             self.sweeper_reg = self.sreg(gen_ch, "gain")
             self.cfg["start"] = int(start * self.max_gain)
             self.cfg["step"] = int(step * self.max_gain)
@@ -386,7 +386,13 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
         Returns:
             (bool): True if the pulse is sweeped
         """
-        return self.sweeper.pulses[0] == pulse
+        pulseb = self.sweeper.pulses[0]
+        return (  # temporary solution, already solved for zcu111
+            pulse.start == pulseb.start
+            and pulse.start == pulseb.start
+            and pulse.type == pulseb.type
+            and pulse.qubit == pulseb.qubit
+        )
 
     def update(self):
         """Update function for sweeper"""
