@@ -370,8 +370,6 @@ class FluxProgram(BaseProgram):
             flux_ch = qubit.dac
             max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
-            logger.debug(f"set bias {qubit.bias} {max_gain}")
-
             if qubit.bias == 0:
                 continue  # if bias is zero, just skip the qubit
             if mode == "sweetspot":
