@@ -36,27 +36,12 @@ class Pulse:
     type: str  # 'readout', 'drive', 'flux'
     shape: str  # 'rectangular', 'gaussian', 'drag'
 
-    dac: int  # dac port related
-    adc: int = None  # adc port, for readout pulses
+    name: str
+    type: str
 
-
-@dataclass
-class Gaussian(Pulse):
-    """Gaussian pulse, as defined in qibolab"""
-
+    shape: str = None
     rel_sigma: float = None
-
-
-@dataclass
-class Rectangular(Pulse):
-    """Rectangular pulse"""
-
-
-@dataclass
-class Drag(Pulse):
-    """Gaussian pulse, sigma as defined in qibolab"""
-
-    rel_sigma: float = None
+    sigma: float = None
     beta: float = None
 
 
