@@ -163,6 +163,8 @@ class BaseProgram(ABC, QickProgram):
         """
 
         muxed_ro_executed_time = []
+        muxed_pulses_executed = []
+
         last_pulse_registered = {}
         for idx in self.gen_chs:
             last_pulse_registered[idx] = None
@@ -181,10 +183,15 @@ class BaseProgram(ABC, QickProgram):
                 self.pulse(ch=gen_ch, t=time)
             elif pulse.type == "readout":
                 if self.is_mux:
-                    if pulse.start not in muxed_ro_executed_time:
-                        self.add_muxed_readout_to_register(self.multi_ro_pulses[pulse.start])
-                        muxed_ro_executed_time.append(pulse.start)
-                        adcs = [ro_pulse.adc for ro_pulse in self.multi_ro_pulses[pulse.start]]
+                    if pulse not in muxed_pulses_executed:
+                        start = list(self.multi_ro_pulses)[len(muxed_ro_executed_time)]
+                        time = self.soc.us2cycles(start)
+                        self.add_muxed_readout_to_register(self.multi_ro_pulses[start])
+                        muxed_ro_executed_time.append(start)
+                        adcs = []
+                        for ro_pulse in self.multi_ro_pulses[start]:
+                            adcs.append(ro_pulse.adc)
+                            muxed_pulses_executed.append(ro_pulse)
                     else:
                         continue
                 else:
@@ -338,9 +345,22 @@ class BaseProgram(ABC, QickProgram):
 
         mux_dict = {}
         for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
-            if pulse.start not in mux_dict:
-                mux_dict[pulse.start] = []
-            mux_dict[pulse.start].append(pulse)
+            logger.debug(mux_dict)
+            logger.debug(round(pulse.start, 5))
+
+            if round(pulse.start, 5) not in mux_dict:
+                if len(mux_dict) > 0:
+                    logger.debug((pulse.start - list(mux_dict)[-1]) < 2)
+                    if (pulse.start - list(mux_dict)[-1]) < 2:  # TODO not 2, but pulses len
+                        mux_dict[round(pulse.start, 5)] = mux_dict[list(mux_dict)[-1]]
+                        del mux_dict[list(mux_dict)[-2]]
+                    else:
+                        mux_dict[round(pulse.start, 5)] = []
+                else:
+                    mux_dict[round(pulse.start, 5)] = []
+            logger.debug(mux_dict)
+            mux_dict[round(pulse.start, 5)].append(pulse)
+
         self.readouts_per_experiment = len(mux_dict)
         return mux_dict
 
@@ -468,6 +488,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         stops = sweeper.stops
 
         sweep_list = []
+        logger.debug(f"sweep par {sweeper.parameter} {sweeper.parameter is Parameter.bias}")
         if sweeper.parameter is Parameter.bias:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac

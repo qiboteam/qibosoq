@@ -39,6 +39,7 @@ class ConnectionHandler(BaseRequestHandler):
         count = int.from_bytes(self.request.recv(4), "big")
         received = self.request.recv(count, socket.MSG_WAITALL)
         data = pickle.loads(received)
+        logger.debug(data)
         return data
 
     def execute_program(self, data: dict) -> dict:
