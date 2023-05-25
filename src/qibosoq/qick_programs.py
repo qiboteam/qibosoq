@@ -345,12 +345,8 @@ class BaseProgram(ABC, QickProgram):
 
         mux_dict = {}
         for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
-            logger.debug(mux_dict)
-            logger.debug(round(pulse.start, 5))
-
             if round(pulse.start, 5) not in mux_dict:
                 if len(mux_dict) > 0:
-                    logger.debug((pulse.start - list(mux_dict)[-1]) < 2)
                     if (pulse.start - list(mux_dict)[-1]) < 2:  # TODO not 2, but pulses len
                         mux_dict[round(pulse.start, 5)] = mux_dict[list(mux_dict)[-1]]
                         del mux_dict[list(mux_dict)[-2]]
@@ -358,7 +354,6 @@ class BaseProgram(ABC, QickProgram):
                         mux_dict[round(pulse.start, 5)] = []
                 else:
                     mux_dict[round(pulse.start, 5)] = []
-            logger.debug(mux_dict)
             mux_dict[round(pulse.start, 5)].append(pulse)
 
         self.readouts_per_experiment = len(mux_dict)
@@ -488,11 +483,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         stops = sweeper.stops
 
         sweep_list = []
-        logger.debug(f"sweep par {sweeper.parameter} {sweeper.parameter is Parameter.bias}")
-        if sweeper.parameter is Parameter.bias:
+        if sweeper.parameter[0] is Parameter.bias:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac
-                sweep_type = SWEEPERS_TYPE[sweeper.parameter]
+                sweep_type = SWEEPERS_TYPE[sweeper.parameter[0]]
                 std_register = self.get_gen_reg(gen_ch, sweep_type)
                 swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
                 self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
