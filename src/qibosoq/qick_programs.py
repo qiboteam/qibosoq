@@ -273,7 +273,7 @@ class BaseProgram(ABC, QickProgram):
         adcs, adc_count = np.unique(adcs, return_counts=True)
 
         for idx, adc_ch in enumerate(adcs):
-            count = adc_count[adc_ch]
+            count = adc_count[idx]
             if self.expts:  # self.expts is None if this is not a sweep
                 shape = (count, self.expts, self.reps)
             else:

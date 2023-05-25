@@ -34,15 +34,11 @@ class Pulse:
 
     name: str  # name of the pulse, typically a serial
     type: str  # 'readout', 'drive', 'flux'
-    shape: str  # 'rectangular', 'gaussian', 'drag'
 
     dac: int  # dac for pulse
     adc: int  # adc for readout pulse
 
-    name: str
-    type: str
-
-    shape: str = None
+    shape: str  # 'rectangular', 'gaussian', 'drag'
     rel_sigma: float = None
     sigma: float = None
     beta: float = None
