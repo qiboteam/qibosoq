@@ -14,9 +14,6 @@ from qibosoq.abstracts import Config, Parameter, Pulse, Qubit, Sweeper
 logger = logging.getLogger("__name__")
 
 
-logger = logging.getLogger("__name__")
-
-
 class BaseProgram(ABC, QickProgram):
     """Abstract class for QickPrograms"""
 
@@ -402,7 +399,6 @@ class FluxProgram(BaseProgram):
                     non_swept_reg.set_to(swept_reg)
                 elif mode == "zero":
                     non_swept_reg.set_to(0)
-                    self.soc.reset_gens()
 
             self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
@@ -421,6 +417,7 @@ class FluxProgram(BaseProgram):
         super().body()
         # the next two lines are redunant for security reasons
         self.set_bias("zero")
+        self.soc.reset_gens()
 
 
 class ExecutePulseSequence(FluxProgram, AveragerProgram):
@@ -464,22 +461,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         Args:
             sweeper (RfsocSweep): single qibolab sweeper object to register
         """
-        if sweeper.parameter is Parameter.frequency:
-            starts = sweeper.starts
-            stops = sweeper.stops
-        elif sweeper.parameter is Parameter.amplitude or sweeper.parameter is Parameter.bias:
-            gen_ch = self.sequence[sweeper.indexes[0]].dac
-            max_gain = self.soccfg["gens"][gen_ch]["maxv"]
-            starts = (sweeper.starts * max_gain).astype(int)
-            stops = (sweeper.stops * max_gain).astype(int)
-        elif sweeper.parameter is Parameter.relative_phase:
-            starts = sweeper.starts
-            stops = sweeper.stops
-        elif sweeper.parameter is Parameter.start:
-            starts = sweeper.starts
-            stops = sweeper.stops
-        else:
-            raise NotImplementedError("Sweep type conversion not implemented")
+
+        starts = sweeper.starts
+        stops = sweeper.stops
 
         sweep_list = []
         if sweeper.parameter is Parameter.bias:
@@ -489,6 +473,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 std_register = self.get_gen_reg(gen_ch, sweep_type)
                 swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
                 self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
+
+                max_gain = self.soccfg["gens"][gen_ch]["maxv"]
+                starts = (sweeper.starts * max_gain).astype(int)
+                stops = (sweeper.stops * max_gain).astype(int)
 
                 new_sweep = QickSweep(
                     self,
@@ -503,8 +491,13 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 pulse = self.sequence[jdx]
                 gen_ch = pulse.dac
 
-                sweep_type = SWEEPERS_TYPE[sweeper.parameter]
+                sweep_type = SWEEPERS_TYPE[sweeper.parameter[idx]]
                 register = self.get_gen_reg(gen_ch, sweep_type)
+
+                if sweeper.parameter[idx] is Parameter.amplitude:
+                    max_gain = self.soccfg["gens"][gen_ch]["maxv"]
+                    starts = (sweeper.starts * max_gain).astype(int)
+                    stops = (sweeper.stops * max_gain).astype(int)
 
                 new_sweep = QickSweep(
                     self,
