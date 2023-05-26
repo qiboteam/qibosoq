@@ -40,7 +40,6 @@ class Pulse:
 
     shape: str  # 'rectangular', 'gaussian', 'drag'
     rel_sigma: float = None
-    sigma: float = None
     beta: float = None
 
 
