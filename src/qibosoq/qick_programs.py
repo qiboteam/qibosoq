@@ -1,5 +1,6 @@
 """ QickPrograms used by qibosoq to execute sequences and sweeps """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
 from typing import List, Tuple
@@ -14,6 +15,8 @@ from qick import AveragerProgram, QickProgram, QickSoc, RAveragerProgram
 # conversion coefficients (in qibolab we use Hz and ns)
 HZ_TO_MHZ = 1e-6
 NS_TO_US = 1e-3
+
+logger = logging.getLogger("__name__")
 
 
 class GeneralQickProgram(ABC, QickProgram):
@@ -48,6 +51,7 @@ class GeneralQickProgram(ABC, QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
+        self.registered_waveform = []
 
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
@@ -108,7 +112,7 @@ class GeneralQickProgram(ABC, QickProgram):
         # assign gain parameter
         gain_set = False
         if is_sweeped:
-            if self.sweeper.parameter == Parameter.amplitude:
+            if self.sweeper.parameter is Parameter.amplitude:
                 gain = self.cfg["start"]
                 gain_set = True
         if not gain_set:
@@ -129,7 +133,7 @@ class GeneralQickProgram(ABC, QickProgram):
         if pulse.type is PulseType.DRIVE:
             freq_set = False
             if is_sweeped:
-                if self.sweeper.parameter == Parameter.frequency:
+                if self.sweeper.parameter is Parameter.frequency:
                     freq = self.cfg["start"]
                     freq_set = True
             if not freq_set:
@@ -141,24 +145,29 @@ class GeneralQickProgram(ABC, QickProgram):
 
         # if pulse is drag or gauss first define the i-q shape and then set reg
         if is_drag or is_gaus:
-            name = pulse.serial
             sigma = (soc_length / pulse.shape.rel_sigma) * np.sqrt(2)
 
             if is_gaus:
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
+                if name not in self.registered_waveform:
+                    self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                    self.registered_waveform.append(name)
 
             elif is_drag:
                 # delta will be divided for the same quantity, we are setting it = 1
                 delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+                name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.shape.beta, 2)}_{round(delta, 2)}"
 
-                self.add_DRAG(
-                    ch=gen_ch,
-                    name=name,
-                    sigma=sigma,
-                    delta=delta,
-                    alpha=-pulse.shape.beta,
-                    length=soc_length,
-                )
+                if name not in self.registered_waveform:
+                    self.add_DRAG(
+                        ch=gen_ch,
+                        name=name,
+                        sigma=sigma,
+                        delta=delta,
+                        alpha=-pulse.shape.beta,
+                        length=soc_length,
+                    )
+                    self.registered_waveform.append(name)
 
             self.set_pulse_registers(
                 ch=gen_ch,
@@ -184,6 +193,10 @@ class GeneralQickProgram(ABC, QickProgram):
         not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
 
+        last_pulse_registered = {}
+        for idx in self.gen_chs:
+            last_pulse_registered[idx] = None
+
         for pulse in self.sequence:
             # time follows tproc CLK
             time = self.soc.us2cycles(pulse.start * NS_TO_US)
@@ -194,7 +207,9 @@ class GeneralQickProgram(ABC, QickProgram):
             gen_ch = qd_ch if pulse.type is PulseType.DRIVE else ro_ch
 
             if not self.pulses_registered:
-                self.add_pulse_to_register(pulse)
+                if not pulse.is_pulse_equal_ignoring_start(last_pulse_registered[gen_ch]):
+                    self.add_pulse_to_register(pulse)
+                    last_pulse_registered[gen_ch] = pulse
 
             if pulse.type is PulseType.DRIVE:
                 self.pulse(ch=gen_ch, t=time)
@@ -337,12 +352,12 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
         step = self.sweeper.values[1] - self.sweeper.values[0]
 
         # find register of sweeped parameter and assign start and step
-        if self.sweeper.parameter == Parameter.frequency:
+        if self.sweeper.parameter is Parameter.frequency:
             self.sweeper_reg = self.sreg(gen_ch, "freq")
             self.cfg["start"] = self.soc.freq2reg(start * HZ_TO_MHZ, gen_ch)
             self.cfg["step"] = self.soc.freq2reg(step * HZ_TO_MHZ, gen_ch)
 
-        elif self.sweeper.parameter == Parameter.amplitude:
+        elif self.sweeper.parameter is Parameter.amplitude:
             self.sweeper_reg = self.sreg(gen_ch, "gain")
             self.cfg["start"] = int(start * self.max_gain)
             self.cfg["step"] = int(step * self.max_gain)
@@ -371,7 +386,13 @@ class ExecuteSingleSweep(GeneralQickProgram, RAveragerProgram):
         Returns:
             (bool): True if the pulse is sweeped
         """
-        return self.sweeper.pulses[0] == pulse
+        pulseb = self.sweeper.pulses[0]
+        return (  # temporary solution, already solved for zcu111
+            pulse.start == pulseb.start
+            and pulse.start == pulseb.start
+            and pulse.type == pulseb.type
+            and pulse.qubit == pulseb.qubit
+        )
 
     def update(self):
         """Update function for sweeper"""

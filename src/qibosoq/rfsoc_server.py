@@ -15,6 +15,7 @@ from qick import QickSoc
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSingleSweep
 
 logger = logging.getLogger("__name__")
+qick_logger = logging.getLogger("qick_program")
 
 
 class ConnectionHandler(BaseRequestHandler):
@@ -48,6 +49,9 @@ class ConnectionHandler(BaseRequestHandler):
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
+        qick_logger.handlers[0].doRollover()
+        qick_logger.info(program.asm())
+
         toti, totq = program.acquire(
             global_soc,
             data["readouts_per_experiment"],
@@ -66,8 +70,6 @@ class ConnectionHandler(BaseRequestHandler):
         * Executes qick program
         * Return results
         """
-        # print a log message when receive a connection
-        logger.debug("Got connection from %s", self.client_address)
 
         # set the server in non-blocking mode
         self.server.socket.setblocking(False)

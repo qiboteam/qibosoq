@@ -16,8 +16,7 @@ packages = [{ include = "qibosoq", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
-# TODO replace with qibolab = "0.0.3" when released
-qibolab = { git = "https://github.com/qiboteam/qibolab.git", branch  = "main"}
+qibolab = "0.0.3"
 qick = "^0.2"
 
 
