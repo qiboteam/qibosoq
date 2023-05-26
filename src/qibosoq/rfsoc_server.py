@@ -12,6 +12,7 @@ from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
 
+from qibosoq.abstracts import Config, Pulse, Qubit, Sweeper
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
 logger = logging.getLogger("__name__")
@@ -38,6 +39,7 @@ class ConnectionHandler(BaseRequestHandler):
         count = int.from_bytes(self.request.recv(4), "big")
         received = self.request.recv(count, socket.MSG_WAITALL)
         data = pickle.loads(received)
+        logger.debug(data)
         return data
 
     def execute_program(self, data: dict) -> dict:
@@ -47,9 +49,20 @@ class ConnectionHandler(BaseRequestHandler):
             (dict): dictionary with two keys (i, q) to lists of values
         """
         if data["operation_code"] == "execute_pulse_sequence":
-            program = ExecutePulseSequence(global_soc, data["cfg"], data["sequence"], data["qubits"])
+            program = ExecutePulseSequence(
+                global_soc,
+                Config(**data["cfg"]),
+                [Pulse(**pulse) for pulse in data["sequence"]],
+                [Qubit(**qubit) for qubit in data["qubits"]],
+            )
         elif data["operation_code"] == "execute_sweeps":
-            program = ExecuteSweeps(global_soc, data["cfg"], data["sequence"], data["qubits"], data["sweepers"])
+            program = ExecuteSweeps(
+                global_soc,
+                Config(**data["cfg"]),
+                [Pulse(**pulse) for pulse in data["sequence"]],
+                [Qubit(**qubit) for qubit in data["qubits"]],
+                [Sweeper(**sweeper) for sweeper in data["sweepers"]],
+            )
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
