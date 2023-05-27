@@ -1,13 +1,15 @@
 """Qibosoq server for qibolab-qick integration.
 
-Supports the following FPGA:
+Tested on the following FPGA:
     * RFSoc4x2
+    * ZCU111
 """
 
+import json
 import logging
 import os
-import pickle
 import socket
+import traceback
 from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
@@ -32,14 +34,13 @@ class ConnectionHandler(BaseRequestHandler):
         The communication protocol is:
         * first the server receives  a 4 bytes integer with the length
         of the message to actually receive
-        * waits for the message and unpickles it
+        * waits for the message and decode it
         * returns the unpcikled dictionary
         """
 
         count = int.from_bytes(self.request.recv(4), "big")
         received = self.request.recv(count, socket.MSG_WAITALL)
-        data = pickle.loads(received)
-        logger.debug(data)
+        data = json.loads(received)
         return data
 
     def execute_program(self, data: dict) -> dict:
@@ -78,7 +79,7 @@ class ConnectionHandler(BaseRequestHandler):
             average=data["average"],
         )
 
-        return {"i": toti, "q": totq}
+        return {"i": toti.tolist(), "q": totq.tolist()}
 
     def handle(self):
         """Handle a connection to the server.
@@ -92,15 +93,18 @@ class ConnectionHandler(BaseRequestHandler):
         self.server.socket.setblocking(False)
 
         try:
+            logger.debug("Receiving data")
             data = self.receive_command()
+            logger.debug("Executing program")
             results = self.execute_program(data)
         except Exception as exception:  # pylint: disable=bare-except, broad-exception-caught
             logger.exception("")
             logger.error("Faling command: %s", data)
-            results = exception
+            results = traceback.format_exc()
             global_soc.reset_gens()
 
-        self.request.sendall(pickle.dumps(results))
+        logger.debug("Sending data")
+        self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
 def serve(host, port):
