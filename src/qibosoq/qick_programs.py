@@ -517,7 +517,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         self.add_sweep(merge_sweeps(sweep_list))
 
     def initialize(self):
-        """Function called by RAveragerProgram.__init__"""
+        """Function called by NDAveragerProgram.__init__"""
         self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
@@ -544,7 +544,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 SWEEPERS_TYPE = {
     Parameter.FREQUENCY: "freq",
     Parameter.AMPLITUDE: "gain",
-    Parameter.BIAS: "GAin",
+    Parameter.BIAS: "gain",
     Parameter.RELATIVE_PHASE: "phase",
-    Parameter.START: "T",
+    Parameter.START: "t",
 }

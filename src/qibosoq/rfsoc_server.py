@@ -49,14 +49,15 @@ class ConnectionHandler(BaseRequestHandler):
         Returns:
             (dict): dictionary with two keys (i, q) to lists of values
         """
-        if OperationCode(data["operation_code"]) is OperationCode.EXECUTE_PULSE_SEQUENCE:
+        opcode = OperationCode(data["operation_code"])
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
             program = ExecutePulseSequence(
                 global_soc,
                 Config(**data["cfg"]),
                 [Pulse(**pulse) for pulse in data["sequence"]],
                 [Qubit(**qubit) for qubit in data["qubits"]],
             )
-        elif OperationCode(data["operation_code"]) is OperationCode.EXECUTE_SWEEPS:
+        elif opcode is OperationCode.EXECUTE_SWEEPS:
             program = ExecuteSweeps(
                 global_soc,
                 Config(**data["cfg"]),
