@@ -30,7 +30,7 @@ def configure_logger(name: str, filename: str, backup_count: int):
     return new_logger
 
 
-def define_loggers() -> Tuple(logging.Logger, logging.Logger):
+def define_loggers() -> Tuple[logging.Logger, logging.Logger]:
     """Define main logger and program logger"""
     main = configure_logger(__name__, MAIN_LOGGER_FILE, 5)
     program = configure_logger(PROGRAM_LOGGER_NAME, PROGRAM_LOGGER_FILE, 3)
