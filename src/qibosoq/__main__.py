@@ -6,14 +6,8 @@ import os
 import sys
 from typing import Tuple
 
+import qibosoq.configuration as cfg
 from qibosoq.rfsoc_server import serve
-
-HOST = "192.168.0.81"  # Server address
-PORT = 6000  # Port to listen on
-
-MAIN_LOGGER_FILE = "/home/xilinx/logs/qibosoq.log"
-PROGRAM_LOGGER_FILE = "/home/xilinx/logs/program.log"
-PROGRAM_LOGGER_NAME = "qick_program"
 
 
 def configure_logger(name: str, filename: str, backup_count: int):
@@ -32,16 +26,16 @@ def configure_logger(name: str, filename: str, backup_count: int):
 
 def define_loggers() -> Tuple[logging.Logger, logging.Logger]:
     """Define main logger and program logger"""
-    main = configure_logger(__name__, MAIN_LOGGER_FILE, 5)
-    program = configure_logger(PROGRAM_LOGGER_NAME, PROGRAM_LOGGER_FILE, 3)
+    main = configure_logger(cfg.MAIN_LOGGER_NAME, cfg.MAIN_LOGGER_FILE, 5)
+    program = configure_logger(cfg.PROGRAM_LOGGER_NAME, cfg.PROGRAM_LOGGER_FILE, 3)
     return main, program
 
 
 logger, program_logger = define_loggers()
 
 try:
-    logger.info("Server starting at port %d and IP %s", PORT, HOST)
-    serve(HOST, PORT)
+    logger.info("Server starting at port %d and IP %s", cfg.PORT, cfg.HOST)
+    serve(cfg.HOST, cfg.PORT)
 except KeyboardInterrupt:
     logger.info("Server closed by Keyboard combination")
     sys.exit(0)

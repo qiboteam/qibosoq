@@ -9,9 +9,10 @@ import numpy as np
 from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
+import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
 class BaseProgram(ABC, QickProgram):
@@ -39,8 +40,7 @@ class BaseProgram(ABC, QickProgram):
         self.reps = qpcfg.reps
 
         # mux settings
-        # TODO
-        self.is_mux = True  # self.mux_sampling_frequency is not None
+        self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
         self.readouts_per_experiment = None
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration)

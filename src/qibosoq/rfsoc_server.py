@@ -14,15 +14,16 @@ from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
 
+import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components import Config, OperationCode, Pulse, Qubit, Sweeper
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
-logger = logging.getLogger(__name__)
-qick_logger = logging.getLogger("qick_program")
+logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
+qick_logger = logging.getLogger(qibosoq_cfg.PROGRAM_LOGGER_NAME)
 
 
 # initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc(bitfile="/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit")
+global_soc = QickSoc(bitfile=qibosoq_cfg.QICKSOC_LOCATION)
 
 
 class ConnectionHandler(BaseRequestHandler):
@@ -50,23 +51,22 @@ class ConnectionHandler(BaseRequestHandler):
             (dict): dictionary with two keys (i, q) to lists of values
         """
         opcode = OperationCode(data["operation_code"])
+        args = ()
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
-            program = ExecutePulseSequence(
-                global_soc,
-                Config(**data["cfg"]),
-                [Pulse(**pulse) for pulse in data["sequence"]],
-                [Qubit(**qubit) for qubit in data["qubits"]],
-            )
+            programcls = ExecutePulseSequence
         elif opcode is OperationCode.EXECUTE_SWEEPS:
-            program = ExecuteSweeps(
-                global_soc,
-                Config(**data["cfg"]),
-                [Pulse(**pulse) for pulse in data["sequence"]],
-                [Qubit(**qubit) for qubit in data["qubits"]],
-                [Sweeper(**sweeper) for sweeper in data["sweepers"]],
-            )
+            programcls = ExecuteSweeps
+            args = [Sweeper(**sweeper) for sweeper in data["sweepers"]]
         else:
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
+
+        program = programcls(
+            global_soc,
+            Config(**data["cfg"]),
+            [Pulse(**pulse) for pulse in data["sequence"]],
+            [Qubit(**qubit) for qubit in data["qubits"]],
+            *args,
+        )
 
         qick_logger.handlers[0].doRollover()
         qick_logger.info(program.asm())
