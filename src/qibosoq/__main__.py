@@ -4,22 +4,25 @@ import logging
 import logging.handlers
 import os
 import sys
+from typing import Tuple
 
 from qibosoq.rfsoc_server import serve
 
+HOST = "192.168.0.81"  # Server address
+PORT = 6000  # Port to listen on
 
-def define_main_logger():
-    """Define main logger format and handler"""
+MAIN_LOGGER_FILE = "/home/xilinx/logs/qibosoq.log"
+PROGRAM_LOGGER_FILE = "/home/xilinx/logs/program.log"
+PROGRAM_LOGGER_NAME = "qick_program"
 
-    new_logger = logging.getLogger("__name__")
+
+def configure_logger(name: str, filename: str, backup_count: int):
+    """Create and configure logger"""
+    new_logger = logging.getLogger(name)
     new_logger.setLevel(logging.DEBUG)
-
-    filename = "/home/xilinx/logs/qibosoq.log"
     formatter = logging.Formatter("%(levelname)s :: %(asctime)s ::  %(message)s", "%Y-%m-%d %H:%M:%S")
 
-    # Creates a qibosoq.log.<n> file if qibosoq.log already exists
-    # The n value goes up to five
-    handler = logging.handlers.RotatingFileHandler(filename, mode="w", backupCount=5, delay=True)
+    handler = logging.handlers.RotatingFileHandler(filename, mode="w", backupCount=backup_count, delay=True)
     if os.path.isfile(filename):
         handler.doRollover()
     handler.setFormatter(formatter)
@@ -27,27 +30,14 @@ def define_main_logger():
     return new_logger
 
 
-def define_program_logger():
-    """Define qick logger format and handler"""
-
-    new_logger = logging.getLogger("qick_program")
-    new_logger.setLevel(logging.DEBUG)
-
-    filename = "/home/xilinx/logs/program.log"
-    formatter = logging.Formatter("%(levelname)s :: %(asctime)s\n%(message)s", "%Y-%m-%d %H:%M:%S")
-
-    handler = logging.handlers.RotatingFileHandler(filename, mode="w", backupCount=3)
-    handler.setFormatter(formatter)
-
-    new_logger.addHandler(handler)
-    return new_logger
+def define_loggers() -> Tuple(logging.Logger, logging.Logger):
+    """Define main logger and program logger"""
+    main = configure_logger(__name__, MAIN_LOGGER_FILE, 5)
+    program = configure_logger(PROGRAM_LOGGER_NAME, PROGRAM_LOGGER_FILE, 3)
+    return main, program
 
 
-logger = define_main_logger()
-program_logger = define_program_logger()
-
-HOST = "192.168.0.81"  # Server address
-PORT = 6000  # Port to listen on
+logger, program_logger = define_loggers()
 
 try:
     logger.info("Server starting at port %d and IP %s", PORT, HOST)

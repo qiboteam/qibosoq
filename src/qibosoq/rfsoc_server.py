@@ -14,10 +14,10 @@ from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
 
-from qibosoq.abstracts import Config, Pulse, Qubit, Sweeper
+from qibosoq.components import Config, OperationCode, Pulse, Qubit, Sweeper
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 qick_logger = logging.getLogger("qick_program")
 
 
@@ -49,14 +49,14 @@ class ConnectionHandler(BaseRequestHandler):
         Returns:
             (dict): dictionary with two keys (i, q) to lists of values
         """
-        if data["operation_code"] == "execute_pulse_sequence":
+        if OperationCode(data["operation_code"]) is OperationCode.EXECUTE_PULSE_SEQUENCE:
             program = ExecutePulseSequence(
                 global_soc,
                 Config(**data["cfg"]),
                 [Pulse(**pulse) for pulse in data["sequence"]],
                 [Qubit(**qubit) for qubit in data["qubits"]],
             )
-        elif data["operation_code"] == "execute_sweeps":
+        elif OperationCode(data["operation_code"]) is OperationCode.EXECUTE_SWEEPS:
             program = ExecuteSweeps(
                 global_soc,
                 Config(**data["cfg"]),

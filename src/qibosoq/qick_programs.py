@@ -9,9 +9,9 @@ import numpy as np
 from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
-from qibosoq.abstracts import Config, Parameter, Pulse, Qubit, Sweeper
+from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 
 class BaseProgram(ABC, QickProgram):
@@ -28,7 +28,6 @@ class BaseProgram(ABC, QickProgram):
             * wait_initialize is defined explicitly
             * super.__init__ (this will init AveragerProgram or RAveragerProgram)
         """
-
         self.soc = soc
         self.soccfg = soc  # this is used by qick
 
@@ -63,7 +62,6 @@ class BaseProgram(ABC, QickProgram):
         Args:
             sequence (PulseSequence): sequence of pulses to consider
         """
-
         ch_already_declared = []
         for pulse in sequence:
             freq = pulse.frequency
@@ -77,7 +75,6 @@ class BaseProgram(ABC, QickProgram):
 
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies"""
-
         adc_ch_already_declared = []
         for readout_pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
             adc_ch = readout_pulse.adc
@@ -97,7 +94,6 @@ class BaseProgram(ABC, QickProgram):
         Args:
             pulse (Pulse): pulse object to load in the register
         """
-
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])  # TODO
 
@@ -161,7 +157,6 @@ class BaseProgram(ABC, QickProgram):
         before firing it. If the pulse is a readout, it does a measurement and does
         not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
-
         muxed_ro_executed_time = []
         muxed_pulses_executed = []
 
@@ -265,7 +260,6 @@ class BaseProgram(ABC, QickProgram):
 
     def collect_shots(self) -> Tuple[List[float], List[float]]:
         """Reads the internal buffers and returns single shots (i,q)"""
-
         tot_i = []
         tot_q = []
 
@@ -295,7 +289,6 @@ class BaseProgram(ABC, QickProgram):
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout"""
-
         adc_ch_added = []
 
         mux_freqs = []
@@ -322,7 +315,6 @@ class BaseProgram(ABC, QickProgram):
 
     def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
         """Register multiplexed pulse before firing it"""
-
         # readout amplitude gets divided by len(mask), we are here fixing the values
         mask = [0, 1, 2]
 
@@ -342,7 +334,6 @@ class BaseProgram(ABC, QickProgram):
         { 'start_time_0': [pulse1, pulse2],
           'start_time_1': [pulse3]}
         """
-
         mux_dict = {}
         for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
             if round(pulse.start, 5) not in mux_dict:
@@ -379,7 +370,6 @@ class FluxProgram(BaseProgram):
         Args:
             mode (str): can be 'sweetspot' or 'zero'
         """
-
         duration = 48  # minimum len
 
         for qubit in self.qubits:
@@ -428,7 +418,6 @@ class FluxProgram(BaseProgram):
 
     def body(self):
         """Body program with flux biases set"""
-
         self.set_bias("sweetspot")
         super().body(wait=False)
         # the next two lines are redunant for security reasons
@@ -442,7 +431,6 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
 
     def initialize(self):
         """Function called by AveragerProgram.__init__"""
-
         self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
@@ -465,7 +453,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         sweepers: List[Sweeper],
     ):
         """Init function, sets sweepers parameters before calling super.__init__"""
-
         # sweepers are handled by qick in the opposite order
         self.sweepers = list(sweepers)[::-1]
 
@@ -478,7 +465,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         Args:
             sweeper (RfsocSweep): single qibolab sweeper object to register
         """
-
         starts = sweeper.starts
         stops = sweeper.stops
 
@@ -486,9 +472,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         sweeper.parameter = [Parameter(par) for par in sweeper.parameter]
         sweeper.starts = np.array(sweeper.starts)
         sweeper.stops = np.array(sweeper.stops)
-        logger.debug(f"sweep {sweeper.parameter[0]}, {sweeper.parameter[0] is Parameter.bias}")
-        logger.debug(f"indexes {sweeper.indexes}")
-        if sweeper.parameter[0] is Parameter.bias:
+        if sweeper.parameter[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac
                 sweep_type = SWEEPERS_TYPE[sweeper.parameter[0]]
@@ -499,11 +483,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                 starts = (sweeper.starts * max_gain).astype(int)
                 stops = (sweeper.stops * max_gain).astype(int)
-                logger.debug(f"maxgain ", max_gain)
-                logger.debug(f"starts ", sweeper.starts)
-                logger.debug(f"astops ", sweeper.stops)
-                logger.debug(f"starts ", starts)
-                logger.debug(f"astops ", stops)
 
                 new_sweep = QickSweep(
                     self,
@@ -521,7 +500,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 sweep_type = SWEEPERS_TYPE[sweeper.parameter[idx]]
                 register = self.get_gen_reg(gen_ch, sweep_type)
 
-                if sweeper.parameter[idx] is Parameter.amplitude:
+                if sweeper.parameter[idx] is Parameter.AMPLITUDE:
                     max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                     starts = (sweeper.starts * max_gain).astype(int)
                     stops = (sweeper.stops * max_gain).astype(int)
@@ -539,7 +518,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
     def initialize(self):
         """Function called by RAveragerProgram.__init__"""
-
         self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
@@ -564,9 +542,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
 
 SWEEPERS_TYPE = {
-    Parameter.frequency: "freq",
-    Parameter.amplitude: "gain",
-    Parameter.bias: "gain",
-    Parameter.relative_phase: "phase",
-    Parameter.start: "t",
+    Parameter.FREQUENCY: "freq",
+    Parameter.AMPLITUDE: "gain",
+    Parameter.BIAS: "GAin",
+    Parameter.RELATIVE_PHASE: "phase",
+    Parameter.START: "T",
 }
