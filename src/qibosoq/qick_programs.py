@@ -483,6 +483,11 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         stops = sweeper.stops
 
         sweep_list = []
+        sweeper.parameter = [Parameter(par) for par in sweeper.parameter]
+        sweeper.starts = np.array(sweeper.starts)
+        sweeper.stops = np.array(sweeper.stops)
+        logger.debug(f"sweep {sweeper.parameter[0]}, {sweeper.parameter[0] is Parameter.bias}")
+        logger.debug(f"indexes {sweeper.indexes}")
         if sweeper.parameter[0] is Parameter.bias:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac

@@ -1,7 +1,7 @@
 """Various heleper objects"""
 
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import IntEnum, auto
 from typing import List, Union
 
 
@@ -43,7 +43,7 @@ class Pulse:
     beta: float = None
 
 
-class Parameter(Enum):
+class Parameter(IntEnum):
     """Available parameters for sweepers"""
 
     frequency = auto()

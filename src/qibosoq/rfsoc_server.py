@@ -93,9 +93,7 @@ class ConnectionHandler(BaseRequestHandler):
         self.server.socket.setblocking(False)
 
         try:
-            logger.debug("Receiving data")
             data = self.receive_command()
-            logger.debug("Executing program")
             results = self.execute_program(data)
         except Exception as exception:  # pylint: disable=bare-except, broad-exception-caught
             logger.exception("")
@@ -103,7 +101,6 @@ class ConnectionHandler(BaseRequestHandler):
             results = traceback.format_exc()
             global_soc.reset_gens()
 
-        logger.debug("Sending data")
         self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
