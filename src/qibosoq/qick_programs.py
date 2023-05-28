@@ -48,6 +48,7 @@ class BaseProgram(ABC, QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
+        self.registered_waveform = []
 
         if self.is_mux:
             self.multi_ro_pulses = self.create_mux_ro_dict()
@@ -99,7 +100,6 @@ class BaseProgram(ABC, QickProgram):
 
         # assign gain parameter
         gain = int(pulse.amplitude * max_gain)
-
         phase = self.deg2reg(pulse.relative_phase, gen_ch=gen_ch)
 
         # pulse length converted with DAC CLK
@@ -119,20 +119,26 @@ class BaseProgram(ABC, QickProgram):
             sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
 
             if is_gaus:
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
+                if name not in self.registered_waveform:
+                    self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                    self.registered_waveform.append(name)
 
             elif is_drag:
                 # delta will be divided for the same quantity, we are setting it = 1
                 delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+                name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.shape.beta, 2)}_{round(delta, 2)}"
 
-                self.add_DRAG(
-                    ch=gen_ch,
-                    name=name,
-                    sigma=sigma,
-                    delta=delta,
-                    alpha=-pulse.beta,
-                    length=soc_length,
-                )
+                if name not in self.registered_waveform:
+                    self.add_DRAG(
+                        ch=gen_ch,
+                        name=name,
+                        sigma=sigma,
+                        delta=delta,
+                        alpha=-pulse.shape.beta,
+                        length=soc_length,
+                    )
+                    self.registered_waveform.append(name)
 
             self.set_pulse_registers(
                 ch=gen_ch,
@@ -173,8 +179,10 @@ class BaseProgram(ABC, QickProgram):
 
             if pulse.type == "drive":
                 if not self.pulses_registered:
-                    self.add_pulse_to_register(pulse)
-                    last_pulse_registered[gen_ch] = pulse
+                    # TODO
+                    if not pulse == last_pulse_registered[gen_ch]:
+                        self.add_pulse_to_register(pulse)
+                        last_pulse_registered[gen_ch] = pulse
                 self.pulse(ch=gen_ch, t=time)
             elif pulse.type == "readout":
                 if self.is_mux:
@@ -205,18 +213,6 @@ class BaseProgram(ABC, QickProgram):
         self.wait_all()
         if wait:
             self.sync_all(self.relax_delay)
-
-    def is_pulse_equal(self, pulse_a: Pulse, pulse_b: Pulse) -> bool:
-        """Check if two pulses are equal, does not check the start time"""
-        if pulse_a is None or pulse_b is None:
-            return False
-        return (
-            pulse_a.frequency == pulse_b.frequency
-            and pulse_a.amplitude == pulse_b.amplitude
-            and pulse_a.relative_phase == pulse_b.relative_phase
-            and pulse_a.duration == pulse_b.duration
-            and pulse_a.type == pulse_b.type
-        )
 
     # pylint: disable=unexpected-keyword-arg, arguments-renamed
     def acquire(

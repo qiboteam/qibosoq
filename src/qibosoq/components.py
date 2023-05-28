@@ -66,6 +66,18 @@ class Pulse:
     beta: float = None
     """Beta for drag pulses"""
 
+    def __eq__(self, pulse):
+        """Check if two pulses are equal, ignoring start time"""
+        return (
+            self.frequency == pulse.frequency
+            and self.amplitude == pulse.amplitude
+            and self.relative_phase == pulse.relative_phase
+            and self.duration == pulse.duration
+            and self.type == pulse.type
+            and self.dac == pulse.dac
+            and self.shape == pulse.shape
+        )
+
 
 class Parameter(IntEnum):
     """Available parameters for sweepers"""
