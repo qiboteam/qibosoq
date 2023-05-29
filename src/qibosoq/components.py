@@ -68,6 +68,8 @@ class Pulse:
 
     def __eq__(self, pulse):
         """Check if two pulses are equal, ignoring start time"""
+        if pulse is None:
+            return False
         return (
             self.frequency == pulse.frequency
             and self.amplitude == pulse.amplitude
