@@ -328,7 +328,7 @@ class BaseProgram(ABC, QickProgram):
 
         Example of dictionary:
         { 'start_time_0': [pulse1, pulse2],
-          'start_time_1': [pulse3]}
+        'start_time_1': [pulse3]}
         """
         mux_dict = {}
         for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
