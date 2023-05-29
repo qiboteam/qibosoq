@@ -1,3 +1,5 @@
+import pathlib
+
 import pytest
 import qick
 
@@ -15,7 +17,7 @@ def soc():
     def mock():
         pass
 
-    soc = qick.QickConfig("tests/qick_config.json")
+    soc = qick.QickConfig(str(pathlib.Path(__file__).parent / "qick_config.json"))
     soc.reset_gens = mock
     return soc
 
