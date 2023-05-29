@@ -300,6 +300,8 @@ class BaseProgram(ABC, QickProgram):
                 zone = 1 if freq < self.soccfg["gens"][ro_ch]["fs"] / 2 else 2
                 mux_freqs.append(freq)
                 mux_gains.append(pulse.amplitude)
+        if ro_ch is None:
+            return
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,
@@ -370,10 +372,11 @@ class FluxProgram(BaseProgram):
 
         for qubit in self.qubits:
             flux_ch = qubit.dac
+            # if bias is zero, just skip the qubit
+            if flux_ch is None or qubit.bias == 0:
+                continue
             max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
-            if qubit.bias == 0:
-                continue  # if bias is zero, just skip the qubit
             if mode == "sweetspot":
                 value = max_gain
             elif mode == "zero":
