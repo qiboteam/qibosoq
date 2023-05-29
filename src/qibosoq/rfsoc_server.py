@@ -22,10 +22,6 @@ logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(qibosoq_cfg.PROGRAM_LOGGER_NAME)
 
 
-# initialize QickSoc object (firmware and clocks)
-global_soc = QickSoc(bitfile=qibosoq_cfg.QICKSOC_LOCATION)
-
-
 class ConnectionHandler(BaseRequestHandler):
     """Handle requests to the server"""
 
@@ -61,7 +57,7 @@ class ConnectionHandler(BaseRequestHandler):
             raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
         program = programcls(
-            global_soc,
+            self.server.qick_soc,
             Config(**data["cfg"]),
             [Pulse(**pulse) for pulse in data["sequence"]],
             [Qubit(**qubit) for qubit in data["qubits"]],
@@ -72,7 +68,7 @@ class ConnectionHandler(BaseRequestHandler):
         qick_logger.info(program.asm())
 
         toti, totq = program.acquire(
-            global_soc,
+            self.server.qick_soc,
             data["readouts_per_experiment"],
             load_pulses=True,
             progress=False,
@@ -100,14 +96,16 @@ class ConnectionHandler(BaseRequestHandler):
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = traceback.format_exc()
-            global_soc.reset_gens()
+            self.server.qick_soc.reset_gens()
 
         self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
 def serve(host, port):
     """Open the TCPServer and wait forever for connections"""
+    # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
+        server.qick_soc = QickSoc(bitfile=qibosoq_cfg.QICKSOC_LOCATION)
         logger.info("Server listening, PID %d", os.getpid())
         server.serve_forever()
