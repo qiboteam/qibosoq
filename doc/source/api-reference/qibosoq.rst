@@ -3,9 +3,14 @@
 Configuration
 """""""""""""
 
-.. automodule:: qibosoq.configuration
-    :members:
-    :member-order: bysource
+.. autodata:: qibosoq.configuration.HOST
+.. autodata:: qibosoq.configuration.PORT
+.. autodata:: qibosoq.configuration.MAIN_LOGGER_FILE
+.. autodata:: qibosoq.configuration.MAIN_LOGGER_NAME
+.. autodata:: qibosoq.configuration.PROGRAM_LOGGER_FILE
+.. autodata:: qibosoq.configuration.PROGRAM_LOGGER_NAME
+.. autodata:: qibosoq.configuration.QICKSOC_LOCATION
+.. autodata:: qibosoq.configuration.IS_MULTIPLEXED
 
 Programs
 """"""""
