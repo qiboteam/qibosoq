@@ -449,7 +449,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         qpcfg: Config,
         sequence: List[Pulse],
         qubits: List[Qubit],
-        sweepers: List[Sweeper],
+        *sweepers: List[Sweeper],
     ):
         """Init function, sets sweepers parameters before calling super.__init__"""
         # sweepers are handled by qick in the opposite order
