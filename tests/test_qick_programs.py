@@ -150,7 +150,6 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         shape="gaussian",
         rel_sigma=5,
     )
-
     pulse1 = Pulse(
         frequency=100,
         amplitude=0.1,
@@ -161,11 +160,10 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         type="drive",
         dac=6,
         adc=0,
-        shape="gaussian",
+        shape="drag",
         rel_sigma=5,
         beta=0.1,
     )
-
     pulse2 = Pulse(
         frequency=100,
         amplitude=0.1,
@@ -178,10 +176,24 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         adc=0,
         shape="rectangular",
     )
+    pulse3 = Pulse(
+        frequency=100,
+        amplitude=0.1,
+        relative_phase=0,
+        start=0,
+        duration=0.04,
+        name="pulse2",
+        type="drive",
+        dac=6,
+        adc=0,
+        shape="test-non-existance",
+    )
 
     execute_pulse_sequence.add_pulse_to_register(pulse0)
     execute_pulse_sequence.add_pulse_to_register(pulse1)
     execute_pulse_sequence.add_pulse_to_register(pulse2)
+    with pytest.raises(NotImplementedError):
+        execute_pulse_sequence.add_pulse_to_register(pulse3)
 
 
 def test_body(soc):
