@@ -137,7 +137,7 @@ class BaseProgram(ABC, QickProgram):
                         name=name,
                         sigma=sigma,
                         delta=delta,
-                        alpha=-pulse.shape.beta,
+                        alpha=-pulse.beta,
                         length=soc_length,
                     )
                     self.registered_waveform.append(name)
