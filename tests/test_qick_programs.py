@@ -86,7 +86,11 @@ def execute_sweeps(soc):
             shape="rectangular",
         ),
     ]
-    sweepers = [Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])]
+    sweepers = (
+        Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameter=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameter=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
+    )
 
     qubits = [Qubit()]
 
@@ -266,6 +270,7 @@ def test_body(soc):
     qubits = [Qubit()]
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
+
     program.body()
 
 
@@ -288,6 +293,20 @@ def test_set_bias(soc):
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
+    program.set_bias("sweetspot")
+    program.set_bias("zero")
+
+    with pytest.raises(NotImplementedError):
+        program.set_bias("test")
+
+
+def test_set_bias_sweep(soc):
+    config = Config()
+    sequence = []
+    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
+    sweepers = tuple([Sweeper(expts=100, parameter=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
+
+    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
     program.set_bias("sweetspot")
     program.set_bias("zero")
 
