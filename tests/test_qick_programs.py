@@ -9,11 +9,11 @@ import qibosoq.configuration
 from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
-qibosoq.configuration.IS_MULTIPLEXED = False
-
 
 @pytest.fixture
 def soc():
+    qibosoq.configuration.IS_MULTIPLEXED = False
+
     def mock():
         pass
 
@@ -24,6 +24,7 @@ def soc():
 
 @pytest.fixture
 def execute_pulse_sequence(soc):
+    qibosoq.configuration.IS_MULTIPLEXED = False
     config = Config()
     sequence = [
         Pulse(
@@ -59,6 +60,7 @@ def execute_pulse_sequence(soc):
 
 @pytest.fixture
 def execute_sweeps(soc):
+    qibosoq.configuration.IS_MULTIPLEXED = False
     config = Config()
     sequence = [
         Pulse(
