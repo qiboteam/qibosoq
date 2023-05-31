@@ -17,7 +17,7 @@ def soc():
     def mock():
         pass
 
-    soc = qick.QickConfig(str(pathlib.Path(__file__).parent / "qick_config.json"))
+    soc = qick.QickConfig(str(pathlib.Path(__file__).parent / "qick_config_standard.json"))
     soc.reset_gens = mock
     return soc
 
