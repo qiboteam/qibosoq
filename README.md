@@ -23,12 +23,16 @@ poetry install
 pre-commit install
 ```
 
-## Hardcoded parameters
+## Configuration parameters
 
-In `__main__.py` some qibosoq parameters are hardcoded and can be changed:
-* **host**: ip of the server
-* **port**: port of the server
-* **filename**: path for logs
+In `configuration.py` some default qibosoq parameters are hardcoded. They can be changed using environment variables ([see documentation](https://qibo.science/qibosoq/stable/getting-started/usage.html)).
+
+* IP of the server
+* Port of the server
+* Path for log files
+* Name of python loggers
+* Path of bitstream
+* Type of readout (multiplexed or not, depending on the loaded bitstream)
 
 ## Run the server
 
