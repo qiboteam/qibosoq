@@ -36,4 +36,4 @@ if "QICKSOC_LOCATION" in os.environ:
 IS_MULTIPLEXED = True  # TODO this should be written in bitstream
 """Whether the readout is multiplexed or not"""
 if "QIBOSOQ_IS_MULTIPLEXED" in os.environ:
-    IS_MULTIPLEXED = bool(os.environ["QIBOSOQ_IS_MULTIPLEXED"])
+    IS_MULTIPLEXED = os.environ["QIBOSOQ_IS_MULTIPLEXED"] == "True"
