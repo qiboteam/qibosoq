@@ -6,6 +6,7 @@ from dataclasses import asdict
 from typing import List, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
@@ -225,7 +226,7 @@ class BaseProgram(ABC, QickProgram):
         progress: bool = False,
         debug: bool = False,
         average: bool = False,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Calls the super() acquire function.
 
         Args:
@@ -256,7 +257,7 @@ class BaseProgram(ABC, QickProgram):
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
 
-    def collect_shots(self) -> Tuple[List[float], List[float]]:
+    def collect_shots(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Reads the internal buffers and returns single shots (i,q)"""
         tot_i = []
         tot_q = []
@@ -283,7 +284,7 @@ class BaseProgram(ABC, QickProgram):
 
             tot_i.append(i_val)
             tot_q.append(q_val)
-        return tot_i, tot_q
+        return np.array(tot_i), np.array(tot_q)
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout"""
