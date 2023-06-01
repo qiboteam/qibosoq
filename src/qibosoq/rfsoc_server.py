@@ -14,12 +14,12 @@ from socketserver import BaseRequestHandler, TCPServer
 
 from qick import QickSoc
 
-import qibosoq.configuration as qibosoq_cfg
+import qibosoq.configuration as cfg
 from qibosoq.components import Config, OperationCode, Pulse, Qubit, Sweeper
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
-logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
-qick_logger = logging.getLogger(qibosoq_cfg.PROGRAM_LOGGER_NAME)
+logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
+qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
 
 class ConnectionHandler(BaseRequestHandler):
@@ -106,6 +106,6 @@ def serve(host, port):
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
-        server.qick_soc = QickSoc(bitfile=qibosoq_cfg.QICKSOC_LOCATION)
+        server.qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
         logger.info("Server listening, PID %d", os.getpid())
         server.serve_forever()

@@ -20,7 +20,7 @@ A list of the configurable variables (with values set to the default ones) is th
    # program logger name
    export QIBOSOQ_PROGRAM_LOGGER_NAME=qick_logger
    # bitsream path
-   export QICKSOC_LOCATION=/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit
+   export QIBOSOQ_BITSTREAM=/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit
    # is the readout multiplexed?
    export QIBOSOQ_IS_MULTIPLEXED=True
 
