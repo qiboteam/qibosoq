@@ -530,8 +530,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
         self.pulses_registered = True
         for pulse in self.sequence:
-            if pulse.type == "drive":
-                self.add_pulse_to_register(pulse)
+            if self.is_mux:
+                if pulse.type != "drive":
+                    continue
+            self.add_pulse_to_register(pulse)
 
         for sweeper in self.sweepers:
             self.add_sweep_info(sweeper)
