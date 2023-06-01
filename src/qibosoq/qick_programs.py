@@ -77,7 +77,7 @@ class BaseProgram(ABC, QickProgram):
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies"""
         adc_ch_already_declared = []
-        for readout_pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for readout_pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = readout_pulse.adc
             ro_ch = readout_pulse.dac
             if adc_ch not in adc_ch_already_declared:
@@ -263,7 +263,7 @@ class BaseProgram(ABC, QickProgram):
 
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
-        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = pulse.adc
             ro_ch = pulse.dac
             if adc_ch not in adcs:
@@ -292,7 +292,7 @@ class BaseProgram(ABC, QickProgram):
         mux_freqs = []
         mux_gains = []
 
-        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = pulse.adc
             ro_ch = pulse.dac
 
@@ -335,7 +335,7 @@ class BaseProgram(ABC, QickProgram):
         'start_time_1': [pulse3]}
         """
         mux_dict = {}
-        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if round(pulse.start, 5) not in mux_dict:
                 if len(mux_dict) > 0:
                     if (pulse.start - list(mux_dict)[-1]) < 2:  # TODO not 2, but pulses len
