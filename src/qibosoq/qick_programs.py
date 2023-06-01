@@ -70,7 +70,7 @@ class BaseProgram(ABC, QickProgram):
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
-                sampling_rate = self.soccfg["gens"][gen_ch]["fs"]  # TODO
+                sampling_rate = self.soccfg["gens"][gen_ch]["fs"]
                 zone = 1 if freq < sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
 
@@ -96,7 +96,7 @@ class BaseProgram(ABC, QickProgram):
             pulse (Pulse): pulse object to load in the register
         """
         gen_ch = pulse.dac
-        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])  # TODO
+        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
 
         # assign gain parameter
         gain = int(pulse.amplitude * max_gain)
