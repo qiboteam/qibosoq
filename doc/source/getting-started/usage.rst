@@ -1,34 +1,38 @@
 Usage instructions
 ==================
 
-After the installation, in ``<qibosoq-folder>/src/qibosoq`` you will find the ``__main__.py`` file.
-Here, the IP and port of the server are hardcoded and modifiable (if you installed qibosoq in developer mode).
+After the installation, there are several configuration parameter that one could want to change (IP address of the server, port of the server, path of logs...).
+These changes can be done with enviromental variables.
+A list of the configurable variables (with values set to the default ones) is the following:
 
 .. code-block::
 
-    HOST = "192.168.0.72"   # Server address
-    PORT = 6000             # Port to listen on
+   # server address
+   export QIBOSOQ_HOST=192.168.0.81
+   # server port
+   export QIBOSOQ_PORT=6000
+   # main logger path
+   export QIBOSOQ_MAIN_LOGGER_FILE=/home/xilinx/logs/qibosoq.log
+   # main logger name
+   export QIBOSOQ_MAIN_LOGGER_NAME=qibosoq_logger
+   # program logger path
+   export QIBOSOQ_PROGRAM_LOGGER_FILE=/home/xilinx/logs/program.log
+   # program logger name
+   export QIBOSOQ_PROGRAM_LOGGER_NAME=qick_logger
+   # bitsream path
+   export QIBOSOQ_BITSTREAM=/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit
+   # is the readout multiplexed?
+   export QIBOSOQ_IS_MULTIPLEXED=True
 
-Attached Mode
-"""""""""""""
 
-To run the server in attached mode, with the log output directly on the terminal, you can use:
+Running the server
+""""""""""""""""""
+
+To run the server:
 
 .. code-block::
 
-    sudo -i python -m qibosoq
-
-This mode is useful for debugging, but comes with the disadvantage of being attached to a specific terminal session: when you will close the terminal, the server will be closed too.
-Eventually, the server can be closed also with <Ctrl-C>.
-
-Detatched Mode
-""""""""""""""
-
-To avoid it, you can use qibosoq in detached mode, redirecting the output to a log file:
-
-.. code-block::
-
-    nohup sudo -i python -m qibosoq &
+    nohup sudo -E python -m qibosoq &
 
 To close the server you will need to find the PID of the process (present in the second line of the log file) and:
 
@@ -45,8 +49,7 @@ Some examples are:
 
 .. code-block::
 
-    alias server-run="sudo -i python -m qibosoq"  # run the server in attached mode
-    alias server-run-bkg="nohup sudo -i python -m qibosoq &"  # run the server in detached mode
+    alias server-run-bkg="nohup sudo -E python -m qibosoq &"  # run the server in detached mode
     alias server-pid="cat /home/xilinx/logs/qibosoq.log | head -2 | tail -1 | awk '{print \$9}'"  # prints PID
 
     # print PID of server running in bkg (if it is running)

@@ -16,7 +16,6 @@ packages = [{ include = "qibosoq", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
-qibolab = "0.0.3"
 qick = "^0.2"
 
 
