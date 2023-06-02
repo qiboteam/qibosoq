@@ -535,7 +535,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                     continue
             self.add_pulse_to_register(pulse)
 
-        print(type(self.sweepers), self.sweepers, "POLLO")
         for sweeper in self.sweepers:
             self.add_sweep_info(sweeper)
 
