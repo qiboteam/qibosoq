@@ -11,7 +11,7 @@ variables = {
     "QIBOSOQ_MAIN_LOGGER_NAME": "mylogger",
     "QIBOSOQ_PROGRAM_LOGGER_FILE": "/logs/program.log",
     "QIBOSOQ_PROGRAM_LOGGER_NAME": "myprogramlogger",
-    "QICKSOC_LOCATION": "/qicksoc.bit",
+    "QIBOSOQ_BITSTREAM": "/qicksoc.bit",
     "QIBOSOQ_IS_MULTIPLEXED": "False",
 }
 
