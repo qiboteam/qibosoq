@@ -1,6 +1,5 @@
 """Main qibosoq program, starts the server"""
 
-import os
 import sys
 
 import qibosoq.configuration as cfg

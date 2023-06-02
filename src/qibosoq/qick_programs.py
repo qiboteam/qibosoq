@@ -6,6 +6,7 @@ from dataclasses import asdict
 from typing import List, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
@@ -70,14 +71,14 @@ class BaseProgram(ABC, QickProgram):
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
-                sampling_rate = self.soccfg["gens"][gen_ch]["fs"]  # TODO
+                sampling_rate = self.soccfg["gens"][gen_ch]["fs"]
                 zone = 1 if freq < sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
 
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies"""
         adc_ch_already_declared = []
-        for readout_pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for readout_pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = readout_pulse.adc
             ro_ch = readout_pulse.dac
             if adc_ch not in adc_ch_already_declared:
@@ -96,7 +97,7 @@ class BaseProgram(ABC, QickProgram):
             pulse (Pulse): pulse object to load in the register
         """
         gen_ch = pulse.dac
-        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])  # TODO
+        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
 
         # assign gain parameter
         gain = int(pulse.amplitude * max_gain)
@@ -225,7 +226,7 @@ class BaseProgram(ABC, QickProgram):
         progress: bool = False,
         debug: bool = False,
         average: bool = False,
-    ) -> Tuple[List[float], List[float]]:
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Calls the super() acquire function.
 
         Args:
@@ -256,14 +257,14 @@ class BaseProgram(ABC, QickProgram):
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
 
-    def collect_shots(self) -> Tuple[List[float], List[float]]:
+    def collect_shots(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Reads the internal buffers and returns single shots (i,q)"""
         tot_i = []
         tot_q = []
 
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
-        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = pulse.adc
             ro_ch = pulse.dac
             if adc_ch not in adcs:
@@ -283,7 +284,7 @@ class BaseProgram(ABC, QickProgram):
 
             tot_i.append(i_val)
             tot_q.append(q_val)
-        return tot_i, tot_q
+        return np.array(tot_i), np.array(tot_q)
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout"""
@@ -292,7 +293,7 @@ class BaseProgram(ABC, QickProgram):
         mux_freqs = []
         mux_gains = []
 
-        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = pulse.adc
             ro_ch = pulse.dac
 
@@ -335,7 +336,7 @@ class BaseProgram(ABC, QickProgram):
         'start_time_1': [pulse3]}
         """
         mux_dict = {}
-        for pulse in [pulse for pulse in self.sequence if pulse.type == "readout"]:
+        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if round(pulse.start, 5) not in mux_dict:
                 if len(mux_dict) > 0:
                     if (pulse.start - list(mux_dict)[-1]) < 2:  # TODO not 2, but pulses len
@@ -529,9 +530,12 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
         self.pulses_registered = True
         for pulse in self.sequence:
-            if pulse.type == "drive":
-                self.add_pulse_to_register(pulse)
+            if self.is_mux:
+                if pulse.type != "drive":
+                    continue
+            self.add_pulse_to_register(pulse)
 
+        print(type(self.sweepers), self.sweepers, "POLLO")
         for sweeper in self.sweepers:
             self.add_sweep_info(sweeper)
 

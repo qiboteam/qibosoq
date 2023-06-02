@@ -94,6 +94,8 @@ def execute_sweeps(soc):
         Sweeper(expts=1000, parameter=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
     )
 
+    print(sweepers, type(sweepers), "POLLO")
+
     qubits = [Qubit()]
 
     program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
@@ -306,7 +308,7 @@ def test_set_bias_sweep(soc):
     config = Config()
     sequence = []
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-    sweepers = tuple([Sweeper(expts=100, parameter=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
+    sweepers = (Sweeper(expts=100, parameter=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0]),)
 
     program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
     program.set_bias("sweetspot")

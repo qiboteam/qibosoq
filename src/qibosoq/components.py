@@ -1,6 +1,6 @@
 """Various helper objects"""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import List, Union
 
@@ -44,7 +44,7 @@ class Pulse:
     """Amplitude factor, multiplied by maximum gain of the DAC"""
     relative_phase: int
     """Relative phase (degrees)"""
-    start: float
+    start: float = field(compare=False)
     """Start time (us)"""
     duration: float
     """Duration of the pulse (us)"""
@@ -65,20 +65,6 @@ class Pulse:
     """Sigma for gaussians and drags, fraction of duration"""
     beta: float = None
     """Beta for drag pulses"""
-
-    def __eq__(self, pulse):
-        """Check if two pulses are equal, ignoring start time"""
-        if pulse is None:
-            return False
-        return (
-            self.frequency == pulse.frequency
-            and self.amplitude == pulse.amplitude
-            and self.relative_phase == pulse.relative_phase
-            and self.duration == pulse.duration
-            and self.type == pulse.type
-            and self.dac == pulse.dac
-            and self.shape == pulse.shape
-        )
 
 
 class Parameter(IntEnum):

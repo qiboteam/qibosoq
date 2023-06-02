@@ -29,7 +29,7 @@ In `configuration.py` some default qibosoq parameters are hardcoded. They can be
 
 * IP of the server
 * Port of the server
-* Path for log files
+* Paths of log files
 * Name of python loggers
 * Path of bitstream
 * Type of readout (multiplexed or not, depending on the loaded bitstream)
