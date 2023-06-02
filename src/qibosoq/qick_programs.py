@@ -411,6 +411,42 @@ class FluxProgram(BaseProgram):
             self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
+    def flux_pulse(self, pulse: Pulse, time: int):
+        """Fires a fast flux pulse the starts and ends in sweetspot"""
+
+        gen_ch = pulse.dac
+        sweetspot = 0  # TODO int(qubit.flux.bias * self.max_gain)
+
+        duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
+        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
+        duration *= samples_per_clk  # the duration here is expressed in samples
+
+        padding = samples_per_clk
+        while True:  # compute padding length
+            tot_len = padding + duration
+            if tot_len % samples_per_clk == 0 and tot_len > 48:
+                break
+            padding += 1
+
+        amp = int(pulse.amplitude * self.max_gain) + sweetspot
+
+        i_vals = np.full(duration, amp)
+        i_vals = np.append(i_vals, np.full(padding, sweetspot))
+        q_vals = np.zeros(len(i_vals))
+
+        self.add_pulse(gen_ch, pulse.name, i_vals, q_vals)
+        self.set_pulse_registers(
+            ch=gen_ch,
+            waveform=pulse.name,
+            style="arb",
+            outsel="input",
+            stdysel="last",
+            freq=0,
+            phase=0,
+            gain=self.max_gain,
+        )
+        self.pulse(ch=gen_ch, t=time)
+
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel"""
         for qubit in self.qubits:
@@ -421,8 +457,56 @@ class FluxProgram(BaseProgram):
     def body(self):
         """Body program with flux biases set"""
         self.set_bias("sweetspot")
-        super().body(wait=False)
-        # the next two lines are redunant for security reasons
+        muxed_ro_executed_time = []
+        muxed_pulses_executed = []
+
+        last_pulse_registered = {}
+        for idx in self.gen_chs:
+            last_pulse_registered[idx] = None
+
+        for pulse in self.sequence:
+            # time follows tproc CLK
+            time = self.soc.us2cycles(pulse.start)
+
+            adc_ch = pulse.adc
+            gen_ch = pulse.dac
+
+            if pulse.type == "drive":
+                if not self.pulses_registered:
+                    # TODO
+                    if not pulse == last_pulse_registered[gen_ch]:
+                        self.add_pulse_to_register(pulse)
+                        last_pulse_registered[gen_ch] = pulse
+                self.pulse(ch=gen_ch, t=time)
+            elif pulse.type == "flux":
+                self.flux_pulse(pulse, time=time)
+            elif pulse.type == "readout":
+                if self.is_mux:
+                    if pulse not in muxed_pulses_executed:
+                        start = list(self.multi_ro_pulses)[len(muxed_ro_executed_time)]
+                        time = self.soc.us2cycles(start)
+                        self.add_muxed_readout_to_register(self.multi_ro_pulses[start])
+                        muxed_ro_executed_time.append(start)
+                        adcs = []
+                        for ro_pulse in self.multi_ro_pulses[start]:
+                            adcs.append(ro_pulse.adc)
+                            muxed_pulses_executed.append(ro_pulse)
+                    else:
+                        continue
+                else:
+                    if not self.pulses_registered:
+                        self.add_pulse_to_register(pulse)
+                    adcs = [adc_ch]
+
+                self.measure(
+                    pulse_ch=gen_ch,
+                    adcs=adcs,
+                    adc_trig_offset=time + self.adc_trig_offset,
+                    t=time,
+                    wait=False,
+                    syncdelay=self.syncdelay,
+                )
+        self.wait_all()
         self.set_bias("zero")
         self.soc.reset_gens()
         self.sync_all(self.relax_delay)
