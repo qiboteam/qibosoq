@@ -94,8 +94,6 @@ def execute_sweeps(soc):
         Sweeper(expts=1000, parameter=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
     )
 
-    print(sweepers, type(sweepers), "POLLO")
-
     qubits = [Qubit()]
 
     program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
