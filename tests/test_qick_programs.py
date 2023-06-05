@@ -10,21 +10,24 @@ from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
 from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps
 
 
-@pytest.fixture
-def soc():
-    qibosoq.configuration.IS_MULTIPLEXED = False
+@pytest.fixture(params=[False, True])
+def soc(request):
+    qibosoq.configuration.IS_MULTIPLEXED = request.param
+    if qibosoq.configuration.IS_MULTIPLEXED:
+        file = "qick_config_multiplexed.json"
+    else:
+        file = "qick_config_standard.json"
+    soc = qick.QickConfig(str(pathlib.Path(__file__).parent / file))
 
     def mock():
         pass
 
-    soc = qick.QickConfig(str(pathlib.Path(__file__).parent / "qick_config_standard.json"))
     soc.reset_gens = mock
     return soc
 
 
 @pytest.fixture
 def execute_pulse_sequence(soc):
-    qibosoq.configuration.IS_MULTIPLEXED = False
     config = Config()
     sequence = [
         Pulse(
@@ -35,7 +38,7 @@ def execute_pulse_sequence(soc):
             duration=0.04,
             name="pulse0",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="rectangular",
         ),
@@ -60,7 +63,6 @@ def execute_pulse_sequence(soc):
 
 @pytest.fixture
 def execute_sweeps(soc):
-    qibosoq.configuration.IS_MULTIPLEXED = False
     config = Config()
     sequence = [
         Pulse(
@@ -71,7 +73,7 @@ def execute_sweeps(soc):
             duration=0.04,
             name="pulse0",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="rectangular",
         ),
@@ -118,7 +120,7 @@ def test_declare_nqz_zones(execute_pulse_sequence):
             duration=0.04,
             name="pulse0",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="rectangular",
         ),
@@ -151,7 +153,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         duration=0.04,
         name="pulse0",
         type="drive",
-        dac=6,
+        dac=3,
         adc=0,
         shape="gaussian",
         rel_sigma=5,
@@ -164,7 +166,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         duration=0.04,
         name="pulse1",
         type="drive",
-        dac=6,
+        dac=3,
         adc=0,
         shape="drag",
         rel_sigma=5,
@@ -178,7 +180,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         duration=0.04,
         name="pulse2",
         type="drive",
-        dac=6,
+        dac=3,
         adc=0,
         shape="rectangular",
     )
@@ -190,7 +192,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         duration=0.04,
         name="pulse2",
         type="drive",
-        dac=6,
+        dac=3,
         adc=0,
         shape="test-non-existance",
     )
@@ -213,7 +215,7 @@ def test_body(soc):
             duration=0.04,
             name="pulse0",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="gaussian",
             rel_sigma=5,
@@ -226,7 +228,7 @@ def test_body(soc):
             duration=0.04,
             name="pulse1",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="gaussian",
             rel_sigma=5,
@@ -239,7 +241,7 @@ def test_body(soc):
             duration=0.04,
             name="pulse2",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="rectangular",
         ),
@@ -251,7 +253,7 @@ def test_body(soc):
             duration=0.04,
             name="pulse3",
             type="drive",
-            dac=6,
+            dac=3,
             adc=0,
             shape="gaussian",
             rel_sigma=5,
@@ -304,9 +306,22 @@ def test_set_bias(soc):
 
 def test_set_bias_sweep(soc):
     config = Config()
-    sequence = []
+    sequence = [
+        Pulse(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start=0,
+            duration=0.04,
+            name="pulse4",
+            type="readout",
+            dac=6,
+            adc=0,
+            shape="rectangular",
+        ),
+    ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-    sweepers = (Sweeper(expts=100, parameter=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0]),)
+    sweepers = tuple([Sweeper(expts=100, parameter=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
 
     program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
     program.set_bias("sweetspot")
