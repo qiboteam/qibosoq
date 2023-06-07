@@ -1,9 +1,9 @@
-""" QickPrograms used by qibosoq to execute sequences and sweeps """
+"""QickPrograms used by qibosoq to execute sequences and sweeps."""
 
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -17,7 +17,7 @@ logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
 class BaseProgram(ABC, QickProgram):
-    """Abstract class for QickPrograms"""
+    """Abstract class for QickPrograms."""
 
     def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
         """In this function we define the most important settings.
@@ -59,7 +59,7 @@ class BaseProgram(ABC, QickProgram):
         super().__init__(soc, asdict(qpcfg))
 
     def declare_nqz_zones(self, sequence: List[Pulse]):
-        """Declare nqz zone (1-2) for a given PulseSequence
+        """Declare nqz zone (1-2) for a given PulseSequence.
 
         Args:
             sequence (PulseSequence): sequence of pulses to consider
@@ -76,7 +76,7 @@ class BaseProgram(ABC, QickProgram):
                 self.declare_gen(gen_ch, nqz=zone)
 
     def declare_readout_freq(self):
-        """Declare ADCs downconversion frequencies"""
+        """Declare ADCs downconversion frequencies."""
         adc_ch_already_declared = []
         for readout_pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = readout_pulse.adc
@@ -91,7 +91,7 @@ class BaseProgram(ABC, QickProgram):
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
 
     def add_pulse_to_register(self, pulse: Pulse):
-        """Calls the set_pulse_registers function, needed before firing a pulse
+        """Call the set_pulse_registers function, needed before firing a pulse.
 
         Args:
             pulse (Pulse): pulse object to load in the register
@@ -227,7 +227,7 @@ class BaseProgram(ABC, QickProgram):
         debug: bool = False,
         average: bool = False,
     ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Calls the super() acquire function.
+        """Call the super() acquire function.
 
         Args:
             readouts_per_experiment (int): relevant for internal acquisition
@@ -258,7 +258,7 @@ class BaseProgram(ABC, QickProgram):
         return self.collect_shots()[-2:]
 
     def collect_shots(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Reads the internal buffers and returns single shots (i,q)"""
+        """Read the internal buffers and returns single shots (i,q)."""
         tot_i = []
         tot_q = []
 
@@ -287,7 +287,7 @@ class BaseProgram(ABC, QickProgram):
         return np.array(tot_i), np.array(tot_q)
 
     def declare_gen_mux_ro(self):
-        """Declare nqz zone for multiplexed readout"""
+        """Declare nqz zone for multiplexed readout."""
         adc_ch_added = []
 
         mux_freqs = []
@@ -315,7 +315,7 @@ class BaseProgram(ABC, QickProgram):
         )
 
     def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
-        """Register multiplexed pulse before firing it"""
+        """Register multiplexed pulse before firing it."""
         # readout amplitude gets divided by len(mask), we are here fixing the values
         mask = [0, 1, 2]
 
@@ -329,7 +329,7 @@ class BaseProgram(ABC, QickProgram):
         self.set_pulse_registers(ch=gen_ch, style="const", length=length, mask=mask)
 
     def create_mux_ro_dict(self) -> dict:
-        """Creates a dictionary containing grouped readout pulses
+        """Create a dictionary containing grouped readout pulses.
 
         Example of dictionary:
         { 'start_time_0': [pulse1, pulse2],
@@ -353,19 +353,20 @@ class BaseProgram(ABC, QickProgram):
 
     @abstractmethod
     def initialize(self):
-        """Abstract initialization"""
+        """Abstract initialization."""
         raise NotImplementedError
 
 
 class FluxProgram(BaseProgram):
-    """Abstract class for flux-tunable qubits programs"""
+    """Abstract class for flux-tunable qubits programs."""
 
     def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
+        """Define an empty dictionary for bias sweepers and call super().__init__."""
         self.bias_sweep_registers = {}
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def set_bias(self, mode: str = "sweetspot"):
-        """Set qubits flux lines to a bias level
+        """Set qubits flux lines to a bias level.
 
         Note that this fuction acts only on the qubits used in self.sequence.
         Args:
@@ -412,14 +413,14 @@ class FluxProgram(BaseProgram):
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
     def declare_nqz_flux(self):
-        """Declare nqz = 1 for used flux channel"""
+        """Declare nqz = 1 for used flux channel."""
         for qubit in self.qubits:
             if qubit.dac is not None:
                 flux_ch = qubit.dac
                 self.declare_gen(flux_ch, nqz=1)
 
     def body(self):
-        """Body program with flux biases set"""
+        """Body program with flux biases set."""
         self.set_bias("sweetspot")
         super().body(wait=False)
         # the next two lines are redunant for security reasons
@@ -429,10 +430,13 @@ class FluxProgram(BaseProgram):
 
 
 class ExecutePulseSequence(FluxProgram, AveragerProgram):
-    """Class to execute arbitrary PulseSequences"""
+    """Class to execute arbitrary PulseSequences."""
 
     def initialize(self):
-        """Function called by AveragerProgram.__init__"""
+        """Declre nyquist zones for all the DACs and all the readout frequencies.
+
+        Function called by AveragerProgram.__init__.
+        """
         self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
@@ -444,7 +448,7 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
 
 
 class ExecuteSweeps(FluxProgram, NDAveragerProgram):
-    """Class to execute arbitrary PulseSequences with a single sweep"""
+    """Class to execute arbitrary PulseSequences with a single sweep."""
 
     def __init__(
         self,
@@ -454,7 +458,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         qubits: List[Qubit],
         sweepers: Tuple[Sweeper, ...],
     ):
-        """Init function, sets sweepers parameters before calling super.__init__"""
+        """Init function, sets sweepers parameters before calling super.__init__."""
         # sweepers are handled by qick in the opposite order
         self.sweepers = list(sweepers)[::-1]
 
@@ -462,7 +466,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def add_sweep_info(self, sweeper: Sweeper):
-        """Register RfsocSweep objects
+        """Register RfsocSweep objects.
 
         Args:
             sweeper (RfsocSweep): single qibolab sweeper object to register
@@ -519,7 +523,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         self.add_sweep(merge_sweeps(sweep_list))
 
     def initialize(self):
-        """Function called by NDAveragerProgram.__init__"""
+        """Declre nyquist zones for all the DACs and all the readout frequencies.
+
+        Function called by AveragerProgram.__init__.
+        """
         self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
         self.declare_nqz_flux()
         if self.is_mux:
