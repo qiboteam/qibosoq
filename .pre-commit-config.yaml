@@ -23,3 +23,8 @@ repos:
     rev: v3.4.0
     hooks:
       - id: pyupgrade
+  - repo: https://github.com/dhruvmanila/remove-print-statements
+    rev: v0.5.1
+    hooks:
+      - id: remove-print-statements
+        args: ['--verbose']
