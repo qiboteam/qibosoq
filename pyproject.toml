@@ -16,8 +16,7 @@ packages = [{ include = "qibosoq", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
-qick = "^0.2"
-
+qick = "0.2.135"
 
 [build-system]
 requires = ["poetry-core"]
@@ -36,6 +35,16 @@ nbsphinx = "^0.9.1"
 ipython = "^8.12.0"
 sphinx-copybutton = "^0.5.1"
 
+[tool.poetry.group.tests]
+optional = true
+
+[tool.poetry.group.tests.dependencies]
+pytest = ">=7.2.2"
+pytest-cov = "^4.0.0"
+
+[tool.poetry.group.analysis]
+optional = true
+
 [tool.poetry.group.analysis.dependencies]
 pylint = ">=2.16.0"
 
@@ -46,3 +55,7 @@ lint-warnings = "pylint src --exit-zero"
 docs = "make -C doc html"
 docs-clean = "make -C doc clean"
 test-docs = "make -C doc doctest"
+
+[tool.pytest.ini_options]
+testpaths = ['tests/']
+addopts = ['--cov=qibosoq', '--cov-report=xml', '--cov-report=html']

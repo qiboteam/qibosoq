@@ -75,6 +75,7 @@ class Parameter(IntEnum):
     RELATIVE_PHASE = auto()
     START = auto()
     BIAS = auto()
+    DURATION = auto()  # this parameter is defined, but not supported for sweepers
 
 
 @dataclass
