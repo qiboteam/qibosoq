@@ -33,3 +33,7 @@ repos:
     hooks:
       - id: pycln
         args: [--config=pyproject.toml]
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0  # pick a git hash / tag to point to
+    hooks:
+      - id: pydocstyle
