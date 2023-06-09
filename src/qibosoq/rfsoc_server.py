@@ -49,6 +49,10 @@ class ConnectionHandler(BaseRequestHandler):
         args = ()
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
             programcls = ExecutePulseSequence
+        elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            programcls = ExecutePulseSequence
+            data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
+            data["cfg"]["reps"] = 1
         elif opcode is OperationCode.EXECUTE_SWEEPS:
             programcls = ExecuteSweeps
             args = tuple(Sweeper(**sweeper) for sweeper in data["sweepers"])
@@ -66,16 +70,28 @@ class ConnectionHandler(BaseRequestHandler):
         qick_logger.handlers[0].doRollover()
         qick_logger.info(program.asm())
 
-        toti, totq = program.acquire(
-            self.server.qick_soc,
-            data["readouts_per_experiment"],
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=data["average"],
-        )
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            results = program.acquire_decimated(
+                self.server.qick_soc,
+                load_pulses=True,
+                progress=False,
+                debug=False,
+            )
+            toti = [[results[0][0].tolist()]]
+            totq = [[results[0][1].tolist()]]
+        else:
+            toti, totq = program.acquire(
+                self.server.qick_soc,
+                data["readouts_per_experiment"],
+                load_pulses=True,
+                progress=False,
+                debug=False,
+                average=data["average"],
+            )
+            toti = toti.tolist()
+            totq = totq.tolist()
 
-        return {"i": toti.tolist(), "q": totq.tolist()}
+        return {"i": toti, "q": totq}
 
     def handle(self):
         """Handle a connection to the server.
