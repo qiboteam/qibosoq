@@ -71,12 +71,14 @@ class ConnectionHandler(BaseRequestHandler):
         qick_logger.info(program.asm())
 
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-            toti, totq = program.acquire_decimated(
+            results = program.acquire_decimated(
                 self.server.qick_soc,
                 load_pulses=True,
                 progress=False,
                 debug=False,
             )
+            toti = [[results[0][0].tolist()]]
+            totq = [[results[0][1].tolist()]]
         else:
             toti, totq = program.acquire(
                 self.server.qick_soc,
@@ -86,8 +88,10 @@ class ConnectionHandler(BaseRequestHandler):
                 debug=False,
                 average=data["average"],
             )
+            toti = toti.tolist()
+            totq = totq.tolist()
 
-        return {"i": toti.tolist(), "q": totq.tolist()}
+        return {"i": toti, "q": totq}
 
     def handle(self):
         """Handle a connection to the server.
