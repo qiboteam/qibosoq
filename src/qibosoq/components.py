@@ -21,6 +21,7 @@ class OperationCode(IntEnum):
     """Available operations."""
 
     EXECUTE_PULSE_SEQUENCE = auto()
+    EXECUTE_PULSE_SEQUENCE_RAW = auto()
     EXECUTE_SWEEPS = auto()
 
 
