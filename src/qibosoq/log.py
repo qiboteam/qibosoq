@@ -1,4 +1,4 @@
-"""Loggers configuration"""
+"""Loggers configuration."""
 
 import logging
 import logging.handlers
@@ -9,7 +9,7 @@ import qibosoq.configuration as cfg
 
 
 def configure_logger(name: str, filename: str, backup_count: int):
-    """Create and configure logger"""
+    """Create and configure logger."""
     if name is not None:
         new_logger = logging.getLogger(name)
     else:
@@ -26,7 +26,7 @@ def configure_logger(name: str, filename: str, backup_count: int):
 
 
 def define_loggers() -> Tuple[logging.Logger, logging.Logger]:
-    """Define main logger and program logger"""
+    """Define main logger and program logger."""
     main = configure_logger(cfg.MAIN_LOGGER_NAME, cfg.MAIN_LOGGER_FILE, 5)
     program = configure_logger(cfg.PROGRAM_LOGGER_NAME, cfg.PROGRAM_LOGGER_FILE, 3)
     return main, program

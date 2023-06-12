@@ -23,10 +23,10 @@ qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
 
 class ConnectionHandler(BaseRequestHandler):
-    """Handle requests to the server"""
+    """Handle requests to the server."""
 
     def receive_command(self) -> dict:
-        """Receive commands from qibolab client
+        """Receive commands from qibolab client.
 
         The communication protocol is:
         * first the server receives  a 4 bytes integer with the length
@@ -34,14 +34,13 @@ class ConnectionHandler(BaseRequestHandler):
         * waits for the message and decode it
         * returns the unpcikled dictionary
         """
-
         count = int.from_bytes(self.request.recv(4), "big")
         received = self.request.recv(count, socket.MSG_WAITALL)
         data = json.loads(received)
         return data
 
     def execute_program(self, data: dict) -> dict:
-        """Creates and execute qick programs
+        """Create and execute qick programs.
 
         Returns:
             (dict): dictionary with two keys (i, q) to lists of values
@@ -50,6 +49,10 @@ class ConnectionHandler(BaseRequestHandler):
         args = ()
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
             programcls = ExecutePulseSequence
+        elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            programcls = ExecutePulseSequence
+            data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
+            data["cfg"]["reps"] = 1
         elif opcode is OperationCode.EXECUTE_SWEEPS:
             programcls = ExecuteSweeps
             args = tuple(Sweeper(**sweeper) for sweeper in data["sweepers"])
@@ -67,16 +70,28 @@ class ConnectionHandler(BaseRequestHandler):
         qick_logger.handlers[0].doRollover()
         qick_logger.info(program.asm())
 
-        toti, totq = program.acquire(
-            self.server.qick_soc,
-            data["readouts_per_experiment"],
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=data["average"],
-        )
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            results = program.acquire_decimated(
+                self.server.qick_soc,
+                load_pulses=True,
+                progress=False,
+                debug=False,
+            )
+            toti = [[results[0][0].tolist()]]
+            totq = [[results[0][1].tolist()]]
+        else:
+            toti, totq = program.acquire(
+                self.server.qick_soc,
+                data["readouts_per_experiment"],
+                load_pulses=True,
+                progress=False,
+                debug=False,
+                average=data["average"],
+            )
+            toti = toti.tolist()
+            totq = totq.tolist()
 
-        return {"i": toti.tolist(), "q": totq.tolist()}
+        return {"i": toti, "q": totq}
 
     def handle(self):
         """Handle a connection to the server.
@@ -85,7 +100,6 @@ class ConnectionHandler(BaseRequestHandler):
         * Executes qick program
         * Return results
         """
-
         # set the server in non-blocking mode
         self.server.socket.setblocking(False)
 
@@ -102,7 +116,7 @@ class ConnectionHandler(BaseRequestHandler):
 
 
 def serve(host, port):
-    """Open the TCPServer and wait forever for connections"""
+    """Open the TCPServer and wait forever for connections."""
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:

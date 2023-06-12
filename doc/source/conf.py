@@ -1,3 +1,4 @@
+"""Configuration file for sphinx documentation."""
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -81,7 +82,7 @@ autodoc_mock_imports = ["qick", "qick.QickSoc"]
 
 
 def setup(app):
-    """Include custom style to change colors"""
+    """Include custom style to change colors."""
     app.add_css_file("css/style.css")
 
 

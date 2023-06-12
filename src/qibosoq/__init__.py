@@ -1,4 +1,4 @@
-"""qibosoq module"""
+"""qibosoq module."""
 
 import importlib.metadata as im
 

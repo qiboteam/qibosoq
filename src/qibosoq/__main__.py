@@ -1,4 +1,4 @@
-"""Main qibosoq program, starts the server"""
+"""Main qibosoq program, starts the server."""
 
 import sys
 
