@@ -15,6 +15,8 @@ class Config:
     """Time to wait between readout pulse and acquisition (ADC clock ticks)."""
     reps: int = 1000
     """Number of shots."""
+    soft_avgs: int = 1
+    """Number of software averages."""
 
 
 class OperationCode(IntEnum):
