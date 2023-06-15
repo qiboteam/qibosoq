@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
-from typing import List, Optional, Union
+from typing import List, Union
 
 
 @dataclass
@@ -15,8 +15,6 @@ class Config:
     """Time to wait between readout pulse and acquisition (ADC clock ticks)."""
     reps: int = 1000
     """Number of shots."""
-    soft_avgs: Optional[int] = None
-    """Number of software averages."""
 
 
 class OperationCode(IntEnum):
