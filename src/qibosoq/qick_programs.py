@@ -460,7 +460,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     ):
         """Init function, sets sweepers parameters before calling super.__init__."""
         # sweepers are handled by qick in the opposite order
-        self.sweepers = list(sweepers)[::-1]
+        if isinstance(sweepers, Sweeper):
+            self.sweepers = [sweepers]
+        else:
+            self.sweepers = list(sweepers)[::-1]
 
         # qpcfg.expts = sweeper.expts
         super().__init__(soc, qpcfg, sequence, qubits)
