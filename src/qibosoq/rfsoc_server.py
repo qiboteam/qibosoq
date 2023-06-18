@@ -67,8 +67,16 @@ class ConnectionHandler(BaseRequestHandler):
             *args,
         )
 
+        asm_prog = program.asm()
         qick_logger.handlers[0].doRollover()
-        qick_logger.info(program.asm())
+        qick_logger.info(asm_prog)
+
+        num_instructions = asm_prog.count("\n") - 2
+        max_mem = self.server.qick_soc["tprocs"][0]["pmem_size"]
+        if num_instructions > max_mem:
+            raise MemoryError(
+                f"The tproc has a max memory size of {max_mem}, but the program had {num_instructions} instructions"
+            )
 
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
             results = program.acquire_decimated(
