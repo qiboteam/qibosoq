@@ -71,7 +71,7 @@ class ConnectionHandler(BaseRequestHandler):
         qick_logger.handlers[0].doRollover()
         qick_logger.info(asm_prog)
 
-        num_instructions = asm_prog.count("\n") - 2
+        num_instructions = len(program.prog_list)
         max_mem = self.server.qick_soc["tprocs"][0]["pmem_size"]
         if num_instructions > max_mem:
             raise MemoryError(
