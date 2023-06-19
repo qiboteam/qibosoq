@@ -370,3 +370,20 @@ def test_flux_body(soc):
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
     program.body()
+
+
+def test_sweepers_to_reversed_list(execute_sweeps):
+    sweepers = Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])
+    converted = execute_sweeps.sweepers_to_reversed_list(sweepers)
+    assert isinstance(converted, list)
+    assert converted[0] == sweepers
+
+    sweepers = (
+        Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameter=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameter=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
+    )
+    converted = execute_sweeps.sweepers_to_reversed_list(sweepers)
+    assert isinstance(converted, list)
+    for idx, sweeper in enumerate(sweepers):
+        assert converted[-(idx + 1)] == sweeper

@@ -459,11 +459,18 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         sweepers: Tuple[Sweeper, ...],
     ):
         """Init function, sets sweepers parameters before calling super.__init__."""
-        # sweepers are handled by qick in the opposite order
-        self.sweepers = [sweepers] if isinstance(sweepers, Sweeper) else list(sweepers)[::-1]
-
-        # qpcfg.expts = sweeper.expts
+        self.sweepers = self.sweepers_to_reversed_list(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
+
+    @staticmethod
+    def sweepers_to_reversed_list(sweepers) -> List[Sweeper]:
+        """Ensure that sweepers is a list and reverse it.
+
+        This is because sweepers are handled by Qick in the opposite order.
+        """
+        if isinstance(sweepers, Sweeper):
+            return [sweepers]
+        return list(reversed(sweepers))
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register RfsocSweep objects.
