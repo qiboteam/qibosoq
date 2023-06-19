@@ -413,8 +413,7 @@ class FluxProgram(BaseProgram):
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
     def flux_pulse(self, pulse: Pulse, time: int):
-        """Fires a fast flux pulse the starts and ends in sweetspot"""
-
+        """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
         sweetspot = 0  # TODO int(qubit.flux.bias * self.max_gain)
 
@@ -594,6 +593,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                     max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                     starts = (sweeper.starts * max_gain).astype(int)
                     stops = (sweeper.stops * max_gain).astype(int)
+                elif sweeper.parameter[idx] is Parameter.START:
+                    # TODO tell qick of the mismatch (t != time)
+                    register.reg_type = "time"
 
                 new_sweep = QickSweep(
                     self,
