@@ -86,7 +86,7 @@ class Sweeper:
 
     expts: int = None
     """Number of points of the sweeper."""
-    parameter: List[Parameter] = None
+    parameters: List[Parameter] = None
     """List of parameter to update."""
     starts: List[Union[int, float]] = None
     """Start value for each parameter to sweep."""

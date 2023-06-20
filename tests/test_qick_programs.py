@@ -91,9 +91,9 @@ def execute_sweeps(soc):
         ),
     ]
     sweepers = (
-        Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameter=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameter=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
     )
 
     qubits = [Qubit()]
@@ -321,7 +321,7 @@ def test_set_bias_sweep(soc):
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-    sweepers = tuple([Sweeper(expts=100, parameter=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
+    sweepers = tuple([Sweeper(expts=100, parameters=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
 
     program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
     program.set_bias("sweetspot")
@@ -373,15 +373,15 @@ def test_flux_body(soc):
 
 
 def test_sweepers_to_reversed_list(execute_sweeps):
-    sweepers = Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])
+    sweepers = Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])
     converted = execute_sweeps.sweepers_to_reversed_list(sweepers)
     assert isinstance(converted, list)
     assert converted[0] == sweepers
 
     sweepers = (
-        Sweeper(expts=1000, parameter=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameter=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameter=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
     )
     converted = execute_sweeps.sweepers_to_reversed_list(sweepers)
     assert isinstance(converted, list)

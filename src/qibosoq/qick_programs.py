@@ -482,13 +482,13 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         stops = sweeper.stops
 
         sweep_list = []
-        sweeper.parameter = [Parameter(par) for par in sweeper.parameter]
+        sweeper.parameters = [Parameter(par) for par in sweeper.parameters]
         sweeper.starts = np.array(sweeper.starts)
         sweeper.stops = np.array(sweeper.stops)
-        if sweeper.parameter[0] is Parameter.BIAS:
+        if sweeper.parameters[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac
-                sweep_type = SWEEPERS_TYPE[sweeper.parameter[0]]
+                sweep_type = SWEEPERS_TYPE[sweeper.parameters[0]]
                 std_register = self.get_gen_reg(gen_ch, sweep_type)
                 swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
                 self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
@@ -510,10 +510,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 pulse = self.sequence[jdx]
                 gen_ch = pulse.dac
 
-                sweep_type = SWEEPERS_TYPE[sweeper.parameter[idx]]
+                sweep_type = SWEEPERS_TYPE[sweeper.parameters[idx]]
                 register = self.get_gen_reg(gen_ch, sweep_type)
 
-                if sweeper.parameter[idx] is Parameter.AMPLITUDE:
+                if sweeper.parameters[idx] is Parameter.AMPLITUDE:
                     max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                     starts = (sweeper.starts * max_gain).astype(int)
                     stops = (sweeper.stops * max_gain).astype(int)
