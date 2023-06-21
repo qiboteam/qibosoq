@@ -96,9 +96,7 @@ class Parameter(IntEnum):
         """Convert from strings to Parameters."""
         if isinstance(parameters, str):
             return cls[parameters.upper()]
-        if isinstance(parameters, Iterable):
-            return type(parameters)(cls[par.upper()] for par in parameters)
-        raise NotImplementedError("Conversion not supported")
+        return type(parameters)(cls[par.upper()] for par in parameters)
 
 
 @dataclass
