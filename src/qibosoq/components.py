@@ -79,6 +79,7 @@ class Parameter(IntEnum):
     RELATIVE_PHASE = auto()
     START = auto()
     BIAS = auto()
+    DURATION = auto()
 
     @overload
     @classmethod
