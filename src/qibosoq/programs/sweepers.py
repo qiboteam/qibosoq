@@ -1,7 +1,8 @@
 """Program used by qibosoq to execute sweeps."""
 
 import logging
-from typing import List, Tuple
+from collections.abc import Iterable
+from typing import List, Tuple, Union
 
 import numpy as np
 from qick import NDAveragerProgram, QickSoc
@@ -12,6 +13,16 @@ from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
 from qibosoq.programs.flux import FluxProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
+
+
+def reversed_sweepers(sweepers: Union[Sweeper, Iterable[Sweeper]]) -> List[Sweeper]:
+    """Ensure that sweepers is a list and reverse it.
+
+    This is because sweepers are handled by Qick in the opposite order.
+    """
+    if isinstance(sweepers, Sweeper):
+        return [sweepers]
+    return list(reversed(sweepers))
 
 
 class ExecuteSweeps(FluxProgram, NDAveragerProgram):
@@ -26,7 +37,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         sweepers: Tuple[Sweeper, ...],
     ):
         """Init function, sets sweepers parameters before calling super.__init__."""
-        self.sweepers = self.sweepers_to_reversed_list(sweepers)
+        self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
 
     @staticmethod

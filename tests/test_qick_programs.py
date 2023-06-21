@@ -8,7 +8,7 @@ qick.QickSoc = None
 import qibosoq.configuration
 from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
-from qibosoq.programs.sweepers import ExecuteSweeps
+from qibosoq.programs.sweepers import ExecuteSweeps, reversed_sweepers
 
 
 @pytest.fixture(params=[False, True])
@@ -373,9 +373,9 @@ def test_flux_body(soc):
     program.body()
 
 
-def test_sweepers_to_reversed_list(execute_sweeps):
+def test_reversed_sweepers(execute_sweeps):
     sweepers = Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])
-    converted = execute_sweeps.sweepers_to_reversed_list(sweepers)
+    converted = reversed_sweepers(sweepers)
     assert isinstance(converted, list)
     assert converted[0] == sweepers
 
@@ -384,7 +384,7 @@ def test_sweepers_to_reversed_list(execute_sweeps):
         Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
         Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
     )
-    converted = execute_sweeps.sweepers_to_reversed_list(sweepers)
+    converted = reversed_sweepers(sweepers)
     assert isinstance(converted, list)
     for idx, sweeper in enumerate(sweepers):
         assert converted[-(idx + 1)] == sweeper
