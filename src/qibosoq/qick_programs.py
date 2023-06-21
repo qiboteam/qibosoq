@@ -2,8 +2,9 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import asdict
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -447,6 +448,16 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         self.sync_all(self.wait_initialize)
 
 
+def reversed_sweepers(sweepers: Union[Sweeper, Iterable[Sweeper]]) -> List[Sweeper]:
+    """Ensure that sweepers is a list and reverse it.
+
+    This is because sweepers are handled by Qick in the opposite order.
+    """
+    if isinstance(sweepers, Sweeper):
+        return [sweepers]
+    return list(reversed(sweepers))
+
+
 class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep."""
 
@@ -459,18 +470,8 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         sweepers: Tuple[Sweeper, ...],
     ):
         """Init function, sets sweepers parameters before calling super.__init__."""
-        self.sweepers = self.sweepers_to_reversed_list(sweepers)
+        self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
-
-    @staticmethod
-    def sweepers_to_reversed_list(sweepers) -> List[Sweeper]:
-        """Ensure that sweepers is a list and reverse it.
-
-        This is because sweepers are handled by Qick in the opposite order.
-        """
-        if isinstance(sweepers, Sweeper):
-            return [sweepers]
-        return list(reversed(sweepers))
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register RfsocSweep objects.
