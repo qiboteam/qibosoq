@@ -1,8 +1,9 @@
 """Various helper objects."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
-from typing import List, Union
+from typing import List, Union, overload
 
 
 @dataclass
@@ -78,6 +79,25 @@ class Parameter(IntEnum):
     RELATIVE_PHASE = auto()
     START = auto()
     BIAS = auto()
+
+    @overload
+    @classmethod
+    def variants(cls, parameters: str) -> "Parameter":
+        """Convert a string to a Parameter."""
+
+    @overload
+    @classmethod
+    def variants(cls, parameters: Iterable[str]) -> Iterable["Parameter"]:
+        """Convert a iterable of str to an iterable of Parameters."""
+
+    @classmethod
+    def variants(cls, parameters):
+        """Convert from strings to Parameters."""
+        if isinstance(parameters, str):
+            return cls[parameters.upper()]
+        if isinstance(parameters, Iterable):
+            return type(parameters)(cls[par.upper()] for par in parameters)
+        raise NotImplementedError("Conversion not supported")
 
 
 @dataclass
