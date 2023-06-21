@@ -23,7 +23,7 @@ logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
 
-def execute_program(self, data: dict) -> dict:
+def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
     Returns:
@@ -44,7 +44,7 @@ def execute_program(self, data: dict) -> dict:
         raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
     program = programcls(
-        self.server.qick_soc,
+        qick_soc,
         Config(**data["cfg"]),
         [Pulse(**pulse) for pulse in data["sequence"]],
         [Qubit(**qubit) for qubit in data["qubits"]],
@@ -56,7 +56,7 @@ def execute_program(self, data: dict) -> dict:
     qick_logger.info(asm_prog)
 
     num_instructions = len(program.prog_list)
-    max_mem = self.server.qick_soc["tprocs"][0]["pmem_size"]
+    max_mem = qick_soc["tprocs"][0]["pmem_size"]
     if num_instructions > max_mem:
         raise MemoryError(
             f"The tproc has a max memory size of {max_mem}, but the program had {num_instructions} instructions"
@@ -64,7 +64,7 @@ def execute_program(self, data: dict) -> dict:
 
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
         results = program.acquire_decimated(
-            self.server.qick_soc,
+            qick_soc,
             load_pulses=True,
             progress=False,
             debug=False,
@@ -73,7 +73,7 @@ def execute_program(self, data: dict) -> dict:
         totq = [[results[0][1].tolist()]]
     else:
         toti, totq = program.acquire(
-            self.server.qick_soc,
+            qick_soc,
             data["readouts_per_experiment"],
             load_pulses=True,
             progress=False,
