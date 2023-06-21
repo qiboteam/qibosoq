@@ -66,7 +66,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         if sweeper.parameters[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac
-                sweep_type = SWEEPERS_TYPE[sweeper.parameters[0]]
+                sweep_type = "gain"
                 std_register = self.get_gen_reg(gen_ch, sweep_type)
                 swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
                 self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
@@ -88,7 +88,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 pulse = self.sequence[jdx]
                 gen_ch = pulse.dac
 
-                sweep_type = SWEEPERS_TYPE[sweeper.parameters[idx]]
+                sweep_type = sweeper.parameters[idx].value
                 register = self.get_gen_reg(gen_ch, sweep_type)
 
                 if sweeper.parameters[idx] is Parameter.AMPLITUDE:
@@ -135,12 +135,3 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
             non_swept_reg.set_to(swept_reg)
 
         self.sync_all(self.wait_initialize)
-
-
-SWEEPERS_TYPE = {
-    Parameter.FREQUENCY: "freq",
-    Parameter.AMPLITUDE: "gain",
-    Parameter.BIAS: "gain",
-    Parameter.RELATIVE_PHASE: "phase",
-    Parameter.START: "t",
-}

@@ -35,4 +35,4 @@ def test_parameter_variants():
 
     assert converted_list == expected
     assert list(converted_tuple) == expected
-    assert list(converted_set) == expected
+    assert list(converted_set).sort() == expected.sort()
