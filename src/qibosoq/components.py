@@ -1,9 +1,8 @@
 """Various helper objects."""
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, auto
-from typing import List, Union, overload
+from typing import Iterable, List, Union, overload
 
 
 @dataclass
