@@ -1,8 +1,7 @@
 """Program used by qibosoq to execute sweeps."""
 
 import logging
-from collections.abc import Iterable
-from typing import List, Tuple, Union
+from typing import Iterable, List, Tuple, Union
 
 import numpy as np
 from qick import NDAveragerProgram, QickSoc
