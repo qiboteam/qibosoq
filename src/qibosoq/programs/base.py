@@ -1,4 +1,4 @@
-"""QickPrograms used by qibosoq to execute sequences and sweeps."""
+"""Base program used by qibosoq to execute sequences and sweeps."""
 
 import logging
 from abc import ABC, abstractmethod

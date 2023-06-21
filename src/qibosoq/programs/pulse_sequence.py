@@ -1,4 +1,4 @@
-"""QickPrograms used by qibosoq to execute sequences and sweeps."""
+"""Program used by qibosoq to execute sequences."""
 
 import logging
 
