@@ -20,11 +20,11 @@ repos:
       - id: isort
         args: ["--profile", "black"]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.4.0
+    rev: v3.7.0
     hooks:
       - id: pyupgrade
   - repo: https://github.com/dhruvmanila/remove-print-statements
-    rev: v0.5.1
+    rev: v0.5.2
     hooks:
       - id: remove-print-statements
         args: ['--verbose']
@@ -32,7 +32,9 @@ repos:
     rev: v2.1.5
     hooks:
       - id: pycln
-        args: [--config=pyproject.toml]
+        args:
+          - --config=pyproject.toml
+          - --all
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.3.0  # pick a git hash / tag to point to
     hooks:

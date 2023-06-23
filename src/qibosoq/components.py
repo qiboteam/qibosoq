@@ -1,8 +1,8 @@
 """Various helper objects."""
 
 from dataclasses import dataclass, field
-from enum import IntEnum, auto
-from typing import List, Optional, Union
+from enum import Enum, IntEnum, auto
+from typing import Iterable, List, Union, overload
 
 
 @dataclass
@@ -15,7 +15,7 @@ class Config:
     """Time to wait between readout pulse and acquisition (ADC clock ticks)."""
     reps: int = 1000
     """Number of shots."""
-    soft_avgs: Optional[int] = None
+    soft_avgs: int = 1
     """Number of software averages."""
 
 
@@ -70,15 +70,34 @@ class Pulse:
     """Beta for drag pulses."""
 
 
-class Parameter(IntEnum):
+class Parameter(str, Enum):
     """Available parameters for sweepers."""
 
-    FREQUENCY = auto()
-    AMPLITUDE = auto()
-    RELATIVE_PHASE = auto()
-    START = auto()
-    BIAS = auto()
-    DURATION = auto()  # this parameter is defined, but not supported for sweepers
+    FREQUENCY = "freq"
+    AMPLITUDE = "gain"
+    RELATIVE_PHASE = "phase"
+    START = "t"
+    BIAS = "bias"
+    DURATION = "duration"
+
+    @overload
+    @classmethod
+    def variants(cls, parameters: str) -> "Parameter":
+        """Convert a string to a Parameter."""
+
+    @overload
+    @classmethod
+    def variants(cls, parameters: Iterable[str]) -> Iterable["Parameter"]:
+        """Convert a iterable of str to an iterable of Parameters."""
+
+    @classmethod
+    def variants(cls, parameters):
+        """Convert from strings to Parameters."""
+        if isinstance(parameters, str):
+            return cls[parameters.upper()]
+        if isinstance(parameters, Iterable):
+            return type(parameters)(cls[par.upper()] for par in parameters)
+        raise NotImplementedError("Conversion not supported")
 
 
 @dataclass
@@ -87,7 +106,7 @@ class Sweeper:
 
     expts: int = None
     """Number of points of the sweeper."""
-    parameter: List[Parameter] = None
+    parameters: List[Parameter] = None
     """List of parameter to update."""
     starts: List[Union[int, float]] = None
     """Start value for each parameter to sweep."""
