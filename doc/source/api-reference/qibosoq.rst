@@ -15,19 +15,19 @@ Configuration
 Programs
 """"""""
 
-.. autoclass:: qibosoq.qick_programs.BaseProgram
+.. autoclass:: qibosoq.programs.base.BaseProgram
     :members:
     :member-order: bysource
 
-.. autoclass:: qibosoq.qick_programs.FluxProgram
+.. autoclass:: qibosoq.programs.flux.FluxProgram
     :members:
     :member-order: bysource
 
-.. autoclass:: qibosoq.qick_programs.ExecutePulseSequence
+.. autoclass:: qibosoq.programs.pulse_sequence.ExecutePulseSequence
     :members:
     :member-order: bysource
 
-.. autoclass:: qibosoq.qick_programs.ExecuteSweeps
+.. autoclass:: qibosoq.programs.sweepers.ExecuteSweeps
     :members:
     :member-order: bysource
 

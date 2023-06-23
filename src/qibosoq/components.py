@@ -1,93 +1,116 @@
-"""Various helper objects"""
+"""Various helper objects."""
 
 from dataclasses import dataclass, field
-from enum import IntEnum, auto
-from typing import List, Union
+from enum import Enum, IntEnum, auto
+from typing import Iterable, List, Union, overload
 
 
 @dataclass
 class Config:
-    """General RFSoC Configuration"""
+    """General RFSoC Configuration."""
 
     repetition_duration: int = 100
-    """Time to wait between shots (us)"""
+    """Time to wait between shots (us)."""
     adc_trig_offset: int = 200
-    """Time to wait between readout pulse and acquisition (ADC clock ticks)"""
+    """Time to wait between readout pulse and acquisition (ADC clock ticks)."""
     reps: int = 1000
-    """Number of shots"""
+    """Number of shots."""
+    soft_avgs: int = 1
+    """Number of software averages."""
 
 
 class OperationCode(IntEnum):
-    """Available operations"""
+    """Available operations."""
 
     EXECUTE_PULSE_SEQUENCE = auto()
+    EXECUTE_PULSE_SEQUENCE_RAW = auto()
     EXECUTE_SWEEPS = auto()
 
 
 @dataclass
 class Qubit:
-    """Qubit object, storing flux information"""
+    """Qubit object, storing flux information."""
 
     bias: float = 0.0
-    """Amplitude factor, for sweetspot"""
+    """Amplitude factor, for sweetspot."""
     dac: int = None
-    """DAC responsible for flux control"""
+    """DAC responsible for flux control."""
 
 
 @dataclass
 class Pulse:
-    """Abstract Pulse object"""
+    """Abstract Pulse object."""
 
     frequency: float
-    """Freuency of the pulse (MHz)"""
+    """Freuency of the pulse (MHz)."""
     amplitude: float
-    """Amplitude factor, multiplied by maximum gain of the DAC"""
+    """Amplitude factor, multiplied by maximum gain of the DAC."""
     relative_phase: int
-    """Relative phase (degrees)"""
+    """Relative phase (degrees)."""
     start: float = field(compare=False)
-    """Start time (us)"""
+    """Start time (us)."""
     duration: float
-    """Duration of the pulse (us)"""
+    """Duration of the pulse (us)."""
 
     name: str
-    """Name of the pulse, typically a serial"""
+    """Name of the pulse, typically a serial."""
     type: str
-    """Can be 'readout', 'drive', 'flux'"""
+    """Can be 'readout', 'drive', 'flux'."""
 
     dac: int
-    """DAC responsible for firing the pulse"""
+    """DAC responsible for firing the pulse."""
     adc: int
-    """ADC to acquire pulse back, for readout pulses"""
+    """ADC to acquire pulse back, for readout pulses."""
 
     shape: str
-    """Can be 'rectangular', 'gaussian', 'drag'"""
+    """Can be 'rectangular', 'gaussian', 'drag'."""
     rel_sigma: float = None
-    """Sigma for gaussians and drags, fraction of duration"""
+    """Sigma for gaussians and drags, fraction of duration."""
     beta: float = None
-    """Beta for drag pulses"""
+    """Beta for drag pulses."""
 
 
-class Parameter(IntEnum):
-    """Available parameters for sweepers"""
+class Parameter(str, Enum):
+    """Available parameters for sweepers."""
 
-    FREQUENCY = auto()
-    AMPLITUDE = auto()
-    RELATIVE_PHASE = auto()
-    START = auto()
-    BIAS = auto()
+    FREQUENCY = "freq"
+    AMPLITUDE = "gain"
+    RELATIVE_PHASE = "phase"
+    START = "t"
+    BIAS = "bias"
+    DURATION = "duration"
+
+    @overload
+    @classmethod
+    def variants(cls, parameters: str) -> "Parameter":
+        """Convert a string to a Parameter."""
+
+    @overload
+    @classmethod
+    def variants(cls, parameters: Iterable[str]) -> Iterable["Parameter"]:
+        """Convert a iterable of str to an iterable of Parameters."""
+
+    @classmethod
+    def variants(cls, parameters):
+        """Convert from strings to Parameters."""
+        if isinstance(parameters, str):
+            return cls[parameters.upper()]
+        if isinstance(parameters, Iterable):
+            return type(parameters)(cls[par.upper()] for par in parameters)
+        raise NotImplementedError("Conversion not supported")
 
 
 @dataclass
 class Sweeper:
-    """Sweeper object"""
+    """Sweeper object."""
 
     expts: int = None
-    """Number of points of the sweeper"""
-    parameter: List[Parameter] = None
-    """List of parameter to update"""
+    """Number of points of the sweeper."""
+    parameters: List[Parameter] = None
+    """List of parameter to update."""
     starts: List[Union[int, float]] = None
-    """Start value for each parameter to sweep"""
+    """Start value for each parameter to sweep."""
     stops: List[Union[int, float]] = None
-    """Stop value for each parameter to sweep"""
+    """Stop value for each parameter to sweep."""
     indexes: List[int] = None
-    """Index of the parameter to sweep relative to list of pulses or list of qubits"""
+    """Index of the parameter to sweep relative to list of pulses or list of qubits."""
