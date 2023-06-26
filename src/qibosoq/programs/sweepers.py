@@ -94,7 +94,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                     max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                     starts = (sweeper.starts * max_gain).astype(int)
                     stops = (sweeper.stops * max_gain).astype(int)
-                elif sweeper.parameter[idx] is Parameter.START:
+                elif sweeper.parameters[idx] is Parameter.START:
                     # TODO tell qick of the mismatch (t != time)
                     register.reg_type = "time"
 
