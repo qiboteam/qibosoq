@@ -126,8 +126,7 @@ class BaseProgram(ABC, QickProgram):
 
             elif is_drag:
                 # delta will be divided for the same quantity, we are setting it = 1
-                delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
-                delta = -delta / 2
+                delta = - self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
                 name = (
                     f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
                 )
