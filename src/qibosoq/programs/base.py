@@ -1,18 +1,16 @@
-"""QickPrograms used by qibosoq to execute sequences and sweeps."""
+"""Base program used by qibosoq to execute sequences and sweeps."""
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from dataclasses import asdict
-from typing import List, Tuple, Union
+from typing import List, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from qick import AveragerProgram, NDAveragerProgram, QickProgram, QickSoc
-from qick.averager_program import QickSweep, merge_sweeps
+from qick import QickProgram, QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
+from qibosoq.components import Config, Pulse, Qubit
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -128,7 +126,7 @@ class BaseProgram(ABC, QickProgram):
 
             elif is_drag:
                 # delta will be divided for the same quantity, we are setting it = 1
-                delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
+                delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
                 name = (
                     f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
                 )
@@ -139,7 +137,7 @@ class BaseProgram(ABC, QickProgram):
                         name=name,
                         sigma=sigma,
                         delta=delta,
-                        alpha=-pulse.beta,
+                        alpha=pulse.beta,
                         length=soc_length,
                     )
                     self.registered_waveform.append(name)
@@ -356,214 +354,3 @@ class BaseProgram(ABC, QickProgram):
     def initialize(self):
         """Abstract initialization."""
         raise NotImplementedError
-
-
-class FluxProgram(BaseProgram):
-    """Abstract class for flux-tunable qubits programs."""
-
-    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
-        """Define an empty dictionary for bias sweepers and call super().__init__."""
-        self.bias_sweep_registers = {}
-        super().__init__(soc, qpcfg, sequence, qubits)
-
-    def set_bias(self, mode: str = "sweetspot"):
-        """Set qubits flux lines to a bias level.
-
-        Note that this fuction acts only on the qubits used in self.sequence.
-        Args:
-            mode (str): can be 'sweetspot' or 'zero'
-        """
-        duration = 48  # minimum len
-
-        for qubit in self.qubits:
-            flux_ch = qubit.dac
-            # if bias is zero, just skip the qubit
-            if flux_ch is None or qubit.bias == 0:
-                continue
-            max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
-
-            if mode == "sweetspot":
-                value = max_gain
-            elif mode == "zero":
-                value = 0
-            else:
-                raise NotImplementedError(f"Mode {mode} not supported")
-
-            i_wf = np.full(duration, value)
-            q_wf = np.zeros(len(i_wf))
-            self.add_pulse(flux_ch, f"const_{value}_{flux_ch}", i_wf, q_wf)
-            self.set_pulse_registers(
-                ch=flux_ch,
-                waveform=f"const_{value}_{flux_ch}",
-                style="arb",
-                outsel="input",
-                stdysel="last",
-                freq=0,
-                phase=0,
-                gain=int(max_gain * qubit.bias),
-            )
-
-            if flux_ch in self.bias_sweep_registers:
-                swept_reg, non_swept_reg = self.bias_sweep_registers[flux_ch]
-                if mode == "sweetspot":
-                    non_swept_reg.set_to(swept_reg)
-                elif mode == "zero":
-                    non_swept_reg.set_to(0)
-
-            self.pulse(ch=flux_ch)
-        self.sync_all(50)  # wait all pulses are fired + 50 clks
-
-    def declare_nqz_flux(self):
-        """Declare nqz = 1 for used flux channel."""
-        for qubit in self.qubits:
-            if qubit.dac is not None:
-                flux_ch = qubit.dac
-                self.declare_gen(flux_ch, nqz=1)
-
-    def body(self):
-        """Body program with flux biases set."""
-        self.set_bias("sweetspot")
-        super().body(wait=False)
-        # the next two lines are redunant for security reasons
-        self.set_bias("zero")
-        self.soc.reset_gens()
-        self.sync_all(self.relax_delay)
-
-
-class ExecutePulseSequence(FluxProgram, AveragerProgram):
-    """Class to execute arbitrary PulseSequences."""
-
-    def initialize(self):
-        """Declre nyquist zones for all the DACs and all the readout frequencies.
-
-        Function called by AveragerProgram.__init__.
-        """
-        self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
-        self.declare_nqz_flux()
-        if self.is_mux:
-            self.declare_gen_mux_ro()
-        else:
-            self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "readout"])
-        self.declare_readout_freq()
-        self.sync_all(self.wait_initialize)
-
-
-def reversed_sweepers(sweepers: Union[Sweeper, Iterable[Sweeper]]) -> List[Sweeper]:
-    """Ensure that sweepers is a list and reverse it.
-
-    This is because sweepers are handled by Qick in the opposite order.
-    """
-    if isinstance(sweepers, Sweeper):
-        return [sweepers]
-    return list(reversed(sweepers))
-
-
-class ExecuteSweeps(FluxProgram, NDAveragerProgram):
-    """Class to execute arbitrary PulseSequences with a single sweep."""
-
-    def __init__(
-        self,
-        soc: QickSoc,
-        qpcfg: Config,
-        sequence: List[Pulse],
-        qubits: List[Qubit],
-        sweepers: Tuple[Sweeper, ...],
-    ):
-        """Init function, sets sweepers parameters before calling super.__init__."""
-        self.sweepers = reversed_sweepers(sweepers)
-        super().__init__(soc, qpcfg, sequence, qubits)
-
-    def add_sweep_info(self, sweeper: Sweeper):
-        """Register RfsocSweep objects.
-
-        Args:
-            sweeper (RfsocSweep): single qibolab sweeper object to register
-        """
-        starts = sweeper.starts
-        stops = sweeper.stops
-
-        sweep_list = []
-        sweeper.parameters = [Parameter(par) for par in sweeper.parameters]
-        sweeper.starts = np.array(sweeper.starts)
-        sweeper.stops = np.array(sweeper.stops)
-        if sweeper.parameters[0] is Parameter.BIAS:
-            for idx, jdx in enumerate(sweeper.indexes):
-                gen_ch = self.qubits[jdx].dac
-                sweep_type = SWEEPERS_TYPE[sweeper.parameters[0]]
-                std_register = self.get_gen_reg(gen_ch, sweep_type)
-                swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
-                self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
-
-                max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-                starts = (sweeper.starts * max_gain).astype(int)
-                stops = (sweeper.stops * max_gain).astype(int)
-
-                new_sweep = QickSweep(
-                    self,
-                    swept_register,  # sweeper_register
-                    starts[idx],  # start
-                    stops[idx],  # stop
-                    sweeper.expts,  # number of points
-                )
-                sweep_list.append(new_sweep)
-        else:
-            for idx, jdx in enumerate(sweeper.indexes):
-                pulse = self.sequence[jdx]
-                gen_ch = pulse.dac
-
-                sweep_type = SWEEPERS_TYPE[sweeper.parameters[idx]]
-                register = self.get_gen_reg(gen_ch, sweep_type)
-
-                if sweeper.parameters[idx] is Parameter.AMPLITUDE:
-                    max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-                    starts = (sweeper.starts * max_gain).astype(int)
-                    stops = (sweeper.stops * max_gain).astype(int)
-
-                new_sweep = QickSweep(
-                    self,
-                    register,  # sweeper_register
-                    starts[idx],  # start
-                    stops[idx],  # stop
-                    sweeper.expts,  # number of points
-                )
-                sweep_list.append(new_sweep)
-
-        self.add_sweep(merge_sweeps(sweep_list))
-
-    def initialize(self):
-        """Declre nyquist zones for all the DACs and all the readout frequencies.
-
-        Function called by AveragerProgram.__init__.
-        """
-        self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
-        self.declare_nqz_flux()
-        if self.is_mux:
-            self.declare_gen_mux_ro()
-        else:
-            self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "readout"])
-        self.declare_readout_freq()
-
-        self.pulses_registered = True
-        for pulse in self.sequence:
-            if self.is_mux:
-                if pulse.type != "drive":
-                    continue
-            self.add_pulse_to_register(pulse)
-
-        for sweeper in self.sweepers:
-            self.add_sweep_info(sweeper)
-
-        for _, registers in self.bias_sweep_registers.items():
-            swept_reg, non_swept_reg = registers
-            non_swept_reg.set_to(swept_reg)
-
-        self.sync_all(self.wait_initialize)
-
-
-SWEEPERS_TYPE = {
-    Parameter.FREQUENCY: "freq",
-    Parameter.AMPLITUDE: "gain",
-    Parameter.BIAS: "gain",
-    Parameter.RELATIVE_PHASE: "phase",
-    Parameter.START: "t",
-}

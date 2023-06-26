@@ -1,9 +1,8 @@
 """Various helper objects."""
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
-from enum import IntEnum, auto
-from typing import List, Union, overload
+from enum import Enum, IntEnum, auto
+from typing import Iterable, List, Union, overload
 
 
 @dataclass
@@ -71,15 +70,15 @@ class Pulse:
     """Beta for drag pulses."""
 
 
-class Parameter(IntEnum):
+class Parameter(str, Enum):
     """Available parameters for sweepers."""
 
-    FREQUENCY = auto()
-    AMPLITUDE = auto()
-    RELATIVE_PHASE = auto()
-    START = auto()
-    BIAS = auto()
-    DURATION = auto()
+    FREQUENCY = "freq"
+    AMPLITUDE = "gain"
+    RELATIVE_PHASE = "phase"
+    START = "t"
+    BIAS = "bias"
+    DURATION = "duration"
 
     @overload
     @classmethod

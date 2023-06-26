@@ -7,7 +7,8 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
-from qibosoq.qick_programs import ExecutePulseSequence, ExecuteSweeps, reversed_sweepers
+from qibosoq.programs.pulse_sequence import ExecutePulseSequence
+from qibosoq.programs.sweepers import ExecuteSweeps, reversed_sweepers
 
 
 @pytest.fixture(params=[False, True])
