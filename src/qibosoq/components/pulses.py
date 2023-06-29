@@ -28,22 +28,19 @@ class Pulse:
     adc: int
     """ADC to acquire pulse back, for readout pulses."""
 
-    shape: str = field(init=False, default=None)
-    """Pulse shape, to be assigned in the respective classes."""
-
 
 @dataclass
 class Rectangular(Pulse):
     """Rectangular pulse."""
 
-    shape = "rectangular"
+    shape: str = "rectangular"
 
 
 @dataclass
 class Gaussian(Pulse):
     """Gaussian pulse."""
 
-    shape = "gaussian"
+    shape: str = "gaussian"
 
     rel_sigma: float = None
     """Sigma of the gaussian as a fraction of duration."""
@@ -53,7 +50,7 @@ class Gaussian(Pulse):
 class Drag(Pulse):
     """Drag pulse."""
 
-    shape = "gaussian"
+    shape: str = "gaussian"
 
     rel_sigma: float = None
     """Sigma of the drag as a fraction of duration."""
