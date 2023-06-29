@@ -28,7 +28,7 @@ class Pulse:
     adc: int
     """ADC to acquire pulse back, for readout pulses."""
 
-    shape: str = field(init=False)
+    shape: str = field(init=False, default=None)
     """Pulse shape, to be assigned in the respective classes."""
 
 
