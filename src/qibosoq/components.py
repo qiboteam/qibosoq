@@ -47,8 +47,8 @@ class Pulse:
     """Amplitude factor, multiplied by maximum gain of the DAC."""
     relative_phase: int
     """Relative phase (degrees)."""
-    start: float = field(compare=False)
-    """Start time (us)."""
+    start_delay: float = field(compare=False)
+    """Delay before pulse is triggered (us)."""
     duration: float
     """Duration of the pulse (us)."""
 
