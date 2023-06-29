@@ -7,7 +7,8 @@ import numpy as np
 from qick import QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Pulse, Qubit
+from qibosoq.components.base import Config, Qubit
+from qibosoq.components.pulses import Pulse
 from qibosoq.programs.base import BaseProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)

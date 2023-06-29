@@ -1,6 +1,6 @@
 import pytest
 
-from qibosoq.components import Parameter
+from qibosoq.components.base import Parameter
 
 PARAMETERS = [
     (Parameter.FREQUENCY, "frequency"),

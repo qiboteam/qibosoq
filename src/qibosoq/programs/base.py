@@ -10,7 +10,8 @@ import numpy.typing as npt
 from qick import QickProgram, QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Pulse, Qubit
+from qibosoq.components.base import Config, Qubit
+from qibosoq.components.pulses import Pulse
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
