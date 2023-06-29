@@ -11,16 +11,28 @@ import os
 import socket
 import traceback
 from socketserver import BaseRequestHandler, TCPServer
+from typing import Dict, List
 
 from qick import QickSoc
 
 import qibosoq.configuration as cfg
-from qibosoq.components import Config, OperationCode, Pulse, Qubit, Sweeper
+from qibosoq.components.base import Config, OperationCode, Qubit, Sweeper
+from qibosoq.components.pulses import Pulse, Shape
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 from qibosoq.programs.sweepers import ExecuteSweeps
 
 logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
+
+
+def load_pulses(list_sequence: List[Dict]) -> List[Pulse]:
+    """Convert a list of pulses (in dict form) to a list of Pulse objects."""
+    obj_sequence = []
+    for pulse in list_sequence:
+        cls = Shape[pulse["shape"]].value
+        converted_pulse = cls(**pulse)
+        obj_sequence.append(converted_pulse)
+    return obj_sequence
 
 
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
@@ -46,7 +58,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     program = programcls(
         qick_soc,
         Config(**data["cfg"]),
-        [Pulse(**pulse) for pulse in data["sequence"]],
+        load_pulses(data["sequence"]),
         [Qubit(**qubit) for qubit in data["qubits"]],
         *args,
     )
