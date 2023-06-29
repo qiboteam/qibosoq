@@ -21,7 +21,7 @@ Contents
     :maxdepth: 2
     :caption: Main documentation
 
-    api-reference/index
+    api-reference/modules
 
 
 Indices and tables
