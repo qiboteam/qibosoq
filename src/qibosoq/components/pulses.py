@@ -1,6 +1,7 @@
 """Pulses objects."""
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 
 @dataclass
@@ -50,7 +51,7 @@ class Gaussian(Pulse):
 class Drag(Pulse):
     """Drag pulse."""
 
-    shape: str = "gaussian"
+    shape: str = "drag"
 
     rel_sigma: float = None
     """Sigma of the drag as a fraction of duration."""
@@ -58,11 +59,9 @@ class Drag(Pulse):
     """Beta parameter for drag pulse."""
 
 
-def pulse_class_from_shape(shape: str):
-    """Return the class corresponding to a shape."""
-    if shape == "rectangular":
-        return Rectangular
-    elif shape == "gaussian":
-        return Gaussian
-    elif shape == "drag":
-        return Drag
+class Shape(Enum):
+    """Map shape names to the corresponding objects."""
+
+    rectangular = Rectangular
+    gaussian = Gaussian
+    drag = Drag
