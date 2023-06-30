@@ -52,7 +52,7 @@ class BaseProgram(ABC, QickProgram):
         self.registered_waveform = []
 
         if self.is_mux:
-            self.multi_ro_pulses = self.create_mux_ro_dict()
+            self.multi_ro_pulses = self.group_mux_ro()
             self.readouts_per_experiment = len(self.multi_ro_pulses)
 
         # pylint: disable-next=too-many-function-args
@@ -163,34 +163,32 @@ class BaseProgram(ABC, QickProgram):
         """Register a drive pulse if needed, then trigger the respective DAC.
 
         A pulse gets register if:
-        - it didn't happen in `inizialize` (`self.pulses_registered` is False)
+        - it didn't happen in `initialize` (`self.pulses_registered` is False)
         - it is not identical to the last pulse registered
 
         """
-        to_register = True
-        if not self.pulses_registered:
-            if pulse.dac in last_pulse_registered:
-                if pulse == last_pulse_registered[pulse.dac]:
-                    to_register = False
-
-        if to_register:
+        if not self.pulses_registered and (
+            pulse.dac not in last_pulse_registered or pulse != last_pulse_registered[pulse.dac]
+        ):
             self.add_pulse_to_register(pulse)
             last_pulse_registered[pulse.dac] = pulse
         self.pulse(ch=pulse.dac)
 
     def execute_readout_pulse(
-        self, pulse: Pulse, muxed_pulses_executed: List[Pulse], muxed_ro_executed_time: List[int]
+        self, pulse: Pulse, muxed_pulses_executed: List[Pulse], muxed_ro_executed_indexes: List[int]
     ):
         """Register a readout pulse and perform a measurement."""
+        adcs = []
         if self.is_mux:
             if pulse not in muxed_pulses_executed:
-                start = list(self.multi_ro_pulses)[len(muxed_ro_executed_time)]
-                self.add_muxed_readout_to_register(self.multi_ro_pulses[start])
-                muxed_ro_executed_time.append(start)
-                adcs = []
-                for ro_pulse in self.multi_ro_pulses[start]:
+                idx_mux = self.multi_ro_pulses[len(muxed_ro_executed_indexes)]
+                self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
+                muxed_ro_executed_indexes.append(idx_mux)
+                for ro_pulse in self.multi_ro_pulses[idx_mux]:
                     adcs.append(ro_pulse.adc)
                     muxed_pulses_executed.append(ro_pulse)
+            else:
+                return
         else:
             if not self.pulses_registered:
                 self.add_pulse_to_register(pulse)
@@ -211,9 +209,10 @@ class BaseProgram(ABC, QickProgram):
         before firing it. If the pulse is a readout, it does a measurement and does
         not wait for the end of it. At the end of the sequence wait for meas and clock.
         """
+        # in the form of {dac_number_0: last_pulse_of_dac_0, ...}
         last_pulse_registered = {}
         muxed_pulses_executed = []
-        muxed_ro_executed_time = []
+        muxed_ro_executed_indexes = []
 
         for pulse in self.sequence:
             # wait the needed wait time so that the start is timed correctly
@@ -227,7 +226,7 @@ class BaseProgram(ABC, QickProgram):
             if pulse.type == "drive":
                 self.execute_drive_pulse(pulse, last_pulse_registered)
             elif pulse.type == "readout":
-                self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_time)
+                self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_indexes)
 
         self.wait_all()
         if wait:
@@ -344,30 +343,24 @@ class BaseProgram(ABC, QickProgram):
 
         self.set_pulse_registers(ch=gen_ch, style="const", length=length, mask=mask)
 
-    def create_mux_ro_dict(self) -> dict:
-        """Create a dictionary containing readout pulses grouped by start time.
+    def group_mux_ro(self) -> list:
+        """Create a list containing readout pulses grouped by start time.
 
-        Example of dictionary:
-        { 0: [pulse1, pulse2], 1: [pulse3]}
+        Example of list:
+        [[pulse1, pulse2], [pulse3]]
         """
-        mux_dict = {}
+        mux_list = []
         len_last_readout = 0
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
-            if pulse.start_delay <= len_last_readout:
+            if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
                 # add the pulse to the last multiplexed readout
-                if len(mux_dict) > 0:
-                    mux_dict[list(mux_dict)[-1]].append(pulse)
-                else:
-                    mux_dict[0] = [pulse]
-
-            elif pulse.start_delay > len_last_readout:
+                mux_list[mux_list[-1]].append(pulse)
+            else:
                 # add a new multiplexed readout
-                mux_dict[len(mux_dict)] = [pulse]
-
+                mux_list.append([pulse])
             len_last_readout = pulse.duration
 
-        self.readouts_per_experiment = len(mux_dict)
-        return mux_dict
+        return mux_list
 
     @abstractmethod
     def initialize(self):
