@@ -181,18 +181,14 @@ class BaseProgram(ABC, QickProgram):
         """Register a readout pulse and perform a measurement."""
         adcs = []
         if self.is_mux:
-            if pulse not in muxed_pulses_executed:
-                for idx, mux_time in enumerate(self.multi_ro_pulses):
-                    if pulse in mux_time:
-                        idx_mux = idx
-                        break
-                self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
-                muxed_ro_executed_indexes.append(idx_mux)
-                for ro_pulse in self.multi_ro_pulses[idx_mux]:
-                    adcs.append(ro_pulse.adc)
-                    muxed_pulses_executed.append(ro_pulse)
-            else:
+            if pulse in muxed_pulses_executed:
                 return
+            idx_mux = next(idx for idx, mux_time in enumerate(self.multi_ro_pulses) if pulse in mux_time)
+            self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
+            muxed_ro_executed_indexes.append(idx_mux)
+            for ro_pulse in self.multi_ro_pulses[idx_mux]:
+                adcs.append(ro_pulse.adc)
+                muxed_pulses_executed.append(ro_pulse)
         else:
             if not self.pulses_registered:
                 self.add_pulse_to_register(pulse)
