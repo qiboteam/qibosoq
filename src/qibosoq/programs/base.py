@@ -11,7 +11,8 @@ from qick import QickProgram, QickSoc
 from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Pulse, Qubit
+from qibosoq.components.base import Config, Qubit
+from qibosoq.components.pulses import Drag, Gaussian, Pulse, Rectangular
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -107,9 +108,9 @@ class BaseProgram(ABC, QickProgram):
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
-        is_drag = pulse.shape == "drag"
-        is_gaus = pulse.shape == "gaussian"
-        is_rect = pulse.shape == "rectangular"
+        is_drag = isinstance(pulse, Drag)
+        is_gaus = isinstance(pulse, Gaussian)
+        is_rect = isinstance(pulse, Rectangular)
 
         # pulse freq converted with frequency matching
         freq = self.soc.freq2reg(pulse.frequency, gen_ch=gen_ch, ro_ch=pulse.adc)

@@ -8,7 +8,8 @@ from qick import NDAveragerProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
+from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
+from qibosoq.components.pulses import Pulse
 from qibosoq.programs.flux import FluxProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)

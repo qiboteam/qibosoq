@@ -6,7 +6,8 @@ import qick
 qick.QickSoc = None
 
 import qibosoq.configuration
-from qibosoq.components import Config, Parameter, Pulse, Qubit, Sweeper
+from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
+from qibosoq.components.pulses import Drag, Gaussian, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 from qibosoq.programs.sweepers import ExecuteSweeps, reversed_sweepers
 
@@ -31,7 +32,7 @@ def soc(request):
 def execute_pulse_sequence(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -41,9 +42,8 @@ def execute_pulse_sequence(soc):
             type="drive",
             dac=3,
             adc=0,
-            shape="rectangular",
         ),
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -53,7 +53,6 @@ def execute_pulse_sequence(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     qubits = [Qubit()]
@@ -66,7 +65,7 @@ def execute_pulse_sequence(soc):
 def execute_sweeps(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -76,9 +75,8 @@ def execute_sweeps(soc):
             type="drive",
             dac=3,
             adc=0,
-            shape="rectangular",
         ),
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -88,7 +86,6 @@ def execute_sweeps(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     sweepers = (
@@ -113,7 +110,7 @@ def test_execute_pulsesequence_init(execute_pulse_sequence):
 
 def test_declare_nqz_zones(execute_pulse_sequence):
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -123,9 +120,8 @@ def test_declare_nqz_zones(execute_pulse_sequence):
             type="drive",
             dac=3,
             adc=0,
-            shape="rectangular",
         ),
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -135,7 +131,6 @@ def test_declare_nqz_zones(execute_pulse_sequence):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     execute_pulse_sequence.declare_nqz_zones(sequence)
@@ -146,7 +141,7 @@ def test_declare_readout_freq(execute_pulse_sequence):
 
 
 def test_add_pulse_to_register(execute_pulse_sequence):
-    pulse0 = Pulse(
+    pulse0 = Gaussian(
         frequency=100,
         amplitude=0.1,
         relative_phase=0,
@@ -156,10 +151,9 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         type="drive",
         dac=3,
         adc=0,
-        shape="gaussian",
         rel_sigma=5,
     )
-    pulse1 = Pulse(
+    pulse1 = Drag(
         frequency=100,
         amplitude=0.1,
         relative_phase=0,
@@ -169,11 +163,10 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         type="drive",
         dac=3,
         adc=0,
-        shape="drag",
         rel_sigma=5,
         beta=0.1,
     )
-    pulse2 = Pulse(
+    pulse2 = Rectangular(
         frequency=100,
         amplitude=0.1,
         relative_phase=0,
@@ -183,32 +176,17 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         type="drive",
         dac=3,
         adc=0,
-        shape="rectangular",
-    )
-    pulse3 = Pulse(
-        frequency=100,
-        amplitude=0.1,
-        relative_phase=0,
-        start_delay=0,
-        duration=0.04,
-        name="pulse2",
-        type="drive",
-        dac=3,
-        adc=0,
-        shape="test-non-existance",
     )
 
     execute_pulse_sequence.add_pulse_to_register(pulse0)
     execute_pulse_sequence.add_pulse_to_register(pulse1)
     execute_pulse_sequence.add_pulse_to_register(pulse2)
-    with pytest.raises(NotImplementedError):
-        execute_pulse_sequence.add_pulse_to_register(pulse3)
 
 
 def test_body(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Gaussian(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -218,10 +196,9 @@ def test_body(soc):
             type="drive",
             dac=3,
             adc=0,
-            shape="gaussian",
             rel_sigma=5,
         ),
-        Pulse(
+        Gaussian(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -231,10 +208,9 @@ def test_body(soc):
             type="drive",
             dac=3,
             adc=0,
-            shape="gaussian",
             rel_sigma=5,
         ),
-        Pulse(
+        Rectangular(
             frequency=200,
             amplitude=0.3,
             relative_phase=0,
@@ -244,9 +220,8 @@ def test_body(soc):
             type="drive",
             dac=3,
             adc=0,
-            shape="rectangular",
         ),
-        Pulse(
+        Gaussian(
             frequency=300,
             amplitude=0.2,
             relative_phase=0,
@@ -256,10 +231,9 @@ def test_body(soc):
             type="drive",
             dac=3,
             adc=0,
-            shape="gaussian",
             rel_sigma=5,
         ),
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -269,7 +243,6 @@ def test_body(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     qubits = [Qubit()]
@@ -282,7 +255,7 @@ def test_body(soc):
 def test_set_bias(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -292,7 +265,6 @@ def test_set_bias(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
@@ -308,7 +280,7 @@ def test_set_bias(soc):
 def test_set_bias_sweep(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -318,7 +290,6 @@ def test_set_bias_sweep(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
@@ -332,7 +303,7 @@ def test_set_bias_sweep(soc):
 def test_declare_nqz_flux(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -342,7 +313,6 @@ def test_declare_nqz_flux(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
@@ -354,7 +324,7 @@ def test_declare_nqz_flux(soc):
 def test_flux_body(soc):
     config = Config()
     sequence = [
-        Pulse(
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -364,7 +334,6 @@ def test_flux_body(soc):
             type="readout",
             dac=6,
             adc=0,
-            shape="rectangular",
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
