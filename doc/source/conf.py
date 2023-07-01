@@ -13,6 +13,7 @@
 #
 import sys
 from pathlib import Path
+
 from sphinx.ext import apidoc
 
 sys.path.insert(0, str(Path.cwd().absolute()))
