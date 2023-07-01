@@ -89,6 +89,7 @@ autodoc_mock_imports = ["qick", "qick.QickSoc"]
 
 
 def run_apidoc(_):
+    """Extract autodoc directives from package structure."""
     source = Path(__file__).parent
     docs_dest = source / "api-reference"
     package = source.parents[1] / "src" / "qibosoq"
