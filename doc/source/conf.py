@@ -4,8 +4,9 @@
 
 from pathlib import Path
 
-import qibosoq
 from sphinx.ext import apidoc
+
+import qibosoq
 
 # -- Project information -----------------------------------------------------
 
