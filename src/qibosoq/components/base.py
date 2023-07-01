@@ -43,7 +43,7 @@ class Parameter(str, Enum):
     FREQUENCY = "freq"
     AMPLITUDE = "gain"
     RELATIVE_PHASE = "phase"
-    START = "t"
+    DELAY = "t"
     BIAS = "bias"
     DURATION = "duration"
 
