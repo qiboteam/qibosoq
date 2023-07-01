@@ -42,6 +42,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     "recommonmark",
     "sphinx_copybutton",
+    "sphinx_last_updated_by_git",
+    "sphinx.ext.viewcode",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -66,11 +68,15 @@ html_title = "Version " + release
 # custom html theme options (colors and font)
 
 html_theme_options = {
+    "top_of_page_button": "edit",
+    "source_repository": "https://github.com/qiboteam/qibosoq/",
+    "source_branch": "main",
+    "source_directory": "doc/source/",
     "light_css_variables": {
         "color-brand-primary": "#6400FF",
         "color-brand-secondary": "#6400FF",
         "color-brand-content": "#6400FF",
-    }
+    },
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
@@ -87,5 +93,3 @@ def setup(app):
 
 
 # html_logo = "logo.png"
-
-html_show_sourcelink = False

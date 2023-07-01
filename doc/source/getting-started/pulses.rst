@@ -10,7 +10,7 @@ Biases
 By bias we mean a DC current that gets turned on before the pulse sequence execution and gets turn off just at the end.
 Note that some care may be needed to fire continuous un-modulated pulses since the board itself may have baluns at the outputs.
 
-Biases are controlled via the ``Qubit`` object:
+Biases are controlled via the :class:`qibosoq.components.base.Qubit` object:
 
 .. code-block:: python
 
@@ -28,7 +28,7 @@ Pulses
 """"""
 
 Differently from the biases, the pulses have a shape, a duration and are modulated.
-In ``Qibosoq`` there is a object ``Pulse``:
+In ``Qibosoq`` there is a object :class:`qibosoq.components.pulses.Pulse`:
 
 .. code-block:: python
 
@@ -57,9 +57,9 @@ In ``Qibosoq`` there is a object ``Pulse``:
 * The adc parameter is not needed for drive pulse, but it is for readout pulses. Every readout pulse is composed of a pulse fired through the dac and acquired by the adc, so both are required.
 
 
-While the ``Pulse`` object can be used in the client, it cannot be used in execution time.
+While the :class:`qibosoq.components.pulses.Pulse` object can be used in the client, it cannot be used in execution time.
 In fact, the server expect a Pulse with a shape.
-The shape objects inherits from ``Pulse`` and share the same parameter + eventually others (... here are the ``Pulse`` parameters):
+The shape objects inherits from :class:`qibosoq.components.pulses.Pulse` and share the same parameter + eventually others (... here are the :class:`qibosoq.components.pulses.Pulse` parameters):
 
 .. code-block:: python
 

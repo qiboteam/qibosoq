@@ -19,7 +19,7 @@ Contents
 
 .. toctree::
     :maxdepth: 2
-    :caption: Main documentation
+    :caption: Api reference
 
     api-reference/modules
 

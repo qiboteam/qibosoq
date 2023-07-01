@@ -52,7 +52,7 @@ Let's now analyze element by element every key and value contained in the dictio
 operation_code
 --------------
 
-The operation code can be an int from 1 to 3, but it is better to initially have it as a ``qibosoq.components.base.OperationCode`` instance.
+The operation code can be an int from 1 to 3, but it is better to initially have it as a :class:`qibosoq.components.base.OperationCode` instance.
 Therefore, it can assume three different values:
 
 #. EXECUTE_PULSE_SEQUENCE: to execute an arbitrary pulse sequence (with a ``AveragerQickProgram``) and a standard integrated acquisition
@@ -73,7 +73,7 @@ cfg
 ---
 
 The ``cfg`` key corresponds to another, nested, dictionary.
-This can be easily obtained from a ``qibosoq.components.base.Config`` object.
+This can be easily obtained from a :class:`qibosoq.components.base.Config` object.
 
 .. code-block:: python
 
@@ -92,7 +92,7 @@ Just after qibosoq has received all the data, it converts ``cfg`` back into is o
 sequence
 --------
 
-The ``sequence`` key links to list of ``qibosoq.components.pulses.Pulse`` objects in the form of dictionaries.
+The ``sequence`` key links to list of :class:`qibosoq.components.pulses.Pulse` objects in the form of dictionaries.
 Also this dictionary can be obtained with ``asdict``.
 
 .. code-block:: python
@@ -110,13 +110,13 @@ Also this dictionary can be obtained with ``asdict``.
     }
 
 
-Note that ``qibosoq`` will convert these pulses back to the respective shape objects, so a general ``Pulse`` will raise an error.
+Note that ``qibosoq`` will convert these pulses back to the respective shape objects, so a general :class:`qibosoq.components.pulses.Pulse` will raise an error.
 
 
 qubits
 ------
 
-The ``qubits`` key links to list of ``qibosoq.components.base.Qubit`` objects in the form of dictionaries.
+The ``qubits`` key links to list of :class:`qibosoq.components.base.Qubit` objects in the form of dictionaries.
 Also this dictionary can be obtained with ``asdict``.
 
 .. code-block:: python
@@ -137,7 +137,7 @@ Also this dictionary can be obtained with ``asdict``.
 sweepers
 --------
 
-This key is used and requested only if operation_code is ``EXECUTE_SWEEPS`` and is a list of ``qibosoq,components.base.Sweeper`` objects in dictionary form:
+This key is used and requested only if operation_code is ``EXECUTE_SWEEPS`` and is a list of :class:`qibosoq.components.base.Sweeper` objects in dictionary form:
 
 .. code-block:: python
 

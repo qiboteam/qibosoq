@@ -341,7 +341,7 @@ Next, we can define the sweeper:
                 expts = 150
     )
 
-Now we can define the ``Config`` object and our ``Qubit`` object:
+Now we can define the :class:`qibosoq.components.base.Config` object and our :class:`qibosoq.components.base.Qubit` object:
 
 .. code-block:: python
 
