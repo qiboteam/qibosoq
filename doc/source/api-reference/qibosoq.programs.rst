@@ -1,6 +1,11 @@
 qibosoq.programs package
 ========================
 
+.. automodule:: qibosoq.programs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -32,14 +37,6 @@ qibosoq.programs.sweepers module
 --------------------------------
 
 .. automodule:: qibosoq.programs.sweepers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: qibosoq.programs
    :members:
    :undoc-members:
    :show-inheritance:

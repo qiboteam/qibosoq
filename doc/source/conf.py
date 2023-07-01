@@ -11,10 +11,11 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
 import sys
+from pathlib import Path
+from sphinx.ext import apidoc
 
-sys.path.insert(0, os.path.abspath("."))
+sys.path.insert(0, str(Path.cwd().absolute()))
 
 import qibosoq
 
@@ -99,9 +100,14 @@ html_static_path = ["_static"]
 autodoc_mock_imports = ["qick", "qick.QickSoc"]
 
 
+def run_apidoc(_):
+    source = Path(__file__).parent
+    docs_dest = source / "api-reference"
+    package = source.parents[1] / "src" / "qibosoq"
+    apidoc.main(["--module-first", "-o", str(docs_dest), str(package)])
+
+
 def setup(app):
     """Include custom style to change colors."""
     app.add_css_file("css/style.css")
-
-
-# html_logo = "logo.png"
+    app.connect("builder-inited", run_apidoc)
