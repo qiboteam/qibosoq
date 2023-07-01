@@ -189,3 +189,6 @@ The shape of "i" ("q") is
 * for operation_code ``EXECUTE_SWEEPS``
     * if ``average`` is false: (adc_channels, number_of_readouts, number_of_points, number_of_shots)
     * if ``average`` is true: (adc_channels, number_of_readouts, number_of_points)
+
+Note that the server can also send a different thing: errors.
+Ehen the server encounters an error, in the communication protocol, in the json de-serialization or during the execution, it does not crash but raises an error that get's logged in the server and sent through the open socket so that also the client can see it.

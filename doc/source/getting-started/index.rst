@@ -8,4 +8,5 @@ In this section we present the basic aspects of Qibosoq and provide installation
     installation
     usage
     communication
+    pulses
     tutorials
