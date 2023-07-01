@@ -9,4 +9,5 @@ In this section we present the basic aspects of Qibosoq and provide installation
     usage
     communication
     pulses
+    sweepers
     tutorials
