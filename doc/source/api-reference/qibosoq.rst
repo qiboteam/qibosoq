@@ -13,18 +13,24 @@ Subpackages
 Submodules
 ----------
 
+qibosoq.configuration module
+----------------------------
 
 .. automodule:: qibosoq.configuration
    :members:
    :undoc-members:
    :show-inheritance:
 
+qibosoq.log module
+------------------
 
 .. automodule:: qibosoq.log
    :members:
    :undoc-members:
    :show-inheritance:
 
+qibosoq.rfsoc\_server module
+----------------------------
 
 .. automodule:: qibosoq.rfsoc_server
    :members:
