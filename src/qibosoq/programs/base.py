@@ -354,7 +354,7 @@ class BaseProgram(ABC, QickProgram):
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
                 # add the pulse to the last multiplexed readout
-                mux_list[mux_list[-1]].append(pulse)
+                mux_list[-1].append(pulse)
             else:
                 # add a new multiplexed readout
                 mux_list.append([pulse])
