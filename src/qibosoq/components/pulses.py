@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import List
 
 
 @dataclass
@@ -59,9 +60,20 @@ class Drag(Pulse):
     """Beta parameter for drag pulse."""
 
 
+@dataclass
+class Arbitrary(Pulse):
+    """Custom pulse."""
+
+    shape: str = "arbitrary"
+
+    i_values: List[float] = field(default_factory=List)
+    q_values: List[float] = field(default_factory=List)
+
+
 class Shape(Enum):
     """Map shape names to the corresponding objects."""
 
     rectangular = Rectangular
     gaussian = Gaussian
     drag = Drag
+    arbitrary = Arbitrary

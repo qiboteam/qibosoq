@@ -12,7 +12,7 @@ from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Drag, Gaussian, Pulse, Rectangular
+from qibosoq.components.pulses import Arbitrary, Drag, Gaussian, Pulse, Rectangular
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -104,61 +104,49 @@ class BaseProgram(ABC, QickProgram):
         gain = int(pulse.amplitude * max_gain)
         phase = self.deg2reg(pulse.relative_phase, gen_ch=gen_ch)
 
+        # pulse freq converted with frequency matching
+        freq = self.soc.freq2reg(pulse.frequency, gen_ch=gen_ch, ro_ch=pulse.adc)
+
         # pulse length converted with DAC CLK
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
-        is_drag = isinstance(pulse, Drag)
-        is_gaus = isinstance(pulse, Gaussian)
-        is_rect = isinstance(pulse, Rectangular)
-
-        # pulse freq converted with frequency matching
-        freq = self.soc.freq2reg(pulse.frequency, gen_ch=gen_ch, ro_ch=pulse.adc)
-
-        # if pulse is drag or gauss first define the i-q shape and then set reg
-        if is_drag or is_gaus:
-            name = pulse.name
-            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
-
-            if is_gaus:
-                name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
-                if name not in self.registered_waveform:
-                    self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
-                    self.registered_waveform.append(name)
-
-            elif is_drag:
-                # delta will be divided for the same quantity, we are setting it = 1
-                delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
-                name = (
-                    f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
-                )
-
-                if name not in self.registered_waveform:
-                    self.add_DRAG(
-                        ch=gen_ch,
-                        name=name,
-                        sigma=sigma,
-                        delta=delta,
-                        alpha=pulse.beta,
-                        length=soc_length,
-                    )
-                    self.registered_waveform.append(name)
-
-            self.set_pulse_registers(
-                ch=gen_ch,
-                style="arb",
-                freq=freq,
-                phase=phase,
-                gain=gain,
-                waveform=name,
-            )
-
-        # if pulse is rectangular set directly register
-        elif is_rect:
+        if isinstance(pulse, Rectangular):
             self.set_pulse_registers(ch=gen_ch, style="const", freq=freq, phase=phase, gain=gain, length=soc_length)
+            return
 
-        else:
-            raise NotImplementedError(f"Shape {pulse} not supported!")
+        if isinstance(pulse, Gaussian):
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+            name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
+            if name not in self.registered_waveform:
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                self.registered_waveform.append(name)
+        elif isinstance(pulse, Drag):
+            delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+            name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
+            if name not in self.registered_waveform:
+                self.add_DRAG(
+                    ch=gen_ch,
+                    name=name,
+                    sigma=sigma,
+                    delta=delta,
+                    alpha=pulse.beta,
+                    length=soc_length,
+                )
+                self.registered_waveform.append(name)
+        elif isinstance(pulse, Arbitrary):
+            name = pulse.name
+            self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
+
+        self.set_pulse_registers(
+            ch=gen_ch,
+            style="arb",
+            freq=freq,
+            phase=phase,
+            gain=gain,
+            waveform=name,
+        )
 
     def execute_drive_pulse(self, pulse: Pulse, last_pulse_registered: Dict):
         """Register a drive pulse if needed, then trigger the respective DAC.
