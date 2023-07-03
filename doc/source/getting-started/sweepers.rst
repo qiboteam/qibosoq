@@ -67,5 +67,5 @@ This will execute the sequence considering the matrix product of the swept param
 
 
 The final results (i and q) will have shape:
-* if averaged: (number_of_adc_chs, number_of_readouts, expts_sweeper1, expts_sweeper2...)
-* if not averaged: (number_of_adc_chs, number_of_readouts, expts_sweeper1, expts_sweeper2..., number of shots)
+    * if averaged: (number_of_adc_chs, number_of_readouts, expts_sweeper1, expts_sweeper2...)
+    * if not averaged: (number_of_adc_chs, number_of_readouts, expts_sweeper1, expts_sweeper2..., number of shots)
