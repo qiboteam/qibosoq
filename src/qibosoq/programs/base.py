@@ -50,7 +50,10 @@ class BaseProgram(ABC, QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
-        self.registered_waveform = []
+        self.registered_waveforms = {}
+        for pulse in sequence:
+            if pulse.dac not in self.registered_waveforms:
+                self.registered_waveforms[pulse.dac] = []
 
         if self.is_mux:
             self.multi_ro_pulses = self.group_mux_ro()
@@ -118,14 +121,14 @@ class BaseProgram(ABC, QickProgram):
         if isinstance(pulse, Gaussian):
             sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
             name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
-            if name not in self.registered_waveform:
+            if name not in self.registered_waveforms[gen_ch]:
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
-                self.registered_waveform.append(name)
+                self.registered_waveforms[gen_ch].append(name)
         elif isinstance(pulse, Drag):
             delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
             sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
             name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
-            if name not in self.registered_waveform:
+            if name not in self.registered_waveforms[gen_ch]:
                 self.add_DRAG(
                     ch=gen_ch,
                     name=name,
@@ -134,10 +137,12 @@ class BaseProgram(ABC, QickProgram):
                     alpha=pulse.beta,
                     length=soc_length,
                 )
-                self.registered_waveform.append(name)
+                self.registered_waveforms[gen_ch].append(name)
         elif isinstance(pulse, Arbitrary):
             name = pulse.name
-            self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
+            if name not in self.registered_waveforms[gen_ch]:
+                self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
+                self.registered_waveforms[gen_ch].append(name)
 
         self.set_pulse_registers(
             ch=gen_ch,
