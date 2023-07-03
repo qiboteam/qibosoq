@@ -9,7 +9,7 @@ class Pulse:
     """Abstract Pulse object."""
 
     frequency: float
-    """Freuency of the pulse (MHz)."""
+    """Frequency of the pulse (MHz)."""
     amplitude: float
     """Amplitude factor, multiplied by maximum gain of the DAC."""
     relative_phase: int
