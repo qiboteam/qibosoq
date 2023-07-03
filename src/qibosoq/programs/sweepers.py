@@ -95,9 +95,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                     max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                     starts = (sweeper.starts * max_gain).astype(int)
                     stops = (sweeper.stops * max_gain).astype(int)
-                elif sweeper.parameters[idx] is Parameter.START:
-                    # TODO tell qick of the mismatch (t != time)
-                    register.reg_type = "time"
+                elif sweeper.parameters[idx] is Parameter.DELAY:
+                    # define a new register for the delay
+                    register = self.new_gen_reg(gen_ch, reg_type="time", tproc_reg=True)
+                    pulse.start_delay = register
 
                 new_sweep = QickSweep(
                     self,
