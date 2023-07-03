@@ -1,20 +1,10 @@
 """Configuration file for sphinx documentation."""
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
 
-# If extensions (or modules to document with autodoc) are in another directory,
-# add these directories to sys.path here. If the directory is relative to the
-# documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.abspath("."))
+from sphinx.ext import apidoc
 
 import qibosoq
 
@@ -99,9 +89,15 @@ html_static_path = ["_static"]
 autodoc_mock_imports = ["qick", "qick.QickSoc"]
 
 
+def run_apidoc(_):
+    """Extract autodoc directives from package structure."""
+    source = Path(__file__).parent
+    docs_dest = source / "api-reference"
+    package = source.parents[1] / "src" / "qibosoq"
+    apidoc.main(["--module-first", "-o", str(docs_dest), str(package)])
+
+
 def setup(app):
     """Include custom style to change colors."""
     app.add_css_file("css/style.css")
-
-
-# html_logo = "logo.png"
+    app.connect("builder-inited", run_apidoc)

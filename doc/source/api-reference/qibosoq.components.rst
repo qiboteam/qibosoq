@@ -1,6 +1,11 @@
 qibosoq.components package
 ==========================
 
+.. automodule:: qibosoq.components
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -16,14 +21,6 @@ qibosoq.components.pulses module
 --------------------------------
 
 .. automodule:: qibosoq.components.pulses
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: qibosoq.components
    :members:
    :undoc-members:
    :show-inheritance:

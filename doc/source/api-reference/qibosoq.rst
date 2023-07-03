@@ -1,6 +1,11 @@
 qibosoq package
 ===============
 
+.. automodule:: qibosoq
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Subpackages
 -----------
 
@@ -33,14 +38,6 @@ qibosoq.rfsoc\_server module
 ----------------------------
 
 .. automodule:: qibosoq.rfsoc_server
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: qibosoq
    :members:
    :undoc-members:
    :show-inheritance:
