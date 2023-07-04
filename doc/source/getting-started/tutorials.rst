@@ -27,7 +27,7 @@ A standard program will be executed with something like:
                 tmp = sock.recv(4096)
                 if not tmp:
                     break
-                received.append(tmp)
+                received.extend(tmp)
 
             results = json.loads(received.decode("utf-8"))
             return results["i"], results["q"]
@@ -83,7 +83,7 @@ To send a simple pulse sequence, we just needed to define all the server_command
         "cfg": asdict(config),
         "sequence": [asdict(pulse) for pulse in sequence],
         "qubits": [asdict(qubit)],
-        "readout_per_experiment": 1,
+        "readouts_per_experiment": 1,
         "average": True,
     }
 
@@ -140,7 +140,7 @@ For multiple readout pulses, on the same dac:
         "cfg": asdict(config),
         "sequence": [asdict(pulse) for pulse in sequence],
         "qubits": [asdict(qubit)],
-        "readout_per_experiment": 2,
+        "readouts_per_experiment": 2,
         "average": True,
     }
 
@@ -197,7 +197,7 @@ While if the measurement is done on a different adc the result will be slightly 
         "cfg": asdict(config),
         "sequence": [asdict(pulse) for pulse in sequence],
         "qubits": [asdict(qubit)],
-        "readout_per_experiment": 2,
+        "readouts_per_experiment": 2,
         "average": True,
     }
 
@@ -266,7 +266,7 @@ A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to max
         "sequence": [asdict(pulse) for pulse in sequence],
         "qubits": [asdict(qubit)],
         "sweepers": [asdict(sweeper)],
-        "readout_per_experiment": 1,
+        "readouts_per_experiment": 1,
         "average": True,
     }
 
@@ -363,7 +363,7 @@ And we can execute and plot the results:
         "cfg": asdict(config),
         "sequence": [asdict(pulse) for pulse in sequence],
         "qubits": [asdict(qubit)],
-        "readout_per_experiment": 1,
+        "readouts_per_experiment": 1,
         "average": True,
     }
 

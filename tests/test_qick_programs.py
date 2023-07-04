@@ -7,7 +7,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
-from qibosoq.components.pulses import Drag, Gaussian, Rectangular
+from qibosoq.components.pulses import Arbitrary, Drag, Gaussian, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 from qibosoq.programs.sweepers import ExecuteSweeps, reversed_sweepers
 
@@ -150,7 +150,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         name="pulse0",
         type="drive",
         dac=3,
-        adc=0,
+        adc=None,
         rel_sigma=5,
     )
     pulse1 = Drag(
@@ -162,7 +162,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         name="pulse1",
         type="drive",
         dac=3,
-        adc=0,
+        adc=None,
         rel_sigma=5,
         beta=0.1,
     )
@@ -175,12 +175,26 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         name="pulse2",
         type="drive",
         dac=3,
-        adc=0,
+        adc=None,
+    )
+    pulse3 = Arbitrary(
+        frequency=100,
+        amplitude=0.1,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.04,
+        name="pulse3",
+        type="drive",
+        dac=3,
+        adc=None,
+        i_values=[0.2] * 64,
+        q_values=[0.2] * 64,
     )
 
     execute_pulse_sequence.add_pulse_to_register(pulse0)
     execute_pulse_sequence.add_pulse_to_register(pulse1)
     execute_pulse_sequence.add_pulse_to_register(pulse2)
+    execute_pulse_sequence.add_pulse_to_register(pulse3)
 
 
 def test_body(soc):
