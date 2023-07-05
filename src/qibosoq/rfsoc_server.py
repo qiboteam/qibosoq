@@ -86,7 +86,6 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     else:
         toti, totq = program.acquire(
             qick_soc,
-            data["readouts_per_experiment"],
             load_pulses=True,
             progress=False,
             debug=False,

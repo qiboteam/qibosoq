@@ -43,7 +43,7 @@ class BaseProgram(ABC, QickProgram):
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
-        self.readouts_per_experiment = None
+        self.readouts_per_experiment = len([pulse for pulse in self.sequence if pulse.type == "readout"])
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
         self.syncdelay = self.us2cycles(0)
@@ -229,7 +229,6 @@ class BaseProgram(ABC, QickProgram):
     def acquire(
         self,
         soc: QickSoc,
-        readouts_per_experiment: int = 1,
         load_pulses: bool = True,
         progress: bool = False,
         debug: bool = False,
@@ -238,14 +237,12 @@ class BaseProgram(ABC, QickProgram):
         """Call the super() acquire function.
 
         Args:
-            readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
             progress (bool): if true shows a progress bar, slows down things
             debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
-        if self.readouts_per_experiment is not None:
-            readouts_per_experiment = self.readouts_per_experiment
+        readouts_per_experiment = self.readouts_per_experiment
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
