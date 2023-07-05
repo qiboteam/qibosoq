@@ -1,5 +1,6 @@
 import pathlib
 
+import numpy as np
 import pytest
 import qick
 
@@ -282,7 +283,8 @@ def test_execute_readout_pulse(soc):
         assert muxed_ro_executed_indexes == [0, 1]
 
 
-def test_acquire(mocker, soc):
+@pytest.mark.parametrize("avg", [True, False])
+def test_acquire(mocker, soc, avg):
     mocker.patch("qick.AveragerProgram.acquire", return_values=[1, 2, 3])
 
     config = Config()
@@ -301,7 +303,14 @@ def test_acquire(mocker, soc):
     ]
     qubits = [Qubit()]
     program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.acquire(program.soc, average=True)
+    program.di_buf = [np.zeros(1000)]
+    program.dq_buf = [np.zeros(1000)]
+    program.acquire(program.soc, average=avg)
+
+    program.expts = 10
+    program.di_buf = [np.zeros(1000 * 10)]
+    program.dq_buf = [np.zeros(1000 * 10)]
+    program.acquire(program.soc, average=avg)
 
     sequence = [
         Rectangular(
@@ -317,4 +326,4 @@ def test_acquire(mocker, soc):
         ),
     ]
     program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.acquire(program.soc, average=True)
+    program.acquire(program.soc, average=avg)
