@@ -32,7 +32,7 @@ def convert_commands(obj_dictionary: dict) -> dict:
     """Convert the contents of a commands dictionary from object to dict."""
     dict_dictionary = {
         "operation_code": obj_dictionary["operation_code"],
-        "cfg": asdict(obj_dictionary["config"]),
+        "cfg": asdict(obj_dictionary["cfg"]),
         "sequence": [asdict(pulse) for pulse in obj_dictionary["sequence"]],
         "qubits": [asdict(qubit) for qubit in obj_dictionary["qubits"]],
         "average": obj_dictionary["average"],
