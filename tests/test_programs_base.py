@@ -6,10 +6,10 @@ import qick
 qick.QickSoc = None
 
 import qibosoq.configuration
-from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
+from qibosoq.components.base import Config, Qubit
 from qibosoq.components.pulses import Arbitrary, Drag, Gaussian, Rectangular
+from qibosoq.programs.base import BaseProgram
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
-from qibosoq.programs.sweepers import ExecuteSweeps, reversed_sweepers
 
 
 @pytest.fixture(params=[False, True])
@@ -59,53 +59,6 @@ def execute_pulse_sequence(soc):
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
     return program
-
-
-@pytest.fixture
-def execute_sweeps(soc):
-    config = Config()
-    sequence = [
-        Rectangular(
-            frequency=100,
-            amplitude=0.1,
-            relative_phase=0,
-            start_delay=0,
-            duration=0.04,
-            name="pulse0",
-            type="drive",
-            dac=3,
-            adc=0,
-        ),
-        Rectangular(
-            frequency=100,
-            amplitude=0.1,
-            relative_phase=0,
-            start_delay=0,
-            duration=0.04,
-            name="pulse1",
-            type="readout",
-            dac=6,
-            adc=0,
-        ),
-    ]
-    sweepers = (
-        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
-    )
-
-    qubits = [Qubit()]
-
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
-    return program
-
-
-def test_execute_sweeps_init(execute_sweeps):
-    assert isinstance(execute_sweeps, ExecuteSweeps)
-
-
-def test_execute_pulsesequence_init(execute_pulse_sequence):
-    assert isinstance(execute_pulse_sequence, ExecutePulseSequence)
 
 
 def test_declare_nqz_zones(execute_pulse_sequence):
@@ -251,7 +204,7 @@ def test_body(soc):
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
-            start_delay=0,
+            start_delay=0.4,
             duration=0.04,
             name="pulse4",
             type="readout",
@@ -266,7 +219,12 @@ def test_body(soc):
     program.body()
 
 
-def test_set_bias(soc):
+def test_initialize(soc):
+    with pytest.raises(Exception):
+        test = BaseProgram(soc, {}, [], [])
+
+
+def test_execute_readout_pulse(soc):
     config = Config()
     sequence = [
         Rectangular(
@@ -274,24 +232,59 @@ def test_set_bias(soc):
             amplitude=0.1,
             relative_phase=0,
             start_delay=0,
+            duration=1,
+            name="pulse1",
+            type="readout",
+            dac=6,
+            adc=0,
+        ),
+        Rectangular(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0.5,
             duration=0.04,
-            name="pulse4",
+            name="pulse2",
+            type="readout",
+            dac=6,
+            adc=0,
+        ),
+        Rectangular(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=3,
+            duration=0.04,
+            name="pulse3",
             type="readout",
             dac=6,
             adc=0,
         ),
     ]
-    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
+    qubits = [Qubit()]
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.set_bias("sweetspot")
-    program.set_bias("zero")
 
-    with pytest.raises(NotImplementedError):
-        program.set_bias("test")
+    muxed_pulse_executed = []
+    muxed_ro_executed_indexes = []
+
+    program.execute_readout_pulse(sequence[0], muxed_pulse_executed, muxed_ro_executed_indexes)
+    if program.is_mux:
+        assert len(muxed_pulse_executed) == 2
+        assert muxed_ro_executed_indexes == [0]
+    program.execute_readout_pulse(sequence[1], muxed_pulse_executed, muxed_ro_executed_indexes)
+    if program.is_mux:
+        assert len(muxed_pulse_executed) == 2
+        assert muxed_ro_executed_indexes == [0]
+    program.execute_readout_pulse(sequence[2], muxed_pulse_executed, muxed_ro_executed_indexes)
+    if program.is_mux:
+        assert len(muxed_pulse_executed) == 3
+        assert muxed_ro_executed_indexes == [0, 1]
 
 
-def test_set_bias_sweep(soc):
+def test_acquire(mocker, soc):
+    mocker.patch("qick.AveragerProgram.acquire", return_values=[1, 2, 3])
+
     config = Config()
     sequence = [
         Rectangular(
@@ -300,43 +293,16 @@ def test_set_bias_sweep(soc):
             relative_phase=0,
             start_delay=0,
             duration=0.04,
-            name="pulse4",
+            name="pulse1",
             type="readout",
             dac=6,
             adc=0,
         ),
     ]
-    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-    sweepers = tuple([Sweeper(expts=100, parameters=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
-
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
-    program.set_bias("sweetspot")
-    program.set_bias("zero")
-
-
-def test_declare_nqz_flux(soc):
-    config = Config()
-    sequence = [
-        Rectangular(
-            frequency=100,
-            amplitude=0.1,
-            relative_phase=0,
-            start_delay=0,
-            duration=0.04,
-            name="pulse4",
-            type="readout",
-            dac=6,
-            adc=0,
-        ),
-    ]
-    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-
+    qubits = [Qubit()]
     program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.declare_nqz_flux()
+    program.acquire(program.soc, average=True)
 
-
-def test_flux_body(soc):
-    config = Config()
     sequence = [
         Rectangular(
             frequency=100,
@@ -344,30 +310,11 @@ def test_flux_body(soc):
             relative_phase=0,
             start_delay=0,
             duration=0.04,
-            name="pulse4",
-            type="readout",
-            dac=6,
-            adc=0,
+            name="pulse1",
+            type="drive",
+            dac=2,
+            adc=None,
         ),
     ]
-    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-
     program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.body()
-
-
-def test_reversed_sweepers(execute_sweeps):
-    sweepers = Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])
-    converted = reversed_sweepers(sweepers)
-    assert isinstance(converted, list)
-    assert converted[0] == sweepers
-
-    sweepers = (
-        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
-    )
-    converted = reversed_sweepers(sweepers)
-    assert isinstance(converted, list)
-    for idx, sweeper in enumerate(sweepers):
-        assert converted[-(idx + 1)] == sweeper
+    program.acquire(program.soc, average=True)
