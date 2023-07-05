@@ -9,7 +9,7 @@ import qibosoq
 from qibosoq.components.base import Parameter
 from qibosoq.components.pulses import Rectangular
 from qibosoq.log import define_loggers
-from qibosoq.rfsoc_server import ConnectionHandler, execute_program, load_pulses
+from qibosoq.rfsoc_server import execute_program, load_pulses
 
 define_loggers()
 
@@ -146,27 +146,3 @@ def test_execute_program(mocker, soc):
     soc["tprocs"][0]["pmem_size"] = 10
     with pytest.raises(MemoryError):
         execute_program(commands, soc)
-
-
-def test_connection_handler(mocker):
-    def mock():
-        pass
-
-    class mock_obj:
-        def reset_gens(self):
-            return mock()
-
-        def setblocking(self, arg):
-            return mock()
-
-        def sendall(self, arg):
-            return mock()
-
-    class mock_server:
-        socket = mock_obj()
-        qick_soc = mock_obj()
-
-    mocker.patch("qibosoq.rfsoc_server.ConnectionHandler.receive_command")
-    mocker.patch("qibosoq.rfsoc_server.execute_program", return_value=([1], [1]))
-
-    handler = ConnectionHandler(mock_obj(), "0.0.0.0", mock_server())
