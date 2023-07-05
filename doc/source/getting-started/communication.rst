@@ -34,7 +34,6 @@ The dictionary has to contain the following elements:
         "sequence": list,
         "qubits": list,
         "average": bool,
-        "readouts_per_experiment": int
     }
 
 If the operation code is ``OperationCode.EXECUTE_SWEEPS = 3`` then also another list has to be provided
