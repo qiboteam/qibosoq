@@ -11,29 +11,13 @@ A standard program will be executed with something like:
     import json
     import socket
 
+    from qibosoq.client import execute
+
     HOST = "192.168.0.200"
     PORT = 6000
 
-    def qibosoq_execute(server_commands):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.connect((HOST, PORT))
-            msg_encoded = bytes(json.dumps(server_commands), "utf-8")
-
-            sock.send(len(msg_encoded).to_bytes(4, "big"))
-            sock.send(msg_encoded)
-
-            received = bytearray()
-            while True:
-                tmp = sock.recv(4096)
-                if not tmp:
-                    break
-                received.extend(tmp)
-
-            results = json.loads(received.decode("utf-8"))
-            return results["i"], results["q"]
-
     server_commands = {...}
-    i_values, q_values = connect_qibosoq(server_commands)
+    i_values, q_values = execute(server_commands, HOST, PORT)
 
 Execution of a sequence of pulses
 """""""""""""""""""""""""""""""""
@@ -42,7 +26,7 @@ To send a simple pulse sequence, we just needed to define all the server_command
 
 .. code-block:: python
 
-    from dataclasses import asdict
+    from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
@@ -80,14 +64,13 @@ To send a simple pulse sequence, we just needed to define all the server_command
 
     server_commands = {
         "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
-        "cfg": asdict(config),
-        "sequence": [asdict(pulse) for pulse in sequence],
-        "qubits": [asdict(qubit)],
-        "readouts_per_experiment": 1,
+        "cfg": config,
+        "sequence": sequence,
+        "qubits": [qubit],
         "average": True,
     }
 
-    i, q = qibosoq_execute(server_commands)
+    i, q = execute(server_commands, HOST, PORT)
 
     print(f"{i} + 1j * {q}")
 
@@ -97,7 +80,7 @@ For multiple readout pulses, on the same dac:
 
 .. code-block:: python
 
-    from dataclasses import asdict
+    from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
@@ -137,14 +120,13 @@ For multiple readout pulses, on the same dac:
 
     server_commands = {
         "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
-        "cfg": asdict(config),
-        "sequence": [asdict(pulse) for pulse in sequence],
-        "qubits": [asdict(qubit)],
-        "readouts_per_experiment": 2,
+        "cfg": config,
+        "sequence": sequence,
+        "qubits": [qubit],
         "average": True,
     }
 
-    i, q = qibosoq_execute(server_commands)
+    i, q = execute(server_commands, HOST, PORT)
 
     print(f"{i} + 1j * {q}")
 
@@ -154,7 +136,7 @@ While if the measurement is done on a different adc the result will be slightly 
 
 .. code-block:: python
 
-    from dataclasses import asdict
+    from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
@@ -194,14 +176,13 @@ While if the measurement is done on a different adc the result will be slightly 
 
     server_commands = {
         "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
-        "cfg": asdict(config),
-        "sequence": [asdict(pulse) for pulse in sequence],
-        "qubits": [asdict(qubit)],
-        "readouts_per_experiment": 2,
+        "cfg": config,
+        "sequence": sequence,
+        "qubits": [qubit],
         "average": True,
     }
 
-    i, q = qibosoq_execute(server_commands)
+    i, q = execute(server_commands, HOST, PORT)
 
     print(f"{i} + 1j * {q}")
 
@@ -214,7 +195,7 @@ A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to max
 
 .. code-block:: python
 
-    from dataclasses import asdict
+    from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
@@ -262,15 +243,14 @@ A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to max
 
     server_commands = {
         "operation_code": OperationCode.EXECUTE_SWEEP,
-        "cfg": asdict(config),
-        "sequence": [asdict(pulse) for pulse in sequence],
-        "qubits": [asdict(qubit)],
-        "sweepers": [asdict(sweeper)],
-        "readouts_per_experiment": 1,
+        "cfg": config,
+        "sequence": sequence,
+        "qubits": [qubit],
+        "sweepers": [sweeper],
         "average": True,
     }
 
-    i, q = qibosoq_execute(server_commands)
+    i, q = execute(server_commands, HOST, PORT)
 
     print(f"{i} + 1j * {q}")
 
@@ -286,10 +266,10 @@ We first import all the needed ``qibosoq`` components and ``matplotlib`` for plo
 
 .. code-block:: python
 
-    from dataclasses import asdict
     import numpy as np
     import matplotlib.pyplot as plt
 
+    from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
@@ -360,14 +340,14 @@ And we can execute and plot the results:
 
     server_commands = {
         "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
-        "cfg": asdict(config),
-        "sequence": [asdict(pulse) for pulse in sequence],
-        "qubits": [asdict(qubit)],
-        "readouts_per_experiment": 1,
+        "cfg": config,
+        "sequence": sequence,
+        "qubits": [qubit],
+        "sweepers": [sweeper],
         "average": True,
     }
 
-    i, q = qibosoq_execute(server_commands)
+    i, q = execute(server_commands, HOST, PORT)
 
     frequency = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
     results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
