@@ -325,38 +325,3 @@ class BaseProgram(ABC, QickProgram):
     def initialize(self):
         """Abstract initialization."""
         raise NotImplementedError
-
-    def flux_pulse(self, pulse: Pulse, time: int):
-        """Fire a fast flux pulse the starts and ends in sweetspot."""
-        gen_ch = pulse.dac
-        sweetspot = 0  # TODO int(qubit.flux.bias * self.max_gain)
-
-        duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
-        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
-        duration *= samples_per_clk  # the duration here is expressed in samples
-
-        padding = samples_per_clk
-        while True:  # compute padding length
-            tot_len = padding + duration
-            if tot_len % samples_per_clk == 0 and tot_len > 48:
-                break
-            padding += 1
-
-        amp = int(pulse.amplitude * self.max_gain) + sweetspot
-
-        i_vals = np.full(duration, amp)
-        i_vals = np.append(i_vals, np.full(padding, sweetspot))
-        q_vals = np.zeros(len(i_vals))
-
-        self.add_pulse(gen_ch, pulse.name, i_vals, q_vals)
-        self.set_pulse_registers(
-            ch=gen_ch,
-            waveform=pulse.name,
-            style="arb",
-            outsel="input",
-            stdysel="last",
-            freq=0,
-            phase=0,
-            gain=self.max_gain,
-        )
-        self.pulse(ch=gen_ch, t=time)
