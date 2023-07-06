@@ -19,9 +19,9 @@ Contents
 
 .. toctree::
     :maxdepth: 2
-    :caption: Main documentation
+    :caption: Api reference
 
-    api-reference/index
+    api-reference/modules
 
 
 Indices and tables

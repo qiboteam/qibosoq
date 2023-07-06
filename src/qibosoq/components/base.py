@@ -1,6 +1,6 @@
 """Various helper objects."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
 from typing import Iterable, List, Union, overload
 
@@ -37,46 +37,13 @@ class Qubit:
     """DAC responsible for flux control."""
 
 
-@dataclass
-class Pulse:
-    """Abstract Pulse object."""
-
-    frequency: float
-    """Freuency of the pulse (MHz)."""
-    amplitude: float
-    """Amplitude factor, multiplied by maximum gain of the DAC."""
-    relative_phase: int
-    """Relative phase (degrees)."""
-    start: float = field(compare=False)
-    """Start time (us)."""
-    duration: float
-    """Duration of the pulse (us)."""
-
-    name: str
-    """Name of the pulse, typically a serial."""
-    type: str
-    """Can be 'readout', 'drive', 'flux'."""
-
-    dac: int
-    """DAC responsible for firing the pulse."""
-    adc: int
-    """ADC to acquire pulse back, for readout pulses."""
-
-    shape: str
-    """Can be 'rectangular', 'gaussian', 'drag'."""
-    rel_sigma: float = None
-    """Sigma for gaussians and drags, fraction of duration."""
-    beta: float = None
-    """Beta for drag pulses."""
-
-
 class Parameter(str, Enum):
     """Available parameters for sweepers."""
 
     FREQUENCY = "freq"
     AMPLITUDE = "gain"
     RELATIVE_PHASE = "phase"
-    START = "t"
+    DELAY = "t"
     BIAS = "bias"
     DURATION = "duration"
 
@@ -95,9 +62,7 @@ class Parameter(str, Enum):
         """Convert from strings to Parameters."""
         if isinstance(parameters, str):
             return cls[parameters.upper()]
-        if isinstance(parameters, Iterable):
-            return type(parameters)(cls[par.upper()] for par in parameters)
-        raise NotImplementedError("Conversion not supported")
+        return type(parameters)(cls[par.upper()] for par in parameters)
 
 
 @dataclass

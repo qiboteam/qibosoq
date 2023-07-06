@@ -1,8 +1,11 @@
 [tool.poetry]
 name = "qibosoq"
-version = "0.0.1"
+version = "0.0.3"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
-authors = ["Rodolfo Carobene <rodolfo.carobene@gmail.com>", "Javier Serrano <javier.serrano@tii.ae>"]
+authors = [
+  "Rodolfo Carobene <rodolfo.carobene@gmail.com>",
+  "Javier Serrano <javier.serrano@tii.ae>",
+]
 license = "Apache License 2.0"
 readme = "README.md"
 repository = "https://github.com/qiboteam/qibosoq/"
@@ -26,14 +29,15 @@ build-backend = "poetry.core.masonry.api"
 optional = true
 
 [tool.poetry.group.docs.dependencies]
+ipython = "^8.12.0"
 sphinx = "^6.1.3"
 furo = "^2023.3.27"
 recommonmark = "^0.7.1"
 sphinxcontrib-bibtex = "^2.5.0"
 sphinx-markdown-tables = "^0.0.17"
 nbsphinx = "^0.9.1"
-ipython = "^8.12.0"
 sphinx-copybutton = "^0.5.1"
+sphinx-last-updated-by-git = "^0.3.5"
 
 [tool.poetry.group.tests]
 optional = true
@@ -41,6 +45,7 @@ optional = true
 [tool.poetry.group.tests.dependencies]
 pytest = ">=7.2.2"
 pytest-cov = "^4.0.0"
+pytest-mock = ">=3.10.0"
 
 [tool.poetry.group.analysis]
 optional = true

@@ -1,12 +1,12 @@
 import pytest
 
-from qibosoq.components import Parameter
+from qibosoq.components.base import Parameter
 
 PARAMETERS = [
     (Parameter.FREQUENCY, "frequency"),
     (Parameter.AMPLITUDE, "amplitude"),
     (Parameter.RELATIVE_PHASE, "relative_phase"),
-    (Parameter.START, "start"),
+    (Parameter.DELAY, "delay"),
     (Parameter.BIAS, "bias"),
 ]
 

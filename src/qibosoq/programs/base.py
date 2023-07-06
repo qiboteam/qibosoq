@@ -3,14 +3,15 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import numpy.typing as npt
 from qick import QickProgram, QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Pulse, Qubit
+from qibosoq.components.base import Config, Qubit
+from qibosoq.components.pulses import Arbitrary, Drag, Gaussian, Pulse, Rectangular
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -41,17 +42,20 @@ class BaseProgram(ABC, QickProgram):
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
-        self.readouts_per_experiment = None
+        self.readouts_per_experiment = len([pulse for pulse in self.sequence if pulse.type == "readout"])
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
-        self.registered_waveform = []
+        self.registered_waveforms = {}
+        for pulse in sequence:
+            if pulse.dac not in self.registered_waveforms:
+                self.registered_waveforms[pulse.dac] = []
 
         if self.is_mux:
-            self.multi_ro_pulses = self.create_mux_ro_dict()
+            self.multi_ro_pulses = self.group_mux_ro()
             self.readouts_per_experiment = len(self.multi_ro_pulses)
 
         # pylint: disable-next=too-many-function-args
@@ -102,67 +106,98 @@ class BaseProgram(ABC, QickProgram):
         gain = int(pulse.amplitude * max_gain)
         phase = self.deg2reg(pulse.relative_phase, gen_ch=gen_ch)
 
+        # pulse freq converted with frequency matching
+        freq = self.soc.freq2reg(pulse.frequency, gen_ch=gen_ch, ro_ch=pulse.adc)
+
         # pulse length converted with DAC CLK
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
-        is_drag = pulse.shape == "drag"
-        is_gaus = pulse.shape == "gaussian"
-        is_rect = pulse.shape == "rectangular"
-
-        # pulse freq converted with frequency matching
-        freq = self.soc.freq2reg(pulse.frequency, gen_ch=gen_ch, ro_ch=pulse.adc)
-
-        # if pulse is drag or gauss first define the i-q shape and then set reg
-        if is_drag or is_gaus:
-            name = pulse.name
-            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
-
-            if is_gaus:
-                name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
-                if name not in self.registered_waveform:
-                    self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
-                    self.registered_waveform.append(name)
-
-            elif is_drag:
-                # delta will be divided for the same quantity, we are setting it = 1
-                delta = self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"]
-                name = (
-                    f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
-                )
-
-                if name not in self.registered_waveform:
-                    self.add_DRAG(
-                        ch=gen_ch,
-                        name=name,
-                        sigma=sigma,
-                        delta=delta,
-                        alpha=-pulse.beta,
-                        length=soc_length,
-                    )
-                    self.registered_waveform.append(name)
-
-            self.set_pulse_registers(
-                ch=gen_ch,
-                style="arb",
-                freq=freq,
-                phase=phase,
-                gain=gain,
-                waveform=name,
-            )
-
-        # if pulse is rectangular set directly register
-        elif is_rect:
+        if isinstance(pulse, Rectangular):
             self.set_pulse_registers(ch=gen_ch, style="const", freq=freq, phase=phase, gain=gain, length=soc_length)
+            return
 
+        if isinstance(pulse, Gaussian):
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+            name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
+            if name not in self.registered_waveforms[gen_ch]:
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                self.registered_waveforms[gen_ch].append(name)
+        elif isinstance(pulse, Drag):
+            delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+            name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
+            if name not in self.registered_waveforms[gen_ch]:
+                self.add_DRAG(
+                    ch=gen_ch,
+                    name=name,
+                    sigma=sigma,
+                    delta=delta,
+                    alpha=pulse.beta,
+                    length=soc_length,
+                )
+                self.registered_waveforms[gen_ch].append(name)
+        elif isinstance(pulse, Arbitrary):
+            name = pulse.name
+            if name not in self.registered_waveforms[gen_ch]:
+                self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
+                self.registered_waveforms[gen_ch].append(name)
+
+        self.set_pulse_registers(
+            ch=gen_ch,
+            style="arb",
+            freq=freq,
+            phase=phase,
+            gain=gain,
+            waveform=name,
+        )
+
+    def execute_drive_pulse(self, pulse: Pulse, last_pulse_registered: Dict):
+        """Register a drive pulse if needed, then trigger the respective DAC.
+
+        A pulse gets register if:
+        - it didn't happen in `initialize` (`self.pulses_registered` is False)
+        - it is not identical to the last pulse registered
+
+        """
+        if not self.pulses_registered and (
+            pulse.dac not in last_pulse_registered or pulse != last_pulse_registered[pulse.dac]
+        ):
+            self.add_pulse_to_register(pulse)
+            last_pulse_registered[pulse.dac] = pulse
+        self.pulse(ch=pulse.dac)
+
+    def execute_readout_pulse(
+        self, pulse: Pulse, muxed_pulses_executed: List[Pulse], muxed_ro_executed_indexes: List[int]
+    ):
+        """Register a readout pulse and perform a measurement."""
+        adcs = []
+        if self.is_mux:
+            if pulse in muxed_pulses_executed:
+                return
+            idx_mux = next(idx for idx, mux_time in enumerate(self.multi_ro_pulses) if pulse in mux_time)
+            self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
+            muxed_ro_executed_indexes.append(idx_mux)
+            for ro_pulse in self.multi_ro_pulses[idx_mux]:
+                adcs.append(ro_pulse.adc)
+                muxed_pulses_executed.append(ro_pulse)
         else:
-            raise NotImplementedError(f"Shape {pulse} not supported!")
+            if not self.pulses_registered:
+                self.add_pulse_to_register(pulse)
+            adcs = [pulse.adc]
+
+        self.measure(
+            pulse_ch=pulse.dac,
+            adcs=adcs,
+            adc_trig_offset=self.adc_trig_offset,
+            wait=False,
+            syncdelay=self.syncdelay,
+        )
 
     # pylint: disable=unexpected-keyword-arg, arguments-renamed
     def acquire(
         self,
         soc: QickSoc,
-        readouts_per_experiment: int = 1,
         load_pulses: bool = True,
         progress: bool = False,
         debug: bool = False,
@@ -171,14 +206,12 @@ class BaseProgram(ABC, QickProgram):
         """Call the super() acquire function.
 
         Args:
-            readouts_per_experiment (int): relevant for internal acquisition
             load_pulse, progress, debug (bool): internal Qick parameters
             progress (bool): if true shows a progress bar, slows down things
             debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
-        if self.readouts_per_experiment is not None:
-            readouts_per_experiment = self.readouts_per_experiment
+        readouts_per_experiment = self.readouts_per_experiment
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
@@ -269,28 +302,24 @@ class BaseProgram(ABC, QickProgram):
 
         self.set_pulse_registers(ch=gen_ch, style="const", length=length, mask=mask)
 
-    def create_mux_ro_dict(self) -> dict:
-        """Create a dictionary containing grouped readout pulses.
+    def group_mux_ro(self) -> list:
+        """Create a list containing readout pulses grouped by start time.
 
-        Example of dictionary:
-        { 'start_time_0': [pulse1, pulse2],
-        'start_time_1': [pulse3]}
+        Example of list:
+        [[pulse1, pulse2], [pulse3]]
         """
-        mux_dict = {}
+        mux_list = []
+        len_last_readout = 0
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
-            if round(pulse.start, 5) not in mux_dict:
-                if len(mux_dict) > 0:
-                    if (pulse.start - list(mux_dict)[-1]) < 2:  # TODO not 2, but pulses len
-                        mux_dict[round(pulse.start, 5)] = mux_dict[list(mux_dict)[-1]]
-                        del mux_dict[list(mux_dict)[-2]]
-                    else:
-                        mux_dict[round(pulse.start, 5)] = []
-                else:
-                    mux_dict[round(pulse.start, 5)] = []
-            mux_dict[round(pulse.start, 5)].append(pulse)
+            if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
+                # add the pulse to the last multiplexed readout
+                mux_list[-1].append(pulse)
+            else:
+                # add a new multiplexed readout
+                mux_list.append([pulse])
+            len_last_readout = pulse.duration
 
-        self.readouts_per_experiment = len(mux_dict)
-        return mux_dict
+        return mux_list
 
     @abstractmethod
     def initialize(self):

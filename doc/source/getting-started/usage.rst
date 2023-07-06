@@ -5,7 +5,7 @@ After the installation, there are several configuration parameter that one could
 These changes can be done with enviromental variables.
 A list of the configurable variables (with values set to the default ones) is the following:
 
-.. code-block::
+.. code-block:: bash
 
    # server address
    export QIBOSOQ_HOST=192.168.0.81
@@ -30,13 +30,13 @@ Running the server
 
 To run the server:
 
-.. code-block::
+.. code-block:: bash
 
     nohup sudo -E python -m qibosoq &
 
 To close the server you will need to find the PID of the process (present in the second line of the log file) and:
 
-.. code-block::
+.. code-block:: bash
 
     sudo kill PID
 
@@ -47,7 +47,7 @@ We suggest to add to your ``.bashrc`` some aliases to speed up the process.
 (Note that with ``server-run-bkg`` the sudo password is not requested, but if the shell does not have sudo privileges it will fail.)
 Some examples are:
 
-.. code-block::
+.. code-block:: bash
 
     alias server-run-bkg="nohup sudo -E python -m qibosoq &"  # run the server in detached mode
     alias server-pid="cat /home/xilinx/logs/qibosoq.log | head -2 | tail -1 | awk '{print \$9}'"  # prints PID

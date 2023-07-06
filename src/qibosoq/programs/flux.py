@@ -5,9 +5,11 @@ from typing import List
 
 import numpy as np
 from qick import QickSoc
+from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components import Config, Pulse, Qubit
+from qibosoq.components.base import Config, Qubit
+from qibosoq.components.pulses import Pulse, Rectangular
 from qibosoq.programs.base import BaseProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -68,10 +70,11 @@ class FluxProgram(BaseProgram):
             self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
-    def flux_pulse(self, pulse: Pulse, time: int):
+    def execute_flux_pulse(self, pulse: Rectangular):
         """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
-        sweetspot = 0  # TODO int(qubit.flux.bias * self.max_gain)
+        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        sweetspot = int(pulse.bias * max_gain)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
@@ -101,7 +104,7 @@ class FluxProgram(BaseProgram):
             phase=0,
             gain=self.max_gain,
         )
-        self.pulse(ch=gen_ch, t=time)
+        self.pulse(ch=gen_ch)
 
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel."""
@@ -111,58 +114,36 @@ class FluxProgram(BaseProgram):
                 self.declare_gen(flux_ch, nqz=1)
 
     def body(self):
-        """Body program with flux biases set."""
-        self.set_bias("sweetspot")
-        muxed_ro_executed_time = []
-        muxed_pulses_executed = []
+        """Execute sequence of pulses.
 
+        For each pulses calls the add_pulse_to_register function (if not already registered)
+        before firing it. If the pulse is a readout, it does a measurement and does
+        not wait for the end of it. At the end of the sequence wait for meas and clock.
+        """
+        # in the form of {dac_number_0: last_pulse_of_dac_0, ...}
         last_pulse_registered = {}
-        for idx in self.gen_chs:
-            last_pulse_registered[idx] = None
+        muxed_pulses_executed = []
+        muxed_ro_executed_indexes = []
+
+        self.set_bias("sweetspot")
 
         for pulse in self.sequence:
-            # time follows tproc CLK
-            time = self.soc.us2cycles(pulse.start)
-
-            adc_ch = pulse.adc
-            gen_ch = pulse.dac
+            # wait the needed wait time so that the start is timed correctly
+            if isinstance(pulse.start_delay, QickRegister):
+                self.sync(pulse.start_delay.page, pulse.start_delay.addr)
+            else:  # assume is number
+                delay_start = self.soc.us2cycles(pulse.start_delay)
+                if delay_start != 0:
+                    self.synci(delay_start)
 
             if pulse.type == "drive":
-                if not self.pulses_registered:
-                    # TODO
-                    if not pulse == last_pulse_registered[gen_ch]:
-                        self.add_pulse_to_register(pulse)
-                        last_pulse_registered[gen_ch] = pulse
-                self.pulse(ch=gen_ch, t=time)
+                self.execute_drive_pulse(pulse, last_pulse_registered)
             elif pulse.type == "flux":
-                self.flux_pulse(pulse, time=time)
+                self.execute_flux_pulse(pulse)
             elif pulse.type == "readout":
-                if self.is_mux:
-                    if pulse not in muxed_pulses_executed:
-                        start = list(self.multi_ro_pulses)[len(muxed_ro_executed_time)]
-                        time = self.soc.us2cycles(start)
-                        self.add_muxed_readout_to_register(self.multi_ro_pulses[start])
-                        muxed_ro_executed_time.append(start)
-                        adcs = []
-                        for ro_pulse in self.multi_ro_pulses[start]:
-                            adcs.append(ro_pulse.adc)
-                            muxed_pulses_executed.append(ro_pulse)
-                    else:
-                        continue
-                else:
-                    if not self.pulses_registered:
-                        self.add_pulse_to_register(pulse)
-                    adcs = [adc_ch]
+                self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_indexes)
 
-                self.measure(
-                    pulse_ch=gen_ch,
-                    adcs=adcs,
-                    adc_trig_offset=time + self.adc_trig_offset,
-                    t=time,
-                    wait=False,
-                    syncdelay=self.syncdelay,
-                )
         self.wait_all()
-        self.set_bias("zero")
+        self.set_bias("zero")  # TODO one of these two lines is prob useless
         self.soc.reset_gens()
         self.sync_all(self.relax_delay)
