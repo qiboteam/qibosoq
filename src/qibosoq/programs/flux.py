@@ -79,7 +79,7 @@ class FluxProgram(BaseProgram):
     def body(self):
         """Body program with flux biases set."""
         self.set_bias("sweetspot")
-        super().body(wait=False)
+        super().body()
         # the next two lines are redunant for security reasons
         self.set_bias("zero")
         self.soc.reset_gens()

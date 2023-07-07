@@ -166,7 +166,7 @@ class BaseProgram(ABC, QickProgram):
         ):
             self.add_pulse_to_register(pulse)
             last_pulse_registered[pulse.dac] = pulse
-        self.pulse(ch=pulse.dac)
+        self.pulse(ch=pulse.dac, t=0)
 
     def execute_readout_pulse(
         self, pulse: Pulse, muxed_pulses_executed: List[Pulse], muxed_ro_executed_indexes: List[int]
@@ -195,7 +195,7 @@ class BaseProgram(ABC, QickProgram):
             syncdelay=self.syncdelay,
         )
 
-    def body(self, wait: bool = True):
+    def body(self):
         """Execute sequence of pulses.
 
         For each pulses calls the add_pulse_to_register function (if not already registered)
@@ -222,8 +222,6 @@ class BaseProgram(ABC, QickProgram):
                 self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_indexes)
 
         self.wait_all()
-        if wait:
-            self.sync_all(self.relax_delay)
 
     # pylint: disable=unexpected-keyword-arg, arguments-renamed
     def acquire(
@@ -298,6 +296,7 @@ class BaseProgram(ABC, QickProgram):
         mux_freqs = []
         mux_gains = []
 
+        ro_ch = None
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = pulse.adc
             ro_ch = pulse.dac
