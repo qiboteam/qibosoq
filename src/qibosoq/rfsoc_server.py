@@ -51,7 +51,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         data["cfg"]["reps"] = 1
     elif opcode is OperationCode.EXECUTE_SWEEPS:
         programcls = ExecuteSweeps
-        args = tuple(Sweeper(**sweeper) for sweeper in data["sweepers"])
+        args = (Sweeper(**sweeper) for sweeper in data["sweepers"])
     else:
         raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 

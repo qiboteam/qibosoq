@@ -1,7 +1,7 @@
 """Program used by qibosoq to execute sweeps."""
 
 import logging
-from typing import Iterable, List, Tuple, Union
+from typing import Iterable, List, Union
 
 import numpy as np
 from qick import NDAveragerProgram, QickSoc
@@ -28,14 +28,7 @@ def reversed_sweepers(sweepers: Union[Sweeper, Iterable[Sweeper]]) -> List[Sweep
 class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep."""
 
-    def __init__(
-        self,
-        soc: QickSoc,
-        qpcfg: Config,
-        sequence: List[Pulse],
-        qubits: List[Qubit],
-        sweepers: Tuple[Sweeper, ...],
-    ):
+    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit], *sweepers):
         """Init function, sets sweepers parameters before calling super.__init__."""
         self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
