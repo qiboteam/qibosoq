@@ -165,7 +165,7 @@ class BaseProgram(ABC, QickProgram):
         ):
             self.add_pulse_to_register(pulse)
             last_pulse_registered[pulse.dac] = pulse
-        self.pulse(ch=pulse.dac)
+        self.pulse(ch=pulse.dac, t=0)
 
     def execute_readout_pulse(
         self, pulse: Pulse, muxed_pulses_executed: List[Pulse], muxed_ro_executed_indexes: List[int]
@@ -267,6 +267,7 @@ class BaseProgram(ABC, QickProgram):
         mux_freqs = []
         mux_gains = []
 
+        ro_ch = None
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             adc_ch = pulse.adc
             ro_ch = pulse.dac

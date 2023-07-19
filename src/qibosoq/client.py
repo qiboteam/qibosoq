@@ -6,6 +6,14 @@ from dataclasses import asdict
 from typing import Tuple
 
 
+class QibosoqError(RuntimeError):
+    """Exception raised when qibosoq server encounters an error.
+
+    Attributes:
+    message -- The error message received from the server (qibosoq)
+    """
+
+
 def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
     """Open a connection with the server and executes the commands."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -24,7 +32,8 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
                 break
             received.extend(tmp)
         results = json.loads(received.decode("utf-8"))
-
+        if isinstance(results, str) and "Error" in results:
+            raise QibosoqError(results)
         return results["i"], results["q"]
 
 
