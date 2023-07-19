@@ -24,7 +24,7 @@ def load_pulses(list_sequence: List[Dict]) -> List[Pulse]:
     """Convert a list of pulses (in dict form) to a list of Pulse objects."""
     obj_sequence = []
     for pulse in list_sequence:
-        cls = Shape[pulse["shape"]].value
+        cls = Shape[pulse["shape"].upper()].value
         converted_pulse = cls(**pulse)
         obj_sequence.append(converted_pulse)
     return obj_sequence
@@ -120,7 +120,7 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = execute_program(data, self.server.qick_soc)
-        except Exception as exception:  # pylint: disable=bare-except, broad-exception-caught
+        except Exception as exception:  # pylint: disable=W0612,W0718
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = traceback.format_exc()

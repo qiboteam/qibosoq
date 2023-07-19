@@ -85,3 +85,16 @@ class FluxProgram(BaseProgram):
         self.set_bias("zero")
         self.soc.reset_gens()
         self.sync_all(self.relax_delay)
+
+    def declare_zones_and_ro(self, sequence: List[Pulse]):
+        """Declare all nqz zones and readout frequencies.
+
+        Declares drives, fluxes and readout (mux or not) and readout freq.
+        """
+        self.declare_nqz_zones([pulse for pulse in sequence if pulse.type == "drive"])
+        self.declare_nqz_flux()
+        if self.is_mux:
+            self.declare_gen_mux_ro()
+        else:
+            self.declare_nqz_zones([pulse for pulse in sequence if pulse.type == "readout"])
+        self.declare_readout_freq()

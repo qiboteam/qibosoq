@@ -70,7 +70,7 @@ class Arbitrary(Pulse):
 class Shape(Enum):
     """Map shape names to the corresponding objects."""
 
-    rectangular = Rectangular
-    gaussian = Gaussian
-    drag = Drag
-    arbitrary = Arbitrary
+    RECTANGULAR = Rectangular
+    GAUSSIAN = Gaussian
+    DRAG = Drag
+    ARBITRARY = Arbitrary
