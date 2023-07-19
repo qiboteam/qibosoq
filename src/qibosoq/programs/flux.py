@@ -87,7 +87,9 @@ class FluxProgram(BaseProgram):
                 break
             padding += 1
 
-        amp = int(pulse.amplitude * self.max_gain) + sweetspot
+        amp = int(pulse.amplitude * max_gain) + sweetspot
+        if abs(amp) > max_gain:
+            raise ValueError("Flux pulse got amplitude > 1")
 
         i_vals = np.full(duration, amp)
         i_vals = np.append(i_vals, np.full(padding, sweetspot))
