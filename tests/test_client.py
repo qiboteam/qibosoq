@@ -109,7 +109,7 @@ def targ_server_commands():
             },
         ],
         "qubits": [
-            {"bias": 0.0, "dac": None},
+            {"bias": None, "dac": None},
         ],
         "average": True,
     }

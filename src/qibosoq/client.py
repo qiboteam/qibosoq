@@ -34,7 +34,7 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
         results = json.loads(received.decode("utf-8"))
         if isinstance(results, str) and "Error" in results:
             raise QibosoqError(results)
-        return results["i"], results["q"]
+        return results["i"], results["q"]  # type: ignore
 
 
 def convert_commands(obj_dictionary: dict) -> dict:

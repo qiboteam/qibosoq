@@ -7,8 +7,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from qick import QickProgram, QickSoc
-from qick.qick_asm import QickRegister
+from qick import QickProgram, QickSoc  # type: ignore
+from qick.qick_asm import QickRegister  # type: ignore
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -50,7 +50,7 @@ class BaseProgram(ABC, QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
-        self.registered_waveforms = {}
+        self.registered_waveforms: Dict[int, list] = {}
         for pulse in sequence:
             if pulse.dac not in self.registered_waveforms:
                 self.registered_waveforms[pulse.dac] = []
@@ -231,7 +231,7 @@ class BaseProgram(ABC, QickProgram):
         progress: bool = False,
         debug: bool = False,
         average: bool = False,
-    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> Tuple[list, list]:
         """Call the super() acquire function.
 
         Args:
@@ -258,7 +258,8 @@ class BaseProgram(ABC, QickProgram):
             # for sweeps res has 3 parameters, the first is not used
             return res[-2:]
         # super().acquire function fill buffers used in collect_shots
-        return self.collect_shots()[-2:]
+        shots = self.collect_shots()[-2:]
+        return shots[0].tolist(), shots[1].tolist()
 
     def collect_shots(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Read the internal buffers and returns single shots (i,q)."""
@@ -274,9 +275,11 @@ class BaseProgram(ABC, QickProgram):
                 lengths.append(self.soc.us2cycles(pulse.duration, gen_ch=ro_ch))
             adcs.append(adc_ch)
 
-        adcs, adc_count = np.unique(adcs, return_counts=True)
+        unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        for idx, adc_ch in enumerate(adcs):
+        shape: Tuple  # used for mypy
+
+        for idx, adc_ch in enumerate(unique_adcs):
             count = adc_count[idx]
             if self.expts:  # self.expts is None if this is not a sweep
                 shape = (count, self.expts, self.reps)
@@ -318,7 +321,7 @@ class BaseProgram(ABC, QickProgram):
             ro_ch=adc_ch_added[0],
         )
 
-    def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
+    def add_muxed_readout_to_register(self, ro_pulses: List[Rectangular]):
         """Register multiplexed pulse before firing it."""
         # readout amplitude gets divided by len(mask), we are here fixing the values
         mask = [0, 1, 2]
@@ -338,8 +341,8 @@ class BaseProgram(ABC, QickProgram):
         Example of list:
         [[pulse1, pulse2], [pulse3]]
         """
-        mux_list = []
-        len_last_readout = 0
+        mux_list: List[List[Pulse]] = []
+        len_last_readout = 0.0
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
                 # add the pulse to the last multiplexed readout

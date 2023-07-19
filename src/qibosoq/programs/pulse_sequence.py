@@ -2,7 +2,7 @@
 
 import logging
 
-from qick import AveragerProgram
+from qick import AveragerProgram  # type: ignore
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.programs.flux import FluxProgram

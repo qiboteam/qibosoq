@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
-from typing import Iterable, List, Union, overload
+from typing import Iterable, List, Optional, Union, overload
 
 
 @dataclass
@@ -31,9 +31,9 @@ class OperationCode(IntEnum):
 class Qubit:
     """Qubit object, storing flux information."""
 
-    bias: float = 0.0
+    bias: Optional[float] = None
     """Amplitude factor, for sweetspot."""
-    dac: int = None
+    dac: Optional[int] = None
     """DAC responsible for flux control."""
 
 
@@ -49,7 +49,7 @@ class Parameter(str, Enum):
 
     @overload
     @classmethod
-    def variants(cls, parameters: str) -> "Parameter":
+    def variants(cls, parameters: str) -> "Parameter":  # type: ignore
         """Convert a string to a Parameter."""
 
     @overload
@@ -69,13 +69,13 @@ class Parameter(str, Enum):
 class Sweeper:
     """Sweeper object."""
 
-    expts: int = None
+    expts: int
     """Number of points of the sweeper."""
-    parameters: List[Parameter] = None
+    parameters: List[Parameter]
     """List of parameter to update."""
-    starts: List[Union[int, float]] = None
+    starts: List[Union[int, float]]
     """Start value for each parameter to sweep."""
-    stops: List[Union[int, float]] = None
+    stops: List[Union[int, float]]
     """Stop value for each parameter to sweep."""
-    indexes: List[int] = None
+    indexes: List[int]
     """Index of the parameter to sweep relative to list of pulses or list of qubits."""

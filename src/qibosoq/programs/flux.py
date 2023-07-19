@@ -1,10 +1,11 @@
 """Flux program used by qibosoq to execute sequences and sweeps."""
 
 import logging
-from typing import List
+from typing import Dict, List, Tuple
 
 import numpy as np
-from qick import QickSoc
+from qick import QickSoc  # type: ignore
+from qick.qick_asm import QickRegister  # type: ignore
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -19,7 +20,7 @@ class FluxProgram(BaseProgram):
 
     def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
         """Define an empty dictionary for bias sweepers and call super().__init__."""
-        self.bias_sweep_registers = {}
+        self.bias_sweep_registers: Dict[int, Tuple[QickRegister, QickRegister]] = {}
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def set_bias(self, mode: str = "sweetspot"):
@@ -56,7 +57,7 @@ class FluxProgram(BaseProgram):
                 stdysel="last",
                 freq=0,
                 phase=0,
-                gain=int(max_gain * qubit.bias),
+                gain=int(max_gain * qubit.bias),  # type: ignore
             )
 
             if flux_ch in self.bias_sweep_registers:

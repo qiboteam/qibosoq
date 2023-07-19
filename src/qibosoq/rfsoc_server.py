@@ -1,9 +1,4 @@
-"""Qibosoq server for qibolab-qick integration.
-
-Tested on the following FPGA:
-    * RFSoc4x2
-    * ZCU111
-"""
+"""Qibosoq server for qibolab-qick integration."""
 
 import json
 import logging
@@ -13,7 +8,7 @@ import traceback
 from socketserver import BaseRequestHandler, TCPServer
 from typing import Dict, List
 
-from qick import QickSoc
+from qick import QickSoc  # type: ignore
 
 import qibosoq.configuration as cfg
 from qibosoq.components.base import Config, OperationCode, Qubit, Sweeper
@@ -42,7 +37,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         (dict): dictionary with two keys (i, q) to lists of values
     """
     opcode = OperationCode(data["operation_code"])
-    args = ()
+    args = (_ for _ in ())  # initialize empty generator for sequences
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
         programcls = ExecutePulseSequence
     elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
@@ -64,7 +59,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     )
 
     asm_prog = program.asm()
-    qick_logger.handlers[0].doRollover()
+    qick_logger.handlers[0].doRollover()  # type: ignore
     qick_logger.info(asm_prog)
 
     num_instructions = len(program.prog_list)
@@ -91,8 +86,6 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             debug=False,
             average=data["average"],
         )
-        toti = toti.tolist()
-        totq = totq.tolist()
 
     return {"i": toti, "q": totq}
 
