@@ -63,7 +63,7 @@ def execute_sweeps(soc):
 
     qubits = [Qubit()]
 
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
     return program
 
 
@@ -93,7 +93,7 @@ def test_set_bias_sweep(soc):
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
     sweepers = tuple([Sweeper(expts=100, parameters=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
 
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
     program.set_bias("sweetspot")
     program.set_bias("zero")
 
