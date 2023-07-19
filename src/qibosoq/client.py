@@ -44,7 +44,6 @@ def convert_commands(obj_dictionary: dict) -> dict:
         "cfg": asdict(obj_dictionary["cfg"]),
         "sequence": [asdict(pulse) for pulse in obj_dictionary["sequence"]],
         "qubits": [asdict(qubit) for qubit in obj_dictionary["qubits"]],
-        "average": obj_dictionary["average"],
     }
     if "sweepers" in obj_dictionary:
         dict_dictionary["sweepers"] = [asdict(sweep) for sweep in obj_dictionary["sweepers"]]

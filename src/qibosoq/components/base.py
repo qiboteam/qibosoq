@@ -17,6 +17,8 @@ class Config:
     """Number of shots."""
     soft_avgs: int = 1
     """Number of software averages."""
+    average: bool = True
+    """Returns integrated results if true."""
 
 
 class OperationCode(IntEnum):

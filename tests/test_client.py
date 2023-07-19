@@ -67,7 +67,6 @@ def server_commands():
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
-        "average": True,
     }
     return server_commands
 
@@ -81,6 +80,7 @@ def targ_server_commands():
             "adc_trig_offset": 200,
             "reps": 1000,
             "soft_avgs": 1,
+            "average": True,
         },
         "sequence": [
             {
@@ -111,7 +111,6 @@ def targ_server_commands():
         "qubits": [
             {"bias": None, "dac": None},
         ],
-        "average": True,
     }
     return targ
 
