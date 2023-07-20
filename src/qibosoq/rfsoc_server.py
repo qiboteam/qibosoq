@@ -8,7 +8,7 @@ import traceback
 from socketserver import BaseRequestHandler, TCPServer
 from typing import Dict, List
 
-from qick import QickSoc  # type: ignore
+from qick import QickSoc
 
 import qibosoq.configuration as cfg
 from qibosoq.components.base import Config, OperationCode, Qubit, Sweeper

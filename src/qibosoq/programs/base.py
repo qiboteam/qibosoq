@@ -7,8 +7,8 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import numpy.typing as npt
-from qick import QickProgram, QickSoc  # type: ignore
-from qick.qick_asm import QickRegister  # type: ignore
+from qick import QickProgram, QickSoc
+from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -277,14 +277,9 @@ class BaseProgram(ABC, QickProgram):
 
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        shape: Tuple  # used for mypy
-
         for idx, adc_ch in enumerate(unique_adcs):
             count = adc_count[idx]
-            if self.expts:  # self.expts is None if this is not a sweep
-                shape = (count, self.expts, self.reps)
-            else:
-                shape = (count, self.reps)
+            shape = (count, self.expts, self.reps) if self.expts else (count, self.reps)
             i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
             q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
 

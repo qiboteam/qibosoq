@@ -4,8 +4,8 @@ import logging
 from typing import Dict, List, Tuple
 
 import numpy as np
-from qick import QickSoc  # type: ignore
-from qick.qick_asm import QickRegister  # type: ignore
+from qick import QickSoc
+from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -33,10 +33,11 @@ class FluxProgram(BaseProgram):
         duration = 48  # minimum len
 
         for qubit in self.qubits:
-            flux_ch = qubit.dac
             # if bias is zero, just skip the qubit
-            if flux_ch is None or qubit.bias == 0:
+            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
                 continue
+
+            flux_ch = qubit.dac
             max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
             if mode == "sweetspot":
@@ -57,7 +58,7 @@ class FluxProgram(BaseProgram):
                 stdysel="last",
                 freq=0,
                 phase=0,
-                gain=int(max_gain * qubit.bias),  # type: ignore
+                gain=int(max_gain * qubit.bias),
             )
 
             if flux_ch in self.bias_sweep_registers:

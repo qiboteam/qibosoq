@@ -45,10 +45,12 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         if sweeper.parameters[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac
+                if gen_ch is None:
+                    raise ValueError("Qubit dac (flux bias) not provided.")
                 sweep_type = "gain"
                 std_register = self.get_gen_reg(gen_ch, sweep_type)
                 swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
-                self.bias_sweep_registers[gen_ch] = (swept_register, std_register)  # type: ignore
+                self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
 
                 max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
                 starts = (np.array(sweeper.starts) * max_gain).astype(int)
