@@ -4,8 +4,8 @@ import logging
 from typing import Iterable, List, Union
 
 import numpy as np
-from qick import NDAveragerProgram, QickSoc  # type: ignore
-from qick.averager_program import QickSweep, merge_sweeps  # type: ignore
+from qick import NDAveragerProgram, QickSoc
+from qick.averager_program import QickSweep, merge_sweeps
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
