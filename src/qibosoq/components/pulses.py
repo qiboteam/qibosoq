@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import List
 
 
 @dataclass
@@ -36,7 +36,6 @@ class Rectangular(Pulse):
     """Rectangular pulse."""
 
     shape: str = "rectangular"
-    bias: Optional[float] = None
 
 
 @dataclass

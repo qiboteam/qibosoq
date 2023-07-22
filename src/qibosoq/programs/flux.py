@@ -150,8 +150,7 @@ class FluxProgram(BaseProgram):
                 self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_indexes)
 
         self.wait_all()
-        self.set_bias("zero")  # TODO one of these two lines is prob useless
-        self.soc.reset_gens()
+        self.set_bias("zero")
         self.sync_all(self.relax_delay)
 
     def declare_zones_and_ro(self, sequence: List[Pulse]):

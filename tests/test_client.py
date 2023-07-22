@@ -94,7 +94,6 @@ def targ_server_commands():
                 "type": "drive",
                 "dac": 0,
                 "adc": None,
-                "bias": None,
             },
             {
                 "shape": "rectangular",
@@ -107,7 +106,6 @@ def targ_server_commands():
                 "type": "readout",
                 "dac": 1,
                 "adc": 0,
-                "bias": None,
             },
         ],
         "qubits": [
