@@ -277,8 +277,8 @@ class BaseProgram(ABC, QickProgram):
             i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
             q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
 
-            tot_i.append(i_val)
-            tot_q.append(q_val)
+            tot_i.append(i_val.tolist())
+            tot_q.append(q_val.tolist())
         return tot_i, tot_q
 
     def declare_gen_mux_ro(self):
