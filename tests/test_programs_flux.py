@@ -43,6 +43,17 @@ def execute_pulse_sequence(soc):
             adc=0,
         ),
         Rectangular(
+            frequency=0,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name="pulse_flux",
+            type="flux",
+            dac=1,
+            adc=0,
+        ),
+        Rectangular(
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
@@ -106,6 +117,38 @@ def test_declare_nqz_flux(soc):
     program.declare_nqz_flux()
 
 
+def test_find_qubit_sweetspot(soc):
+    config = Config()
+    sequence = [
+        Rectangular(
+            frequency=0,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name="pulse1",
+            type="flux",
+            dac=1,
+            adc=0,
+        ),
+    ]
+    qubits = [Qubit()]
+    program = ExecutePulseSequence(soc, config, sequence, qubits)
+    assert program.find_qubit_sweetspot(sequence[0]) == 0
+
+    qubits = [Qubit(bias=None)]
+    program = ExecutePulseSequence(soc, config, sequence, qubits)
+    assert program.find_qubit_sweetspot(sequence[0]) == 0
+
+    qubits = [Qubit(dac=None)]
+    program = ExecutePulseSequence(soc, config, sequence, qubits)
+    assert program.find_qubit_sweetspot(sequence[0]) == 0
+
+    qubits = [Qubit(dac=1, bias=0.5)]
+    program = ExecutePulseSequence(soc, config, sequence, qubits)
+    assert program.find_qubit_sweetspot(sequence[0]) == 0.5
+
+
 def test_flux_body(soc):
     config = Config()
     sequence = [
@@ -118,6 +161,17 @@ def test_flux_body(soc):
             name="pulse4",
             type="readout",
             dac=6,
+            adc=0,
+        ),
+        Rectangular(
+            frequency=0,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name="pulse_flux",
+            type="flux",
+            dac=1,
             adc=0,
         ),
     ]
