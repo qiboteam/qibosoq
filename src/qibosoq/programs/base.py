@@ -6,7 +6,6 @@ from dataclasses import asdict
 from typing import Dict, List, Tuple
 
 import numpy as np
-import numpy.typing as npt
 from qick import QickProgram, QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
@@ -49,7 +48,7 @@ class BaseProgram(ABC, QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
-        self.registered_waveforms = {}
+        self.registered_waveforms: Dict[int, list] = {}
         for pulse in sequence:
             if pulse.dac not in self.registered_waveforms:
                 self.registered_waveforms[pulse.dac] = []
@@ -194,15 +193,11 @@ class BaseProgram(ABC, QickProgram):
             syncdelay=self.syncdelay,
         )
 
-    # pylint: disable=unexpected-keyword-arg, arguments-renamed
-    def acquire(
+    def perform_experiment(
         self,
         soc: QickSoc,
-        load_pulses: bool = True,
-        progress: bool = False,
-        debug: bool = False,
         average: bool = False,
-    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    ) -> Tuple[list, list]:
         """Call the super() acquire function.
 
         Args:
@@ -215,23 +210,23 @@ class BaseProgram(ABC, QickProgram):
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
-        res = super().acquire(
+        res = self.acquire(  # pylint: disable=E1123
             soc,
             readouts_per_experiment=reads_per_rep,
-            load_pulses=load_pulses,
-            progress=progress,
-            debug=debug,
+            load_pulses=True,
+            progress=False,
+            debug=False,
         )
         # if there are no actual readouts, return empty lists
         if readouts_per_experiment == 0:
             return [], []
         if average:
             # for sweeps res has 3 parameters, the first is not used
-            return res[-2:]
+            return np.array(res[-2]).tolist(), np.array(res[-1]).tolist()
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
 
-    def collect_shots(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    def collect_shots(self) -> Tuple[list, list]:
         """Read the internal buffers and returns single shots (i,q)."""
         tot_i = []
         tot_q = []
@@ -245,20 +240,17 @@ class BaseProgram(ABC, QickProgram):
                 lengths.append(self.soc.us2cycles(pulse.duration, gen_ch=ro_ch))
             adcs.append(adc_ch)
 
-        adcs, adc_count = np.unique(adcs, return_counts=True)
+        unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        for idx, adc_ch in enumerate(adcs):
+        for idx, adc_ch in enumerate(unique_adcs):
             count = adc_count[idx]
-            if self.expts:  # self.expts is None if this is not a sweep
-                shape = (count, self.expts, self.reps)
-            else:
-                shape = (count, self.reps)
+            shape = (count, self.expts, self.reps) if self.expts else (count, self.reps)
             i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
             q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
 
-            tot_i.append(i_val)
-            tot_q.append(q_val)
-        return np.array(tot_i), np.array(tot_q)
+            tot_i.append(i_val.tolist())
+            tot_q.append(q_val.tolist())
+        return tot_i, tot_q
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout."""
@@ -289,7 +281,7 @@ class BaseProgram(ABC, QickProgram):
             ro_ch=adc_ch_added[0],
         )
 
-    def add_muxed_readout_to_register(self, ro_pulses: List[Pulse]):
+    def add_muxed_readout_to_register(self, ro_pulses: List[Rectangular]):
         """Register multiplexed pulse before firing it."""
         # readout amplitude gets divided by len(mask), we are here fixing the values
         mask = [0, 1, 2]
@@ -309,8 +301,8 @@ class BaseProgram(ABC, QickProgram):
         Example of list:
         [[pulse1, pulse2], [pulse3]]
         """
-        mux_list = []
-        len_last_readout = 0
+        mux_list: List[List[Pulse]] = []
+        len_last_readout = 0.0
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
                 # add the pulse to the last multiplexed readout

@@ -63,7 +63,7 @@ def execute_sweeps(soc):
 
     qubits = [Qubit()]
 
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
     return program
 
 
@@ -93,7 +93,7 @@ def test_set_bias_sweep(soc):
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
     sweepers = tuple([Sweeper(expts=100, parameters=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
 
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
     program.set_bias("sweetspot")
     program.set_bias("zero")
 
@@ -133,12 +133,12 @@ def test_check_validity_sweep(soc):
 
     sweepers = (Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),)
     qubits = [Qubit()]
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
 
     sweepers = (Sweeper(expts=1000, parameters=[Parameter.BIAS], starts=[0], stops=[100], indexes=[0]),)
 
     with pytest.raises(ValueError):
-        program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+        program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
 
     sequence_flux = [
         Rectangular(
@@ -155,22 +155,22 @@ def test_check_validity_sweep(soc):
     ]
     sweepers = (Sweeper(expts=1000, parameters=[Parameter.BIAS], starts=[0], stops=[100], indexes=[0]),)
     with pytest.raises(NotImplementedError):
-        program = ExecuteSweeps(soc, config, sequence_flux, qubits, sweepers)
+        program = ExecuteSweeps(soc, config, sequence_flux, qubits, *sweepers)
 
     qubits_flux = [Qubit(dac=6, bias=0)]
     with pytest.raises(NotImplementedError):
-        program = ExecuteSweeps(soc, config, sequence_flux, qubits_flux, sweepers)
+        program = ExecuteSweeps(soc, config, sequence_flux, qubits_flux, *sweepers)
 
     sweepers = (Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[1], indexes=[0]),)
     with pytest.raises(NotImplementedError):
-        program = ExecuteSweeps(soc, config, sequence_flux, qubits, sweepers)
+        program = ExecuteSweeps(soc, config, sequence_flux, qubits, *sweepers)
 
     sweepers = (Sweeper(expts=1000, parameters=[Parameter.DURATION], starts=[0], stops=[1], indexes=[0]),)
     with pytest.raises(NotImplementedError):
-        program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+        program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
 
     sweepers = (
         Sweeper(expts=1000, parameters=[Parameter.BIAS, Parameter.AMPLITUDE], starts=[0, 0], stops=[1, 1], indexes=[0]),
     )
     with pytest.raises(NotImplementedError):
-        program = ExecuteSweeps(soc, config, sequence, qubits_flux, sweepers)
+        program = ExecuteSweeps(soc, config, sequence, qubits_flux, *sweepers)

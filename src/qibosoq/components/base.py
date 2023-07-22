@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
-from typing import Iterable, List, Union, overload
+from typing import Iterable, List, Optional, Union, overload
+
+import numpy as np
 
 
 @dataclass
@@ -17,6 +19,8 @@ class Config:
     """Number of shots."""
     soft_avgs: int = 1
     """Number of software averages."""
+    average: bool = True
+    """Returns integrated results if true."""
 
 
 class OperationCode(IntEnum):
@@ -31,9 +35,9 @@ class OperationCode(IntEnum):
 class Qubit:
     """Qubit object, storing flux information."""
 
-    bias: float = 0.0
+    bias: Optional[float] = None
     """Amplitude factor, for sweetspot."""
-    dac: int = None
+    dac: Optional[int] = None
     """DAC responsible for flux control."""
 
 
@@ -49,7 +53,7 @@ class Parameter(str, Enum):
 
     @overload
     @classmethod
-    def variants(cls, parameters: str) -> "Parameter":
+    def variants(cls, parameters: str) -> "Parameter":  # type: ignore
         """Convert a string to a Parameter."""
 
     @overload
@@ -69,13 +73,13 @@ class Parameter(str, Enum):
 class Sweeper:
     """Sweeper object."""
 
-    expts: int = None
+    expts: int
     """Number of points of the sweeper."""
-    parameters: List[Parameter] = None
+    parameters: List[Parameter]
     """List of parameter to update."""
-    starts: List[Union[int, float]] = None
+    starts: Union[List[float], np.ndarray]
     """Start value for each parameter to sweep."""
-    stops: List[Union[int, float]] = None
+    stops: Union[List[float], np.ndarray]
     """Stop value for each parameter to sweep."""
-    indexes: List[int] = None
+    indexes: List[int]
     """Index of the parameter to sweep relative to list of pulses or list of qubits."""

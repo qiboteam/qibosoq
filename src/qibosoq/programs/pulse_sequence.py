@@ -18,11 +18,5 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
 
         Function called by AveragerProgram.__init__.
         """
-        self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "drive"])
-        self.declare_nqz_flux()
-        if self.is_mux:
-            self.declare_gen_mux_ro()
-        else:
-            self.declare_nqz_zones([pulse for pulse in self.sequence if pulse.type == "readout"])
-        self.declare_readout_freq()
+        self.declare_zones_and_ro(self.sequence)
         self.sync_all(self.wait_initialize)
