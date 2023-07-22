@@ -70,11 +70,20 @@ class FluxProgram(BaseProgram):
             self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
+    def find_qubit_sweetspot(self, pulse: Rectangular):
+        """Return bias of a qubit from flux pulse."""
+        bias = 0
+        for qubit in self.qubits:
+            if pulse.dac == qubit.dac:
+                bias = qubit.bias if qubit.bias else 0
+        return bias
+
     def execute_flux_pulse(self, pulse: Rectangular):
         """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-        sweetspot = int(pulse.bias * max_gain)
+        bias = self.find_qubit_sweetspot(pulse)
+        sweetspot = int(bias * max_gain)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
@@ -104,7 +113,7 @@ class FluxProgram(BaseProgram):
             stdysel="last",
             freq=0,
             phase=0,
-            gain=self.max_gain,
+            gain=max_gain,
         )
         self.pulse(ch=gen_ch)
 

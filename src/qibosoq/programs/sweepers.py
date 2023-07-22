@@ -40,6 +40,31 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
 
+    def check_validity_sweep(self, sweeper: Sweeper):
+        """Check if a sweeper is valid.
+
+        In particular, it raises an error if:
+            - sweeper is on bias, but not enough information has been given with the qubit
+            - sweeper is on bias wih flux pulses in the sequence
+            - sweeper is on flux pulses
+            - sweeper is on duration
+            - sweeper has pulse paramaters and bias
+        """
+        for idx, par in enumerate(sweeper.parameters):
+            if par is Parameter.BIAS:
+                if any(pulse.type == "flux" for pulse in self.sequence):
+                    raise NotImplementedError("Sweepers on bias are not compatible with flux pulses.")
+                if any(par is not Parameter.BIAS for par in sweeper.parameters):
+                    raise NotImplementedError("Sweepers on bias cannot be swept at the same time with other sweepers.")
+                qubit = self.qubits[sweeper.indexes[idx]]
+                if qubit.dac is None or qubit.bias is None:
+                    raise ValueError(f"Bias swept qubit had incomplete values: {qubit}")
+            elif par is Parameter.DURATION:
+                raise NotImplementedEror("Sweepers on duration are not implemented.")
+            else:
+                if self.sequence[sweeper.indexes[idx]].type == "flux":
+                    raise NotImplementedError("Sweepers on flux pulses are not implemented.")
+
     def add_sweep_info(self, sweeper: Sweeper):
         """Register RfsocSweep objects.
 
@@ -53,6 +78,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         sweeper.parameters = [Parameter(par) for par in sweeper.parameters]
         sweeper.starts = np.array(sweeper.starts)
         sweeper.stops = np.array(sweeper.stops)
+
+        self.check_validity_sweep(sweeper)
+
         if sweeper.parameters[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):
                 gen_ch = self.qubits[jdx].dac
