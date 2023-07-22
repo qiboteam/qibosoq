@@ -82,6 +82,10 @@ def test_load_pulses():
 
 
 def test_execute_program(mocker, soc):
+    res_array = np.array([[0, 0, 0], [1, 1, 1]])
+    res = res_array, res_array
+    mocker.patch("qibosoq.programs.base.BaseProgram.acquire", return_value=res)
+
     commands = {
         "operation_code": 1,
         "cfg": {
@@ -89,6 +93,7 @@ def test_execute_program(mocker, soc):
             "adc_trig_offset": 200,
             "reps": 1000,
             "soft_avgs": 1,
+            "average": True,
         },
         "sequence": [
             {
@@ -119,12 +124,9 @@ def test_execute_program(mocker, soc):
         "qubits": [
             {"bias": 0.0, "dac": None},
         ],
-        "average": True,
     }
 
-    res_array = np.array([[0, 0, 0], [1, 1, 1]])
-    res = res_array, res_array
-    mocker.patch("qibosoq.programs.base.BaseProgram.acquire", return_value=res)
+    mocker.patch("qibosoq.programs.base.BaseProgram.perform_experiment", return_value=res)
     execute_program(commands, soc)
 
     commands["operation_code"] = 2

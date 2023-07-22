@@ -91,12 +91,9 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         toti = [[results[0][0].tolist()]]
         totq = [[results[0][1].tolist()]]
     else:
-        toti, totq = program.acquire(
+        toti, totq = program.perform_experiment(
             qick_soc,
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=data["average"],
+            average=data["cfg"]["average"],
         )
 
     return {"i": toti, "q": totq}

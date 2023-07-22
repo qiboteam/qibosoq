@@ -6,7 +6,6 @@ from dataclasses import asdict
 from typing import Dict, List, Tuple
 
 import numpy as np
-import numpy.typing as npt
 from qick import QickProgram, QickSoc
 from qick.qick_asm import QickRegister
 
@@ -223,13 +222,9 @@ class BaseProgram(ABC, QickProgram):
 
         self.wait_all()
 
-    # pylint: disable=unexpected-keyword-arg, arguments-renamed
-    def acquire(
+    def perform_experiment(
         self,
         soc: QickSoc,
-        load_pulses: bool = True,
-        progress: bool = False,
-        debug: bool = False,
         average: bool = False,
     ) -> Tuple[list, list]:
         """Call the super() acquire function.
@@ -244,24 +239,23 @@ class BaseProgram(ABC, QickProgram):
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
-        res = super().acquire(
+        res = self.acquire(  # pylint: disable=E1123
             soc,
             readouts_per_experiment=reads_per_rep,
-            load_pulses=load_pulses,
-            progress=progress,
-            debug=debug,
+            load_pulses=True,
+            progress=False,
+            debug=False,
         )
         # if there are no actual readouts, return empty lists
         if readouts_per_experiment == 0:
             return [], []
         if average:
             # for sweeps res has 3 parameters, the first is not used
-            return res[-2:]
+            return np.array(res[-2]).tolist(), np.array(res[-1]).tolist()
         # super().acquire function fill buffers used in collect_shots
-        shots = self.collect_shots()[-2:]
-        return shots[0].tolist(), shots[1].tolist()
+        return self.collect_shots()[-2:]
 
-    def collect_shots(self) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    def collect_shots(self) -> Tuple[list, list]:
         """Read the internal buffers and returns single shots (i,q)."""
         tot_i = []
         tot_q = []
@@ -285,7 +279,7 @@ class BaseProgram(ABC, QickProgram):
 
             tot_i.append(i_val)
             tot_q.append(q_val)
-        return np.array(tot_i), np.array(tot_q)
+        return tot_i, tot_q
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout."""
