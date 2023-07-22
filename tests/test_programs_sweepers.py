@@ -164,3 +164,13 @@ def test_check_validity_sweep(soc):
     sweepers = (Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[1], indexes=[0]),)
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence_flux, qubits, sweepers)
+
+    sweepers = (Sweeper(expts=1000, parameters=[Parameter.DURATION], starts=[0], stops=[1], indexes=[0]),)
+    with pytest.raises(NotImplementedError):
+        program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+
+    sweepers = (
+        Sweeper(expts=1000, parameters=[Parameter.BIAS, Parameter.AMPLITUDE], starts=[0, 0], stops=[1, 1], indexes=[0]),
+    )
+    with pytest.raises(NotImplementedError):
+        program = ExecuteSweeps(soc, config, sequence, qubits_flux, sweepers)

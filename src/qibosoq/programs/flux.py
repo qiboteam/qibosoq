@@ -88,13 +88,7 @@ class FluxProgram(BaseProgram):
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
         duration *= samples_per_clk  # the duration here is expressed in samples
-
         padding = samples_per_clk
-        while True:  # compute padding length
-            tot_len = padding + duration
-            if tot_len % samples_per_clk == 0 and tot_len > 48:
-                break
-            padding += 1
 
         amp = int(pulse.amplitude * max_gain) + sweetspot
         if abs(amp) > max_gain:

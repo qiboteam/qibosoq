@@ -179,3 +179,7 @@ def test_flux_body(soc):
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
     program.body()
+
+    qubits = [Qubit(dac=1, bias=0.95)]
+    with pytest.raises(ValueError):
+        program = ExecutePulseSequence(soc, config, sequence, qubits)
