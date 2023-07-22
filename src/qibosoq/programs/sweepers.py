@@ -60,7 +60,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 if qubit.dac is None or qubit.bias is None:
                     raise ValueError(f"Bias swept qubit had incomplete values: {qubit}")
             elif par is Parameter.DURATION:
-                raise NotImplementedEror("Sweepers on duration are not implemented.")
+                raise NotImplementedError("Sweepers on duration are not implemented.")
             else:
                 if self.sequence[sweeper.indexes[idx]].type == "flux":
                     raise NotImplementedError("Sweepers on flux pulses are not implemented.")
