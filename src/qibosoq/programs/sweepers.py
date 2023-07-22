@@ -37,10 +37,15 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         """Register RfsocSweep objects.
 
         Args:
-            sweeper (RfsocSweep): single qibolab sweeper object to register
+            sweeper: single qibolab sweeper object to register
         """
         sweep_list = []
         sweeper.parameters = [Parameter(par) for par in sweeper.parameters]
+
+        if not isinstance(sweeper.starts, np.ndarray):
+            sweeper.starts = np.array(sweeper.starts)
+        if not isinstance(sweeper.stops, np.ndarray):
+            sweeper.stops = np.array(sweeper.stops)
 
         if sweeper.parameters[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):
@@ -53,8 +58,8 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
 
                 max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-                starts = (np.array(sweeper.starts) * max_gain).astype(int)
-                stops = (np.array(sweeper.stops) * max_gain).astype(int)
+                starts = (sweeper.starts * max_gain).astype(int)
+                stops = (sweeper.stops * max_gain).astype(int)
 
                 new_sweep = QickSweep(
                     self,
@@ -74,11 +79,11 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
                 if sweeper.parameters[idx] is Parameter.AMPLITUDE:
                     max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-                    starts = (np.array(sweeper.starts) * max_gain).astype(int)
-                    stops = (np.array(sweeper.stops) * max_gain).astype(int)
+                    starts = (sweeper.starts * max_gain).astype(int)
+                    stops = (sweeper.stops * max_gain).astype(int)
                 else:
-                    starts = np.array(sweeper.starts)
-                    stops = np.array(sweeper.stops)
+                    starts = sweeper.starts
+                    stops = sweeper.stops
                     if sweeper.parameters[idx] is Parameter.DELAY:
                         # define a new register for the delay
                         register = self.new_gen_reg(gen_ch, reg_type="time", tproc_reg=True)

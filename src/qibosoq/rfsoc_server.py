@@ -8,6 +8,7 @@ import traceback
 from socketserver import BaseRequestHandler, TCPServer
 from typing import Dict, List
 
+import numpy as np
 from qick import QickSoc
 
 import qibosoq.configuration as cfg
@@ -30,6 +31,17 @@ def load_pulses(list_sequence: List[Dict]) -> List[Pulse]:
     return obj_sequence
 
 
+def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
+    """Convert a list of sweepers (in dict form) to a list of Sweeper objects."""
+    sweepers = []
+    for sweep in list_sweepers:
+        converted_sweep = Sweeper(**sweep)
+        converted_sweep.starts = np.array(converted_sweep.starts)
+        converted_sweep.stops = np.array(converted_sweep.stops)
+        sweepers.append(converted_sweep)
+    return sweepers
+
+
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
@@ -37,7 +49,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         (dict): dictionary with two keys (i, q) to lists of values
     """
     opcode = OperationCode(data["operation_code"])
-    args = (_ for _ in ())  # initialize empty generator for sequences
+    args = []
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
         programcls = ExecutePulseSequence
     elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
@@ -46,7 +58,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         data["cfg"]["reps"] = 1
     elif opcode is OperationCode.EXECUTE_SWEEPS:
         programcls = ExecuteSweeps
-        args = (Sweeper(**sweeper) for sweeper in data["sweepers"])
+        args = load_sweeps(data["sweepers"])
     else:
         raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 

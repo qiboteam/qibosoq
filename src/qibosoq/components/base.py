@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
 from typing import Iterable, List, Optional, Union, overload
 
+import numpy as np
+
 
 @dataclass
 class Config:
@@ -75,9 +77,9 @@ class Sweeper:
     """Number of points of the sweeper."""
     parameters: List[Parameter]
     """List of parameter to update."""
-    starts: List[Union[int, float]]
+    starts: Union[List[float], np.ndarray]
     """Start value for each parameter to sweep."""
-    stops: List[Union[int, float]]
+    stops: Union[List[float], np.ndarray]
     """Stop value for each parameter to sweep."""
     indexes: List[int]
     """Index of the parameter to sweep relative to list of pulses or list of qubits."""
