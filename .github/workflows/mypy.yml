@@ -1,0 +1,19 @@
+# A single CI script with github workflow
+name: Mypy
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9.0
+      - uses: python/mypy@master
+        with:
+          paths: "src/"
