@@ -12,7 +12,7 @@ import numpy as np
 from qick import QickSoc
 
 import qibosoq.configuration as cfg
-from qibosoq.components.base import Config, OperationCode, Qubit, Sweeper
+from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Pulse, Shape
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 from qibosoq.programs.sweepers import ExecuteSweeps
@@ -35,9 +35,13 @@ def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
     """Convert a list of sweepers (in dict form) to a list of Sweeper objects."""
     sweepers = []
     for sweep in list_sweepers:
-        converted_sweep = Sweeper(**sweep)
-        converted_sweep.starts = np.array(converted_sweep.starts)
-        converted_sweep.stops = np.array(converted_sweep.stops)
+        converted_sweep = Sweeper(
+            expts=sweep["expts"],
+            parameters=[Parameter(par) for par in sweep["parameters"]],
+            starts=np.array(sweep["starts"]),
+            stops=np.array(sweep["stops"]),
+            indexes=sweep["indexes"],
+        )
         sweepers.append(converted_sweep)
     return sweepers
 
