@@ -5,6 +5,8 @@ import socket
 from dataclasses import asdict
 from typing import Tuple
 
+from qibosoq.components.base import Sweeper
+
 
 class QibosoqError(RuntimeError):
     """Exception raised when qibosoq server encounters an error.
@@ -37,6 +39,20 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
         return results["i"], results["q"]
 
 
+def serialize_sweeper(sweeper: Sweeper) -> dict:
+    """Convert a Sweeper object into a dictionary.
+
+    In particular, takes care of the convertion arrays -> lists.
+    """
+    return {
+        "expts": sweeper.expts,
+        "parameters": sweeper.parameters,
+        "indexes": sweeper.indexes,
+        "starts": sweeper.starts.tolist(),
+        "stops": sweeper.stops.tolist(),
+    }
+
+
 def convert_commands(obj_dictionary: dict) -> dict:
     """Convert the contents of a commands dictionary from object to dict."""
     dict_dictionary = {
@@ -46,7 +62,7 @@ def convert_commands(obj_dictionary: dict) -> dict:
         "qubits": [asdict(qubit) for qubit in obj_dictionary["qubits"]],
     }
     if "sweepers" in obj_dictionary:
-        dict_dictionary["sweepers"] = [asdict(sweep) for sweep in obj_dictionary["sweepers"]]
+        dict_dictionary["sweepers"] = [serialize_sweeper(sweep) for sweep in obj_dictionary["sweepers"]]
     return dict_dictionary
 
 

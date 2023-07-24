@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 import pytest
 
 from qibosoq.client import connect, convert_commands, execute
@@ -123,8 +124,8 @@ def test_convert_commands(server_commands, targ_server_commands):
         Sweeper(
             expts=10,
             parameters=[Parameter.AMPLITUDE],
-            starts=[0],
-            stops=[1],
+            starts=np.array([0]),
+            stops=np.array([1]),
             indexes=[0],
         )
     ]
