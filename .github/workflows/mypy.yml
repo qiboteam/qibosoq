@@ -1,4 +1,3 @@
-# A single CI script with github workflow
 name: Mypy
 
 on:
@@ -9,12 +8,8 @@ jobs:
   mypy:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.9, "3.10", "3.11"]
-        include:
-          - os: ubuntu-latest
-            python-version: 3.8
-    runs-on: ${{ matrix.os }}
+        python-version: [3.8, 3.9, "3.10", "3.11"]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - name: Setup python
