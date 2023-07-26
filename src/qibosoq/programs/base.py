@@ -241,9 +241,6 @@ class BaseProgram(ABC, QickProgram):
         res = self.acquire(  # pylint: disable=E1123
             soc,
             readouts_per_experiment=reads_per_rep,
-            load_pulses=True,
-            progress=False,
-            debug=False,
         )
         # if there are no actual readouts, return empty lists
         if readouts_per_experiment == 0:
