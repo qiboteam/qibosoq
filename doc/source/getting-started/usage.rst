@@ -44,7 +44,10 @@ Useful aliases
 """"""""""""""
 
 We suggest to add to your ``.bashrc`` some aliases to speed up the process.
-(Note that with ``server-run-bkg`` the sudo password is not requested, but if the shell does not have sudo privileges it will fail.)
+
+.. warning::
+    Note that with ``server-run-bkg`` the sudo password is not requested, but if the shell does not have sudo privileges it will fail.
+
 Some examples are:
 
 .. code-block:: bash
