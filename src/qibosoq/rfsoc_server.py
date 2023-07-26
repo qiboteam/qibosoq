@@ -133,7 +133,7 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = execute_program(data, self.server.qick_soc)
-        except Exception as exception:  # pylint: disable=W0612,W0718
+        except Exception:  # pylint: disable=W0612,W0718
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = traceback.format_exc()
