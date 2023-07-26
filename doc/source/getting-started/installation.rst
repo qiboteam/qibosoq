@@ -1,6 +1,23 @@
 Installation instructions
 =========================
 
+``Qibosoq`` is fully compatible with Python >=3.8, <3.12.
+
+Installing with pip
+"""""""""""""""""""
+
+This is the raccomended approach in order to install ``Qibosoq``.
+
+.. code-block:: bash
+
+    pip install qibosoq
+
+.. warning::
+    For running qibosoq on board, sudo privileges are required, so the installation must be done with:
+.. code-block:: bash
+
+    sudo -i python -m pip install qibosoq
+
 Installing from source
 """"""""""""""""""""""
 
@@ -17,3 +34,10 @@ Now the installation can be done in normal mode or in developer mode (using ``po
 
     pip install .  # normal mode
     poetry install  # developer mode
+
+.. warning::
+    For running qibosoq on board, sudo privileges are required, so the installation must be done with:
+.. code-block:: bash
+
+    sudo -i python -m pip install <path_to_qibosoq>  # normal mode
+    sudo -i python -m poetry install <path_to_qibosoq> # developer mode

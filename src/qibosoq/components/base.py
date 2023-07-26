@@ -84,3 +84,24 @@ class Sweeper:
     """Start value for each parameter to sweep."""
     stops: npt.NDArray[np.float64]
     """Stop value for each parameter to sweep."""
+
+    def __post_init__(self):
+        """Convert starts and stops in np.arrays if needed."""
+        if isinstance(self.starts, list):
+            self.starts = np.array(self.starts)
+        if isinstance(self.stops, list):
+            self.stops = np.array(self.stops)
+
+    @property
+    def serialized(self) -> dict:
+        """Convert a Sweeper object into a dictionary.
+
+        In particular, takes care of the convertion arrays -> lists.
+        """
+        return {
+            "expts": self.expts,
+            "parameters": self.parameters,
+            "indexes": self.indexes,
+            "starts": self.starts.tolist(),
+            "stops": self.stops.tolist(),
+        }

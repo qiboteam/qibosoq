@@ -4,6 +4,8 @@ Communication protocol
 Originally conceived as a component of ``Qibolab``, ``Qibosoq``, has since evolved into an independent entity, no longer reliant on ``Qibolab`` for its functionality.
 Due to is standalone nature, it can now be utilized by any application that adheres to the ``Qibosoq`` communication protocol.
 
+For the user, leveraging the ``qibosoq.client`` module, it is not strictly required to know the communication protocol.
+
 Receiving commands
 """"""""""""""""""
 
@@ -29,11 +31,11 @@ The dictionary has to contain the following elements:
             "soft_avgs": int,
             "reps": int,
             "repetition_duration": int,
-            "adc_trig_offset": int
+            "adc_trig_offset": int,
+            "average": bool,
         }
         "sequence": list,
         "qubits": list,
-        "average": bool,
     }
 
 If the operation code is ``OperationCode.EXECUTE_SWEEPS = 3`` then also another list has to be provided

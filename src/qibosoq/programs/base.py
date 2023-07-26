@@ -227,12 +227,11 @@ class BaseProgram(ABC, QickProgram):
         soc: QickSoc,
         average: bool = False,
     ) -> Tuple[list, list]:
-        """Call the super() acquire function.
+        """Call the acquire function, executing the experiment.
+
+        The acquire function is coded in `qick.AveragerProgram` or `qick.NDAveragerProgram`
 
         Args:
-            load_pulse, progress, debug (bool): internal Qick parameters
-            progress (bool): if true shows a progress bar, slows down things
-            debug (bool): if true prints the program actually executed
             average (bool): if true return averaged res, otherwise single shots
         """
         readouts_per_experiment = self.readouts_per_experiment
@@ -242,9 +241,6 @@ class BaseProgram(ABC, QickProgram):
         res = self.acquire(  # pylint: disable=E1123
             soc,
             readouts_per_experiment=reads_per_rep,
-            load_pulses=True,
-            progress=False,
-            debug=False,
         )
         # if there are no actual readouts, return empty lists
         if readouts_per_experiment == 0:

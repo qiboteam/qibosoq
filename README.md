@@ -8,25 +8,14 @@ Repository for developing server side of RFSoC fpga boards
 Qibosoq is a server for integrating [Qick](https://github.com/openquantumhardware/qick) in the [Qibolab](https://github.com/qiboteam/qibolab) ecosystem
 for executing arbitrary pulses sequences on QPUs.
 
-The complete documentation for can be found at [qibo.science/qibosoq/stable](https://qibo.science/qibosoq/stable/)
+The complete documentation for can be found at:
+
+* [qibo.science/qibosoq/stable](https://qibo.science/qibosoq/stable/)
+* [qibo.science/qibosoq/latest](https://qibo.science/qibosoq/latest/)
+
 
 ## Installation
-The package can be installed by source:
-
-```sh
-git clone https://github.com/qiboteam/qibosoq.git
-cd qibosoq
-pip install .
-```
-### Developer instructions
-For development make sure to install the package using [`poetry`](https://python-poetry.org/) and to install the pre-commit hooks:
-
-```sh
-git clone https://github.com/qiboteam/qibosoq.git
-cd qibosoq
-poetry install
-pre-commit install
-```
+Please refer to the [documentation](https://qibo.science/qibosoq/stable/getting-started/installation.html) for installation instructions.
 
 ## Configuration parameters
 

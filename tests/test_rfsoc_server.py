@@ -11,6 +11,9 @@ from qibosoq.components.pulses import Rectangular
 from qibosoq.log import define_loggers
 from qibosoq.rfsoc_server import execute_program, load_pulses
 
+qibosoq.configuration.MAIN_LOGGER_FILE = "/tmp/test_log_rfsoc.log"
+qibosoq.configuration.PROGRAM_LOGGER_FILE = "/tmp/test_log2_rfsoc.log"
+
 define_loggers()
 
 

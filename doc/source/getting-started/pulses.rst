@@ -63,7 +63,7 @@ The shape objects inherits from :class:`qibosoq.components.pulses.Pulse` and sha
 
 .. code-block:: python
 
-    from qibosoq.components.pulses import Rectangular, Gaussian, Drag
+    from qibosoq.components.pulses import Rectangular, Gaussian, Drag, Arbitrary
 
     pulse = Rectangular(...)
 
@@ -76,4 +76,10 @@ The shape objects inherits from :class:`qibosoq.components.pulses.Pulse` and sha
         ...
         rel_sigma = 5,  # float, sigma values as a fraction of the duration
         beta = 10,      # float (drag beta parameter)
+    )
+
+    pulse = Arbitrary(
+        ...
+        i_values = [...],  # list of floats
+        q_values = [...],      # list of floats
     )
