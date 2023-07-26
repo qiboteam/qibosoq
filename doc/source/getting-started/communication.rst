@@ -4,7 +4,7 @@ Communication protocol
 Originally conceived as a component of ``Qibolab``, ``Qibosoq``, has since evolved into an independent entity, no longer reliant on ``Qibolab`` for its functionality.
 Due to is standalone nature, it can now be utilized by any application that adheres to the ``Qibosoq`` communication protocol.
 
-For the user, leveraging the ``qibosoc.client`` module, it is not strictly required to know the communication protocol.
+For the user, leveraging the ``qibosoq.client`` module, it is not strictly required to know the communication protocol.
 
 Receiving commands
 """"""""""""""""""

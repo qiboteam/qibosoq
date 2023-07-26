@@ -91,3 +91,17 @@ class Sweeper:
             self.starts = np.array(self.starts)
         if isinstance(self.stops, list):
             self.stops = np.array(self.stops)
+
+    @property
+    def serialized(self) -> dict:
+        """Convert a Sweeper object into a dictionary.
+
+        In particular, takes care of the convertion arrays -> lists.
+        """
+        return {
+            "expts": self.expts,
+            "parameters": self.parameters,
+            "indexes": self.indexes,
+            "starts": self.starts.tolist(),
+            "stops": self.stops.tolist(),
+        }

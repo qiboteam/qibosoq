@@ -14,32 +14,8 @@ The complete documentation for can be found at:
 * [qibo.science/qibosoq/latest](https://qibo.science/qibosoq/latest/)
 
 
-## Installation from pip
-The preferred method of installation is with pip:
-
-```sh
-pip install qibosoq  # on client
-sudo -i python -m pip install qibosoq # on board/server
-```
-
-## Installation from source
-The package can be installed by source:
-
-```sh
-git clone https://github.com/qiboteam/qibosoq.git
-cd qibosoq
-pip install .  # if on board, use `sudo -i python -m pip install <path_to_qibosoq>`
-```
-
-### Developer instructions
-For development make sure to install the package using [`poetry`](https://python-poetry.org/) and to install the pre-commit hooks:
-
-```sh
-git clone https://github.com/qiboteam/qibosoq.git
-cd qibosoq
-poetry install  # if on board use `sudo -i python -m poetry install <path_to_qibosoq>`
-pre-commit install
-```
+## Installation
+Please refer to the [documentation](https://qibo.science/qibosoq/stable/getting-started/installation.html) for installation instructions.
 
 ## Configuration parameters
 
