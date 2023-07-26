@@ -3,6 +3,7 @@
 import logging
 import logging.handlers
 import os
+import sys
 from typing import Tuple
 
 import qibosoq.configuration as cfg
@@ -11,9 +12,10 @@ import qibosoq.configuration as cfg
 def configure_logger(name: str, filename: str, backup_count: int):
     """Create and configure logger."""
     # if the log directory does not exsist, create it
-    dir_path = "/".join(filename.split("/")[:-1])
-    if not os.path.exists(dir_path):
-        os.mkdir(dir_path)
+    if sys.platform == "linux":
+        dir_path = "/".join(filename.split("/")[:-1])
+        if not os.path.exists(dir_path):
+            os.mkdir(dir_path)
 
     if name is not None:
         new_logger = logging.getLogger(name)
