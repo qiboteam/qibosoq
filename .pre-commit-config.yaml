@@ -20,7 +20,7 @@ repos:
       - id: isort
         args: ["--profile", "black"]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.9.0
+    rev: v3.10.1
     hooks:
       - id: pyupgrade
   - repo: https://github.com/dhruvmanila/remove-print-statements
@@ -29,7 +29,7 @@ repos:
       - id: remove-print-statements
         args: ['--verbose']
   - repo: https://github.com/hadialqattan/pycln
-    rev: v2.1.6
+    rev: v2.2.0
     hooks:
       - id: pycln
         args:
