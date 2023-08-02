@@ -88,9 +88,9 @@ class Sweeper:
     def __post_init__(self):
         """Convert starts and stops in np.arrays if needed."""
         if isinstance(self.starts, list):
-            self.starts = np.array(self.starts)
+            self.starts = np.array(self.starts, dtype=np.float64)
         if isinstance(self.stops, list):
-            self.stops = np.array(self.stops)
+            self.stops = np.array(self.stops, dtype=np.float64)
 
     @property
     def serialized(self) -> dict:
