@@ -1,9 +1,4 @@
-"""Qibosoq server for qibolab-qick integration.
-
-Tested on the following FPGA:
-    * RFSoc4x2
-    * ZCU111
-"""
+"""Qibosoq server for qibolab-qick integration."""
 
 import json
 import logging
@@ -13,10 +8,11 @@ import traceback
 from socketserver import BaseRequestHandler, TCPServer
 from typing import Dict, List
 
+import numpy as np
 from qick import QickSoc
 
 import qibosoq.configuration as cfg
-from qibosoq.components.base import Config, OperationCode, Qubit, Sweeper
+from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Pulse, Shape
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 from qibosoq.programs.sweepers import ExecuteSweeps
@@ -29,10 +25,25 @@ def load_pulses(list_sequence: List[Dict]) -> List[Pulse]:
     """Convert a list of pulses (in dict form) to a list of Pulse objects."""
     obj_sequence = []
     for pulse in list_sequence:
-        cls = Shape[pulse["shape"]].value
+        cls = Shape[pulse["shape"].upper()].value
         converted_pulse = cls(**pulse)
         obj_sequence.append(converted_pulse)
     return obj_sequence
+
+
+def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
+    """Convert a list of sweepers (in dict form) to a list of Sweeper objects."""
+    sweepers = []
+    for sweep in list_sweepers:
+        converted_sweep = Sweeper(
+            expts=sweep["expts"],
+            parameters=[Parameter(par) for par in sweep["parameters"]],
+            starts=np.array(sweep["starts"]),
+            stops=np.array(sweep["stops"]),
+            indexes=sweep["indexes"],
+        )
+        sweepers.append(converted_sweep)
+    return sweepers
 
 
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
@@ -42,7 +53,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         (dict): dictionary with two keys (i, q) to lists of values
     """
     opcode = OperationCode(data["operation_code"])
-    args = ()
+    args = []
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
         programcls = ExecutePulseSequence
     elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
@@ -51,7 +62,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         data["cfg"]["reps"] = 1
     elif opcode is OperationCode.EXECUTE_SWEEPS:
         programcls = ExecuteSweeps
-        args = tuple(Sweeper(**sweeper) for sweeper in data["sweepers"])
+        args = load_sweeps(data["sweepers"])
     else:
         raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
 
@@ -64,7 +75,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     )
 
     asm_prog = program.asm()
-    qick_logger.handlers[0].doRollover()
+    qick_logger.handlers[0].doRollover()  # type: ignore
     qick_logger.info(asm_prog)
 
     num_instructions = len(program.prog_list)
@@ -84,15 +95,10 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         toti = [[results[0][0].tolist()]]
         totq = [[results[0][1].tolist()]]
     else:
-        toti, totq = program.acquire(
+        toti, totq = program.perform_experiment(
             qick_soc,
-            load_pulses=True,
-            progress=False,
-            debug=False,
-            average=data["average"],
+            average=data["cfg"]["average"],
         )
-        toti = toti.tolist()
-        totq = totq.tolist()
 
     return {"i": toti, "q": totq}
 
@@ -127,7 +133,7 @@ class ConnectionHandler(BaseRequestHandler):
         try:
             data = self.receive_command()
             results = execute_program(data, self.server.qick_soc)
-        except Exception as exception:  # pylint: disable=bare-except, broad-exception-caught
+        except Exception:  # pylint: disable=W0612,W0718
             logger.exception("")
             logger.error("Faling command: %s", data)
             results = traceback.format_exc()

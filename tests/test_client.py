@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 import pytest
 
 from qibosoq.client import connect, convert_commands, execute
@@ -67,7 +68,6 @@ def server_commands():
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
-        "average": True,
     }
     return server_commands
 
@@ -81,6 +81,7 @@ def targ_server_commands():
             "adc_trig_offset": 200,
             "reps": 1000,
             "soft_avgs": 1,
+            "average": True,
         },
         "sequence": [
             {
@@ -109,9 +110,8 @@ def targ_server_commands():
             },
         ],
         "qubits": [
-            {"bias": 0.0, "dac": None},
+            {"bias": None, "dac": None},
         ],
-        "average": True,
     }
     return targ
 
@@ -124,8 +124,8 @@ def test_convert_commands(server_commands, targ_server_commands):
         Sweeper(
             expts=10,
             parameters=[Parameter.AMPLITUDE],
-            starts=[0],
-            stops=[1],
+            starts=np.array([0]),
+            stops=np.array([1]),
             indexes=[0],
         )
     ]

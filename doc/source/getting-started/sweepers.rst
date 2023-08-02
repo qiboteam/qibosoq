@@ -60,12 +60,16 @@ To write a multi-dimentional sweeper we have to define multiple sweepers objects
 
     server_commands = {
         ...
-        sweepers: [asdict(sweeper), asdict(sweeper2)]
+        sweepers: [sweeper.serialized, sweeper2.serialized]
     }
 
 This will execute the sequence considering the matrix product of the swept parameters.
 
-
 The final results (i and q) will have shape:
     * if averaged: (number_of_adc_chs, number_of_readouts, expts_sweeper1, expts_sweeper2...)
     * if not averaged: (number_of_adc_chs, number_of_readouts, expts_sweeper1, expts_sweeper2..., number of shots)
+
+.. warning::
+   The ``serialized`` property is required and it's not possible
+   to use a simple ``asdict`` because Sweeper objects use, for starts and stops,
+   non-json-serializable numpy arrays.

@@ -2,7 +2,10 @@
 
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
-from typing import Iterable, List, Union, overload
+from typing import Iterable, List, Optional, overload
+
+import numpy as np
+import numpy.typing as npt
 
 
 @dataclass
@@ -17,6 +20,8 @@ class Config:
     """Number of shots."""
     soft_avgs: int = 1
     """Number of software averages."""
+    average: bool = True
+    """Returns integrated results if true."""
 
 
 class OperationCode(IntEnum):
@@ -31,9 +36,9 @@ class OperationCode(IntEnum):
 class Qubit:
     """Qubit object, storing flux information."""
 
-    bias: float = 0.0
+    bias: Optional[float] = None
     """Amplitude factor, for sweetspot."""
-    dac: int = None
+    dac: Optional[int] = None
     """DAC responsible for flux control."""
 
 
@@ -49,7 +54,7 @@ class Parameter(str, Enum):
 
     @overload
     @classmethod
-    def variants(cls, parameters: str) -> "Parameter":
+    def variants(cls, parameters: str) -> "Parameter":  # type: ignore
         """Convert a string to a Parameter."""
 
     @overload
@@ -69,13 +74,34 @@ class Parameter(str, Enum):
 class Sweeper:
     """Sweeper object."""
 
-    expts: int = None
+    expts: int
     """Number of points of the sweeper."""
-    parameters: List[Parameter] = None
+    parameters: List[Parameter]
     """List of parameter to update."""
-    starts: List[Union[int, float]] = None
-    """Start value for each parameter to sweep."""
-    stops: List[Union[int, float]] = None
-    """Stop value for each parameter to sweep."""
-    indexes: List[int] = None
+    indexes: List[int]
     """Index of the parameter to sweep relative to list of pulses or list of qubits."""
+    starts: npt.NDArray[np.float64]
+    """Start value for each parameter to sweep."""
+    stops: npt.NDArray[np.float64]
+    """Stop value for each parameter to sweep."""
+
+    def __post_init__(self):
+        """Convert starts and stops in np.arrays if needed."""
+        if isinstance(self.starts, list):
+            self.starts = np.array(self.starts, dtype=np.float64)
+        if isinstance(self.stops, list):
+            self.stops = np.array(self.stops, dtype=np.float64)
+
+    @property
+    def serialized(self) -> dict:
+        """Convert a Sweeper object into a dictionary.
+
+        In particular, takes care of the convertion arrays -> lists.
+        """
+        return {
+            "expts": self.expts,
+            "parameters": self.parameters,
+            "indexes": self.indexes,
+            "starts": self.starts.tolist(),
+            "stops": self.stops.tolist(),
+        }

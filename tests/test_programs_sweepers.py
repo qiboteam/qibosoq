@@ -1,5 +1,6 @@
 import pathlib
 
+import numpy as np
 import pytest
 import qick
 
@@ -55,15 +56,25 @@ def execute_sweeps(soc):
         ),
     ]
     sweepers = (
-        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.DELAY], starts=[0], stops=[1], indexes=[0]),
+        Sweeper(
+            expts=1000,
+            parameters=[
+                Parameter.FREQUENCY,
+            ],
+            starts=np.array([0]),
+            stops=np.array([100]),
+            indexes=[0],
+        ),
+        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=np.array([0]), stops=np.array([100]), indexes=[0]),
+        Sweeper(
+            expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=np.array([0]), stops=np.array([100]), indexes=[0]
+        ),
+        Sweeper(expts=1000, parameters=[Parameter.DELAY], starts=np.array([0]), stops=np.array([1]), indexes=[0]),
     )
 
     qubits = [Qubit()]
 
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
     return program
 
 
@@ -91,23 +102,29 @@ def test_set_bias_sweep(soc):
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
-    sweepers = tuple([Sweeper(expts=100, parameters=[Parameter.BIAS], starts=[0], stops=[1], indexes=[0])])
+    sweepers = tuple(
+        [Sweeper(expts=100, parameters=[Parameter.BIAS], starts=np.array([0]), stops=np.array([1]), indexes=[0])]
+    )
 
-    program = ExecuteSweeps(soc, config, sequence, qubits, sweepers)
+    program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
     program.set_bias("sweetspot")
     program.set_bias("zero")
 
 
 def test_reversed_sweepers(execute_sweeps):
-    sweepers = Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])
+    sweepers = Sweeper(
+        expts=1000, parameters=[Parameter.FREQUENCY], starts=np.array([0]), stops=np.array([100]), indexes=[0]
+    )
     converted = reversed_sweepers(sweepers)
     assert isinstance(converted, list)
     assert converted[0] == sweepers
 
     sweepers = (
-        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[100], indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[100], indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=np.array([0]), stops=np.array([100]), indexes=[0]),
+        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=np.array([0]), stops=np.array([100]), indexes=[0]),
+        Sweeper(
+            expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=np.array([0]), stops=np.array([100]), indexes=[0]
+        ),
     )
     converted = reversed_sweepers(sweepers)
     assert isinstance(converted, list)

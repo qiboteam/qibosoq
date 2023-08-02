@@ -42,38 +42,35 @@ class Rectangular(Pulse):
 class Gaussian(Pulse):
     """Gaussian pulse."""
 
-    shape: str = "gaussian"
-
-    rel_sigma: float = None
+    rel_sigma: float
     """Sigma of the gaussian as a fraction of duration."""
+    shape: str = "gaussian"
 
 
 @dataclass
 class Drag(Pulse):
     """Drag pulse."""
 
-    shape: str = "drag"
-
-    rel_sigma: float = None
+    rel_sigma: float
     """Sigma of the drag as a fraction of duration."""
-    beta: float = None
+    beta: float
     """Beta parameter for drag pulse."""
+    shape: str = "drag"
 
 
 @dataclass
 class Arbitrary(Pulse):
     """Custom pulse."""
 
+    i_values: List[float]
+    q_values: List[float]
     shape: str = "arbitrary"
-
-    i_values: List[float] = field(default_factory=List)
-    q_values: List[float] = field(default_factory=List)
 
 
 class Shape(Enum):
     """Map shape names to the corresponding objects."""
 
-    rectangular = Rectangular
-    gaussian = Gaussian
-    drag = Drag
-    arbitrary = Arbitrary
+    RECTANGULAR = Rectangular
+    GAUSSIAN = Gaussian
+    DRAG = Drag
+    ARBITRARY = Arbitrary

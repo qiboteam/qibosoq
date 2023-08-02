@@ -32,7 +32,7 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
                 break
             received.extend(tmp)
         results = json.loads(received.decode("utf-8"))
-        if isinstance(results, str) and "Error" in results:
+        if isinstance(results, str):
             raise QibosoqError(results)
         return results["i"], results["q"]
 
@@ -44,10 +44,9 @@ def convert_commands(obj_dictionary: dict) -> dict:
         "cfg": asdict(obj_dictionary["cfg"]),
         "sequence": [asdict(pulse) for pulse in obj_dictionary["sequence"]],
         "qubits": [asdict(qubit) for qubit in obj_dictionary["qubits"]],
-        "average": obj_dictionary["average"],
     }
     if "sweepers" in obj_dictionary:
-        dict_dictionary["sweepers"] = [asdict(sweep) for sweep in obj_dictionary["sweepers"]]
+        dict_dictionary["sweepers"] = [sweep.serialized for sweep in obj_dictionary["sweepers"]]
     return dict_dictionary
 
 

@@ -28,5 +28,5 @@ PROGRAM_LOGGER_NAME = from_env("PROGRAM_LOGGER_NAME", "qick_program")
 QICKSOC_LOCATION = from_env("BITSTREAM", "/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit")
 """Path of the qick bitstream to load."""
 
-IS_MULTIPLEXED = from_env("IS_MULTIPLEXED", "True") == "True"  # TODO this should be written in bitstream
+IS_MULTIPLEXED = from_env("IS_MULTIPLEXED", "True") == "True"
 """Whether the readout is multiplexed or not."""

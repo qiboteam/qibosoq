@@ -1,10 +1,11 @@
 """Flux program used by qibosoq to execute sequences and sweeps."""
 
 import logging
-from typing import List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from qick import QickSoc
+from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -19,7 +20,7 @@ class FluxProgram(BaseProgram):
 
     def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
         """Define an empty dictionary for bias sweepers and call super().__init__."""
-        self.bias_sweep_registers = {}
+        self.bias_sweep_registers: Dict[int, Tuple[QickRegister, QickRegister]] = {}
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def set_bias(self, mode: str = "sweetspot"):
@@ -32,10 +33,11 @@ class FluxProgram(BaseProgram):
         duration = 48  # minimum len
 
         for qubit in self.qubits:
-            flux_ch = qubit.dac
             # if bias is zero, just skip the qubit
-            if flux_ch is None or qubit.bias == 0:
+            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
                 continue
+
+            flux_ch = qubit.dac
             max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
             if mode == "sweetspot":
@@ -84,3 +86,16 @@ class FluxProgram(BaseProgram):
         self.set_bias("zero")
         self.soc.reset_gens()
         self.sync_all(self.relax_delay)
+
+    def declare_zones_and_ro(self, sequence: List[Pulse]):
+        """Declare all nqz zones and readout frequencies.
+
+        Declares drives, fluxes and readout (mux or not) and readout freq.
+        """
+        self.declare_nqz_zones([pulse for pulse in sequence if pulse.type == "drive"])
+        self.declare_nqz_flux()
+        if self.is_mux:
+            self.declare_gen_mux_ro()
+        else:
+            self.declare_nqz_zones([pulse for pulse in sequence if pulse.type == "readout"])
+        self.declare_readout_freq()
