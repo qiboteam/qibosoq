@@ -3,7 +3,6 @@
 import logging
 from typing import Iterable, List, Union
 
-import numpy as np
 from qick import NDAveragerProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 
@@ -64,14 +63,8 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         Args:
             sweeper: single qibolab sweeper object to register
         """
-        sweep_list = []
-        sweeper.parameters = [Parameter(par) for par in sweeper.parameters]
-
-        if not isinstance(sweeper.starts, np.ndarray):
-            sweeper.starts = np.array(sweeper.starts)
-        if not isinstance(sweeper.stops, np.ndarray):
-            sweeper.stops = np.array(sweeper.stops)
         self.check_validity_sweep(sweeper)
+        sweep_list = []
 
         if sweeper.parameters[0] is Parameter.BIAS:
             for idx, jdx in enumerate(sweeper.indexes):

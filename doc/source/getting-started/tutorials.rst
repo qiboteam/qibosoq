@@ -67,7 +67,6 @@ To send a simple pulse sequence, we just needed to define all the server_command
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
-        "average": True,
     }
 
     i, q = execute(server_commands, HOST, PORT)
@@ -123,7 +122,6 @@ For multiple readout pulses, on the same dac:
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
-        "average": True,
     }
 
     i, q = execute(server_commands, HOST, PORT)
@@ -179,7 +177,6 @@ While if the measurement is done on a different adc the result will be slightly 
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
-        "average": True,
     }
 
     i, q = execute(server_commands, HOST, PORT)
@@ -247,7 +244,6 @@ A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to max
         "sequence": sequence,
         "qubits": [qubit],
         "sweepers": [sweeper],
-        "average": True,
     }
 
     i, q = execute(server_commands, HOST, PORT)
@@ -344,7 +340,6 @@ And we can execute and plot the results:
         "sequence": sequence,
         "qubits": [qubit],
         "sweepers": [sweeper],
-        "average": True,
     }
 
     i, q = execute(server_commands, HOST, PORT)

@@ -2,9 +2,10 @@
 
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
-from typing import Iterable, List, Optional, Union, overload
+from typing import Iterable, List, Optional, overload
 
 import numpy as np
+import numpy.typing as npt
 
 
 @dataclass
@@ -77,9 +78,30 @@ class Sweeper:
     """Number of points of the sweeper."""
     parameters: List[Parameter]
     """List of parameter to update."""
-    starts: Union[List[float], np.ndarray]
-    """Start value for each parameter to sweep."""
-    stops: Union[List[float], np.ndarray]
-    """Stop value for each parameter to sweep."""
     indexes: List[int]
     """Index of the parameter to sweep relative to list of pulses or list of qubits."""
+    starts: npt.NDArray[np.float64]
+    """Start value for each parameter to sweep."""
+    stops: npt.NDArray[np.float64]
+    """Stop value for each parameter to sweep."""
+
+    def __post_init__(self):
+        """Convert starts and stops in np.arrays if needed."""
+        if isinstance(self.starts, list):
+            self.starts = np.array(self.starts)
+        if isinstance(self.stops, list):
+            self.stops = np.array(self.stops)
+
+    @property
+    def serialized(self) -> dict:
+        """Convert a Sweeper object into a dictionary.
+
+        In particular, takes care of the convertion arrays -> lists.
+        """
+        return {
+            "expts": self.expts,
+            "parameters": self.parameters,
+            "indexes": self.indexes,
+            "starts": self.starts.tolist(),
+            "stops": self.stops.tolist(),
+        }
