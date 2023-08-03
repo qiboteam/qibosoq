@@ -146,7 +146,7 @@ def log_initial_info():
     """Log info regarding the loaded configuration."""
     logger.info("Server listening, PID %d", os.getpid())
     mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
-    logger.info("%s loaded from %s", mux_str, cfg.QICKSOC_LOCATION)
+    logger.info("%s firmware loaded from %s", mux_str, cfg.QICKSOC_LOCATION)
 
 
 def serve(host, port):
