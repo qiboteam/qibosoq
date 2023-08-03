@@ -4,7 +4,7 @@ import sys
 
 import qibosoq.configuration as cfg
 from qibosoq.log import define_loggers
-from qibosoq.rfsoc_server import serve
+from qibosoq.server import serve
 
 logger, program_logger = define_loggers()
 

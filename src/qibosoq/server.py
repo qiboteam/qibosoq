@@ -142,11 +142,18 @@ class ConnectionHandler(BaseRequestHandler):
         self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
+def log_initial_info():
+    """Log info regarding the loaded configuration."""
+    logger.info("Server listening, PID %d", os.getpid())
+    mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
+    logger.info("%s loaded from %s", mux_str, cfg.QICKSOC_LOCATION)
+
+
 def serve(host, port):
     """Open the TCPServer and wait forever for connections."""
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
         server.qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
-        logger.info("Server listening, PID %d", os.getpid())
+        log_initial_info()
         server.serve_forever()

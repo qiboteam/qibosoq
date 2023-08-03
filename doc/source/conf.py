@@ -94,7 +94,7 @@ def run_apidoc(_):
     source = Path(__file__).parent
     docs_dest = source / "api-reference"
     package = source.parents[1] / "src" / "qibosoq"
-    apidoc.main(["--module-first", "-o", str(docs_dest), str(package)])
+    apidoc.main(["--module-first", "-f", "-o", str(docs_dest), str(package)])
 
 
 def setup(app):
