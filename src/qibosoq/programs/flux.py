@@ -9,7 +9,7 @@ from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Pulse, Rectangular
+from qibosoq.components.pulses import FluxExponential, Pulse, Rectangular
 from qibosoq.programs.base import BaseProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -71,7 +71,7 @@ class FluxProgram(BaseProgram):
             self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
-    def find_qubit_sweetspot(self, pulse: Rectangular):
+    def find_qubit_sweetspot(self, pulse: Pulse):
         """Return bias of a qubit from flux pulse."""
         bias = 0.0
         for qubit in self.qubits:
@@ -79,7 +79,7 @@ class FluxProgram(BaseProgram):
                 bias = qubit.bias if qubit.bias else 0
         return bias
 
-    def execute_flux_pulse(self, pulse: Rectangular):
+    def execute_flux_pulse(self, pulse: Pulse):
         """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
@@ -91,13 +91,19 @@ class FluxProgram(BaseProgram):
         duration *= samples_per_clk  # the duration here is expressed in samples
         padding = samples_per_clk
 
-        amp = int(pulse.amplitude * max_gain) + sweetspot
-        if abs(amp) > max_gain:
-            raise ValueError("Flux pulse got amplitude > 1")
+        if isinstance(pulse, Rectangular):
+            amp = int(pulse.amplitude * max_gain)
+            i_vals = np.full(duration, amp)
+        elif isinstance(pulse, FluxExponential):
+            i_vals = pulse.get_i_values(duration, max_gain)
+        else:
+            raise NotImplementedError("Only Rectangular and FluxExponential flux pulses are supported")
 
-        i_vals = np.full(duration, amp)
-        i_vals = np.append(i_vals, np.full(padding, sweetspot))
+        i_vals = np.append(i_vals + sweetspot, np.full(padding, sweetspot))
         q_vals = np.zeros(len(i_vals))
+
+        if (abs(i_vals) > max_gain).any():
+            raise ValueError("Flux pulse got amplitude > 1")
 
         self.add_pulse(gen_ch, pulse.name, i_vals, q_vals)
         self.set_pulse_registers(

@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import List
 
+import numpy as np
+
 
 @dataclass
 class Pulse:
@@ -56,6 +58,23 @@ class Drag(Pulse):
     beta: float
     """Beta parameter for drag pulse."""
     shape: str = "drag"
+
+
+@dataclass
+class FluxExponential(Pulse):
+    """Flux pulse with exponential rising edge to correct distortions."""
+
+    tau: float
+    upsilon: float
+    weight: float
+    shape: str = "fluxexponential"
+
+    def get_i_values(self, duration: int, max_gain: int):
+        """Compute the waveform i values."""
+        amp = int(self.amplitude * max_gain)
+        time = np.arange(0, duration, 1)
+        i_vals = (np.ones(duration) * np.exp(-time / self.upsilon)) + self.weight * np.exp(-time / self.tau)
+        return amp * i_vals / (1 + self.weight)
 
 
 @dataclass
