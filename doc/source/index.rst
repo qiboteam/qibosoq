@@ -1,7 +1,6 @@
-.. Qibosoq documentation master file, created by
-   sphinx-quickstart on Mon Apr 10 22:29:22 2023.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. title::
+   Qibolab
+
 
 What is Qibosoq?
 ================
@@ -22,6 +21,21 @@ Contents
     :caption: Api reference
 
     api-reference/modules
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Appendix
+
+    Publications <https://qibo.science/qibo/stable/appendix/citing-qibo.html>
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Documentation links
+
+    Qibo docs <https://qibo.science/qibo/stable/>
+    Qibolab docs <https://qibo.science/qibolab/stable/>
+    Qibocal docs <https://qibo.science/qibocal/stable/>
+    Qibosoq docs <https://qibo.science/qibosoq/stable/>
 
 
 Indices and tables
