@@ -7,7 +7,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Rectangular
+from qibosoq.components.pulses import FluxExponential, Gaussian, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 
 
@@ -163,7 +163,7 @@ def test_flux_body(soc):
             dac=6,
             adc=0,
         ),
-        Rectangular(
+        FluxExponential(
             frequency=0,
             amplitude=0.1,
             relative_phase=0,
@@ -172,14 +172,34 @@ def test_flux_body(soc):
             name="pulse_flux",
             type="flux",
             dac=1,
-            adc=0,
+            adc=None,
+            tau=10,
+            upsilon=1000,
+            weight=0.1,
         ),
     ]
-    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
+    qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 1)]
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
     program.body()
 
-    qubits = [Qubit(dac=1, bias=0.95)]
+    qubits_2 = [Qubit(dac=1, bias=0.95)]
     with pytest.raises(ValueError):
+        program = ExecutePulseSequence(soc, config, sequence, qubits_2)
+
+    sequence.append(
+        Gaussian(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name="gaussian",
+            type="flux",
+            dac=1,
+            adc=None,
+            rel_sigma=5,
+        )
+    )
+    with pytest.raises(NotImplementedError):
         program = ExecutePulseSequence(soc, config, sequence, qubits)
