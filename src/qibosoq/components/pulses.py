@@ -93,3 +93,4 @@ class Shape(Enum):
     GAUSSIAN = Gaussian
     DRAG = Drag
     ARBITRARY = Arbitrary
+    FLUXEXPONENTIAL = FluxExponential
