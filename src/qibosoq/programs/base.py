@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 from qick import QickProgram, QickSoc
-from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -193,34 +192,6 @@ class BaseProgram(ABC, QickProgram):
             wait=False,
             syncdelay=self.syncdelay,
         )
-
-    def body(self):
-        """Execute sequence of pulses.
-
-        For each pulses calls the add_pulse_to_register function (if not already registered)
-        before firing it. If the pulse is a readout, it does a measurement and does
-        not wait for the end of it. At the end of the sequence wait for meas and clock.
-        """
-        # in the form of {dac_number_0: last_pulse_of_dac_0, ...}
-        last_pulse_registered = {}
-        muxed_pulses_executed = []
-        muxed_ro_executed_indexes = []
-
-        for pulse in self.sequence:
-            # wait the needed wait time so that the start is timed correctly
-            if isinstance(pulse.start_delay, QickRegister):
-                self.sync(pulse.start_delay.page, pulse.start_delay.addr)
-            else:  # assume is number
-                delay_start = self.soc.us2cycles(pulse.start_delay)
-                if delay_start != 0:
-                    self.synci(delay_start)
-
-            if pulse.type == "drive":
-                self.execute_drive_pulse(pulse, last_pulse_registered)
-            elif pulse.type == "readout":
-                self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_indexes)
-
-        self.wait_all()
 
     def perform_experiment(
         self,

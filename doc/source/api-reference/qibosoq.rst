@@ -18,6 +18,14 @@ Subpackages
 Submodules
 ----------
 
+qibosoq.client module
+---------------------
+
+.. automodule:: qibosoq.client
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 qibosoq.configuration module
 ----------------------------
 
@@ -34,10 +42,10 @@ qibosoq.log module
    :undoc-members:
    :show-inheritance:
 
-qibosoq.rfsoc\_server module
-----------------------------
+qibosoq.server module
+---------------------
 
-.. automodule:: qibosoq.rfsoc_server
+.. automodule:: qibosoq.server
    :members:
    :undoc-members:
    :show-inheritance:
