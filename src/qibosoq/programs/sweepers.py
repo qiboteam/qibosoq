@@ -32,7 +32,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
 
-    def check_validity_sweep(self, sweeper: Sweeper):
+    def validate(self, sweeper: Sweeper):
         """Check if a sweeper is valid.
 
         In particular, it raises an error if:
@@ -63,7 +63,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         Args:
             sweeper: single qibolab sweeper object to register
         """
-        self.check_validity_sweep(sweeper)
+        self.validate(sweeper)
         sweep_list = []
 
         if sweeper.parameters[0] is Parameter.BIAS:

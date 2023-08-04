@@ -58,7 +58,7 @@ class FluxProgram(BaseProgram):
                 stdysel="last",
                 freq=0,
                 phase=0,
-                gain=int(max_gain * qubit.bias),
+                gain=np.trunc(max_gain * qubit.bias),
             )
 
             if flux_ch in self.bias_sweep_registers:
@@ -71,35 +71,34 @@ class FluxProgram(BaseProgram):
             self.pulse(ch=flux_ch)
         self.sync_all(50)  # wait all pulses are fired + 50 clks
 
-    def find_qubit_sweetspot(self, pulse: Pulse):
+    def find_qubit_sweetspot(self, pulse: Pulse) -> float:
         """Return bias of a qubit from flux pulse."""
-        bias = 0.0
         for qubit in self.qubits:
             if pulse.dac == qubit.dac:
-                bias = qubit.bias if qubit.bias else 0
-        return bias
+                return qubit.bias if qubit.bias else 0
+        return 0.0
 
     def execute_flux_pulse(self, pulse: Pulse):
         """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
         bias = self.find_qubit_sweetspot(pulse)
-        sweetspot = int(bias * max_gain)
+        sweetspot = np.trunc(bias * max_gain)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
         duration *= samples_per_clk  # the duration here is expressed in samples
-        padding = samples_per_clk
 
         if isinstance(pulse, Rectangular):
-            amp = int(pulse.amplitude * max_gain)
+            amp = np.trunc(pulse.amplitude * max_gain)
             i_vals = np.full(duration, amp)
         elif isinstance(pulse, FluxExponential):
-            i_vals = pulse.get_i_values(duration, max_gain)
+            i_vals = pulse.i_values(duration, max_gain)
         else:
             raise NotImplementedError("Only Rectangular and FluxExponential flux pulses are supported")
 
-        i_vals = np.append(i_vals + sweetspot, np.full(padding, sweetspot))
+        # add a clock cycle of sweetspot values
+        i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
         q_vals = np.zeros(len(i_vals))
 
         if (abs(i_vals) > max_gain).any():

@@ -69,10 +69,10 @@ class FluxExponential(Pulse):
     weight: float
     shape: str = "fluxexponential"
 
-    def get_i_values(self, duration: int, max_gain: int):
+    def i_values(self, duration: int, max_gain: int):
         """Compute the waveform i values."""
         amp = int(self.amplitude * max_gain)
-        time = np.arange(0, duration, 1)
+        time = np.arange(duration)
         i_vals = (np.ones(duration) * np.exp(-time / self.upsilon)) + self.weight * np.exp(-time / self.tau)
         return amp * i_vals / (1 + self.weight)
 
