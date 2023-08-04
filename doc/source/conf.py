@@ -120,6 +120,7 @@ def run_apidoc(_):
 
 
 def setup(app):
+    """Setup."""
     app.add_config_value("recommonmark_config", {"enable_eval_rst": True}, True)
     app.add_transform(AutoStructify)
     app.add_css_file("css/style.css")
