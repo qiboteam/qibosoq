@@ -58,7 +58,7 @@ class FluxProgram(BaseProgram):
                 stdysel="last",
                 freq=0,
                 phase=0,
-                gain=np.trunc(max_gain * qubit.bias),
+                gain=np.trunc(max_gain * qubit.bias).astype(int),
             )
 
             if flux_ch in self.bias_sweep_registers:
@@ -83,14 +83,14 @@ class FluxProgram(BaseProgram):
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
         bias = self.find_qubit_sweetspot(pulse)
-        sweetspot = np.trunc(bias * max_gain)
+        sweetspot = np.trunc(bias * max_gain).astype(int)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
         duration *= samples_per_clk  # the duration here is expressed in samples
 
         if isinstance(pulse, Rectangular):
-            amp = np.trunc(pulse.amplitude * max_gain)
+            amp = np.trunc(pulse.amplitude * max_gain).astype(int)
             i_vals = np.full(duration, amp)
         elif isinstance(pulse, FluxExponential):
             i_vals = pulse.i_values(duration, max_gain)
