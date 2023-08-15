@@ -29,7 +29,7 @@ repos:
       - id: remove-print-statements
         args: ['--verbose']
   - repo: https://github.com/hadialqattan/pycln
-    rev: v2.2.1
+    rev: v2.2.2
     hooks:
       - id: pycln
         args:
