@@ -33,7 +33,7 @@ In any case, for every experiment, we have to start the script with:
       OperationCode,
       Config
   )
-  
+
   HOST = "192.168.0.200"
   PORT = 6000
 
@@ -56,32 +56,32 @@ The path of these two files will have to be exported in an enviroment variable w
 File ``platform.py``:
 
 .. code-block:: python
-  
+
   import pathlib
-  
+
   from qibolab.channels import Channel, ChannelMap
   from qibolab.instruments.rfsoc import RFSoC
   from qibolab.platform import Platform
   from qibolab.serialize import load_qubits, load_runcard, load_settings
-  
+
   NAME = "my_platform"  # name of the platform
   ADDRESS = "192.168.0.200"  # ip adress of the RFSoC
   PORT = 6000  # port of the controller
-  
+
   # path to runcard file with calibration parameter
   RUNCARD = pathlib.Path(__file__).parent / "platform.yml"
-  
-  
+
+
   def create(runcard_path=RUNCARD):
       # Instantiate controller instruments
       controller = RFSoC(NAME, ADDRESS, PORT)
-  
+
       # Create channel objects and port assignment
       channels = ChannelMap()
       channels |= Channel("readout", port=controller[1])  # QICK DAC number
       channels |= Channel("feedback", port=controller[0])  # QICK ADC number
       channels |= Channel("drive", port=controller[0])  # QICK DAC number
-  
+
       # create qubit objects
       runcard = load_runcard(runcard_path)
       qubits, pairs = load_qubits(runcard)
@@ -89,7 +89,7 @@ File ``platform.py``:
       qubits[0].readout = channels["readout"]
       qubits[0].feedback = channels["feedback"]
       qubits[0].drive = channels["drive"]
-  
+
       instruments = {controller.name: controller}
       settings = load_settings(runcard)
       return Platform(NAME, qubits, pairs, instruments, settings, resonator_type="3D")
@@ -103,7 +103,7 @@ File ``platform.yml``:
   qubits: [0]
   topology: []
   settings: {nshots: 1024, relaxation_time: 70000, sampling_rate: 9830400000}
-  
+
   native_gates:
       single_qubit:
           0:
@@ -115,7 +115,7 @@ File ``platform.yml``:
                   type: qd
                   start: 0
                   phase: 0
-  
+
               MZ:  # measurement pulse
                   duration: 2000
                   amplitude: 0.02
@@ -124,7 +124,7 @@ File ``platform.yml``:
                   type: ro
                   start: 0
                   phase: 0
-  
+
       two_qubits: {}
   characterization:
       single_qubit:
@@ -155,7 +155,7 @@ Every experiment, will then start with:
       ReadoutPulse,
       PulseSequence,
   )
-  
+
   # Define platform and load specific runcard
   platform = create_platform("platform")
 
@@ -205,7 +205,7 @@ Qibosoq
       "sequence": sequence,
       "qubits": [qubit],
   }
-  
+
   i, q = execute(server_commands, HOST, PORT)
 
   plt.plot(np.abs(np.array(i) + 1j * np.array(q))
@@ -217,10 +217,10 @@ Qibolab
 .. code-block:: python
 
   from qibolab.pulses import Rectangular
-  
+
   # Define PulseSequence
   sequence = PulseSequence()
-  
+
   # Add some pulses to the pulse sequence
   sequence.add(
       ReadoutPulse(
@@ -253,7 +253,7 @@ File ``actions.yml``.
   platform: platform
   qubits: [0]
   actions:
-  
+
     - id: time of flight
       priority: 0
       operation: time_of_flight_readout
@@ -283,5 +283,3 @@ Single Shot
 
 Randomized Benchmarking
 """""""""""""""""""""""
-
-
