@@ -216,22 +216,11 @@ Qibolab
 
 .. code-block:: python
 
-  from qibolab.pulses import Rectangular
-
   # Define PulseSequence
   sequence = PulseSequence()
 
-  # Add some pulses to the pulse sequence
-  sequence.add(
-      ReadoutPulse(
-          start=0,
-          frequency=7_400_000_000,
-          amplitude=0.5,
-          duration=1000,
-          phase=0,
-          shape=Rectangular(),
-      )
-  )
+  readout_pulse = platform.create_MZ_pulse(qubit=0, start=0)
+  sequence.add(readout_pulse)
 
   options=ExecutionParameters(
       nshots=1000,
@@ -262,15 +251,227 @@ File ``actions.yml``.
         readout_amplitude: 0.5
 
 
-
-
-
-
 Resonator Spectroscopy
 """"""""""""""""""""""
 
+Qibosoq
+-------
+
+.. code-block:: python
+
+  from qibosoq.components.pulses import Rectangular
+
+  frequencies = np.arange(7200, 7600, 1)
+
+  pulse = Rectangular(
+            frequency = 7400, #MHz
+            amplitude = 0.5,
+            relative_phase = 0,
+            start_delay = 0,
+            duration = 1,
+            name = "readout_pulse",
+            type = "readout",
+            dac = 1,
+            adc = 0
+  )
+
+  sequence = [pulse]
+  config = Config(
+            repetition_duration=0.05,
+            adc_trig_offset=200,  # <--- add value found with previous experiment
+            reps=1000,
+            average=True
+  )
+  qubit = Qubit()
+
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence,
+      "qubits": [qubit],
+  }
+
+  results = []
+  for freq in frequencies:
+      server_commands["sequence"][0].frequency = freq
+      i, q = execute(server_commands, HOST, PORT)
+      results.append(np.abs(np.array(i) + 1j * np.array(q)))
+
+  plt.plot(results)
+
+
+Qibolab
+-------
+
+.. code-block:: python
+
+  from qibolab.pulses import Rectangular
+
+  # Define PulseSequence
+  sequence = PulseSequence()
+
+  # Add some pulses to the pulse sequence
+  readout_pulse = platform.create_MZ_pulse(qubit=0, start=0)
+  sequence.add(readout_pulse)
+
+  options=ExecutionParameters(
+      nshots=1000,
+      relaxation_time=50,
+      acquisition_type=AcquisitionType.INTEGRATION,
+      averaging_mode=AveragingMode.CYCLIC,
+  )
+  sweeper = Sweeper(
+      parameter=Parameter.frequency,
+      values=np.arange(-2e8, +2e8, 1e6),
+      pulses=[readout_pulse],
+      type=SweeperType.OFFSET,
+  )
+
+  results = platform.sweep(sequence, options, sweeper)
+
+  frequencies = np.arange(-2e8, +2e8, 1e6) + readout_pulse.frequency
+  plt.plot(frequencies, amplitudes)
+
+Qibocal
+-------
+
+File ``actions.yml``.
+
+.. code-block:: yaml
+
+  platform: platform
+  qubits: [0]
+  actions:
+
+    - id: resonator high power
+      priority: 0
+      operation: resonator_spectroscopy
+      parameters:
+        power_level: high
+        freq_width: 400_000_000
+        freq_step: 1_000_000
+        amplitude: 0.5
+        nshots: 10
+
+
 Qubit Spectroscopy
 """"""""""""""""""
+
+Qibosoq
+-------
+
+.. code-block:: python
+
+  pulse_1 = Rectangular(
+              frequency = 5400, #MHz
+              amplitude = 0.01,
+              relative_phase = 0,
+              start_delay = 0,
+              duration = 0.02,
+              name = "drive_pulse",
+              type = "drive",
+              dac = 0,
+              adc = None
+  )
+
+  pulse_2 = Rectangular(
+              frequency = 7400, #MHz
+              amplitude = 0.05,
+              relative_phase = 0,
+              start_delay = 0.02,
+              duration = 2,
+              name = "readout_pulse",
+              type = "readout",
+              dac = 1,
+              adc = 0
+  )
+
+  sequence = [pulse_1, pulse_2]
+
+  sweeper = Sweeper(
+              parameters = [Parameter.FREQUENCY],
+              indexes = [0],
+              starts = [4200],
+              stops = [4400],
+              expts = 400
+  )
+
+  config = Config(
+      repetition_duration = 50,
+      reps = 1000
+  )
+  qubit = Qubit()
+
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence,
+      "qubits": [qubit],
+      "sweepers": [sweeper],
+  }
+
+  i, q = execute(server_commands, HOST, PORT)
+
+  frequency = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  plt.plot(frequency, np.abs(results))
+
+
+Qibolab
+-------
+
+.. code-block:: python
+
+  sequence = PulseSequence()
+  drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
+  drive_pulse.duration = 2000
+  drive_pulse.amplitude = 0.01
+  readout_pulse = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
+  sequence.add(drive_pulse)
+  sequence.add(readout_pulse)
+
+  # allocate frequency sweeper
+  sweeper = Sweeper(
+      parameter=Parameter.frequency,
+      values=np.arange(-2e8, +2e8, 1e6),
+      pulses=[drive_pulse],
+      type=SweeperType.OFFSET,
+  )
+  options = ExecutionParameters(
+      nshots=1000,
+      relaxation_time=50,
+      averaging_mode=AveragingMode.CYCLIC,
+      acquisition_type=AcquisitionType.INTEGRATION,
+  )
+
+  results = platform.sweep(sequence, options, sweeper)
+
+  amplitudes = results[readout_pulse.serial].magnitude
+  frequencies = np.arange(-2e8, +2e8, 1e6) + drive_pulse.frequency
+
+  plt.plot(frequencies, plt.amplitudes)
+
+
+Qibocal
+-------
+
+File ``actions.yml``.
+
+.. code-block:: yaml
+
+  platform: platform
+  qubits: [0]
+  actions:
+
+    - id: qubit spectroscopy
+      priority: 0
+      operation: qubit_spectroscopy
+      parameters:
+        drive_amplitude: 0.01
+        drive_duration: 2000
+        freq_width: 400_000_000
+        freq_step: 1_000_000
+        nshots: 1000
 
 Rabi Oscillations
 """""""""""""""""
