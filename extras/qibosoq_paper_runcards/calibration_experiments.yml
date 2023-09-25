@@ -1,0 +1,42 @@
+# executed with `qq auto calibration_experiments.yml -o output_folder`
+platform: dummy  # set to platform runcard
+
+# nshots : 4096 in platform runcard
+
+qubits: [0]
+update: False
+
+# T1, T2_echo, single_shot, qubit_flux_dependence
+actions:
+
+  - id: t1
+    priority: 0
+    operation: t1
+    parameters:
+      delay_before_readout_start: 0
+      delay_before_readout_end: 80_000
+      delay_before_readout_step: 400
+
+  - id: spin_echo
+    priority: 0
+    operation: spin_echo
+    parameters:
+      delay_between_pulses_start: 0
+      delay_between_pulses_end: 80_000
+      delay_between_pulses_step: 800
+
+  - id: single shot classification
+    priority: 0
+    operation: single_shot_classification
+    parameters:
+      nshots: 4096
+
+  - id: qubit flux dependence
+    priority: 0
+    operation: qubit_flux
+    parameters:
+      freq_width: 25_000_000
+      freq_step: 250_000
+      bias_width: 0.12
+      bias_step:  0.001
+      drive_amplitude: 0.1

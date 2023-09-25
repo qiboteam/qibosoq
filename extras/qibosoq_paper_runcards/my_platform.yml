@@ -1,0 +1,45 @@
+nqubits: 1
+description: Dummy platform for benchmarks
+
+settings:
+    nshots: 4096
+    relaxation_time: 300_000
+
+qubits: [0]
+
+topology: []
+
+native_gates:
+    single_qubit:
+        0: # qubit number
+            RX:
+                duration: 40
+                amplitude: 0.001
+                frequency: 4_098_000_000
+                shape: Gaussian(5)
+                type: qd
+                start: 0
+                phase: 0
+            MZ:
+                duration: 2000
+                amplitude: 0.001
+                frequency: 5_000_000_000
+                shape: Rectangular()
+                type: ro
+                start: 0
+                phase: 0
+
+characterization:
+    single_qubit:
+        0:
+            readout_frequency: 0
+            resonator_polycoef_flux: []
+            drive_frequency: 0
+            T1: 0.0
+            T2: 0.0
+            sweetspot: 0
+            mean_gnd_states: 0+0j
+            mean_exc_states: 0*0j
+            threshold: 0
+            iq_angle:  0
+            anharmonicity: 0
