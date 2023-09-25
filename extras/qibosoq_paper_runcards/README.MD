@@ -7,7 +7,8 @@ For the timing experiments, we used the following runcards:
 - `scaling_benchmarks.yml`
 
 These experiments were conducted on a platform analogous to the one described in `my_platform.yml`.
-On the other hand, please note that the calibration experiments can only be exactly reproduced with the same hardware; therefore, the platform runcard used for those experiments is not provided.
+
+On the other hand, the calibration experiments were performed with the platform in `experiments_platform_runcard.yml`, but are exactly reproducible only with the same hardware.
 
 These runcards are compatible and were executed with the following software versions:
 

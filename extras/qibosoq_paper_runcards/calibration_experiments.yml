@@ -5,7 +5,7 @@ platform: dummy  # set to platform runcard
 
 qubits: [0]
 
-# T1, T2_echo, single_shot, qubit_flux_dependence, all to be executed separately
+# T1, T2_echo, single_shot, qubit_flux_dependence
 actions:
 
   - id: t1

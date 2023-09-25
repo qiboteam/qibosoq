@@ -1,0 +1,50 @@
+nqubits: 1
+description: 1-qubit controlled by a Xilinx ZCU111 board
+
+qubits: [0]
+
+settings:
+    sampling_rate: 6_144_000_000
+    relaxation_time: 100_000
+    nshots: 1000
+
+
+topology: []
+
+
+native_gates:
+    single_qubit:
+        0: # D1
+            RX:
+                duration: 43
+                amplitude: 0.02
+                frequency: 5_755_427_950
+                shape: Gaussian(3)
+                type: qd # qubit drive
+                start: 0
+                phase: 0
+            MZ:
+                duration: 1000
+                amplitude: 0.1
+                frequency: 6_953_000_000
+                shape: Rectangular()
+                type: ro # readout
+                start: 0
+                phase: 0
+
+
+
+characterization:   #TODO No characterization yet
+    single_qubit:
+        0:
+            readout_frequency: 6_953_000_000
+            drive_frequency: 5_755_427_950
+            sweetspot: -0.113
+            anharmonicity: 0
+            Ec: 0
+            Ej: 0
+            g: 0
+            T1: 0.0
+            T2: 0.0
+            threshold: 0.0
+            iq_angle: 0.0
