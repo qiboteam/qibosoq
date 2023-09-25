@@ -1,9 +1,10 @@
-# executed with `qq auto calibration_experiments.yml --no-update -o output_folder`
+# executed with `qq auto calibration_experiments.yml -o output_folder`
 platform: dummy  # set to platform runcard
 
 # nshots : 4096 in platform runcard
 
 qubits: [0]
+update: False
 
 # T1, T2_echo, single_shot, qubit_flux_dependence
 actions:

@@ -1,8 +1,9 @@
-# executed with `qq auto scaling_benchmarks.yml --no-update -o output_folder`
+# executed with `qq auto scaling_benchmarks.yml -o output_folder`
 # all the different sweepers were executed separately
 platform: my_platform  # set to platform runcard
 
 # nshots : 4096 in platform runcard
+update: False
 
 # 1D Sweepers
 # RO Frequency

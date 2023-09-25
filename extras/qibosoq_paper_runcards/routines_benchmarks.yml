@@ -1,9 +1,10 @@
-# executed with `qq auto routines_benchmarks.yml --no-update -o output_folder`
+# executed with `qq auto routines_benchmarks.yml -o output_folder`
 platform: my_platform
 
 # nshots : 4096 in platform runcard
 
 qubits: [0]
+update: False
 
 actions:
 
