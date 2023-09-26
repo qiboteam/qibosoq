@@ -92,7 +92,7 @@ File ``my_platform.py``:
   from qibolab.serialize import load_qubits, load_runcard, load_settings
 
   NAME = "my_platform"  # name of the platform
-  ADDRESS = "192.168.0.200"  # ip adress of the RFSoC
+  ADDRESS = "192.168.0.200"  # ip address of the RFSoC
   PORT = 6000  # port of the controller
 
   # path to runcard file with calibration parameter
@@ -197,8 +197,16 @@ For Qibosoq and Qibolab "programs", a standard Python script or a Jupyter Notebo
 Time Of Flight
 """"""""""""""
 
+In the time-of-flight experiment, our objective is to measure the time it takes for a pulse to travel from the RFSoC to the qubit through the readout line and then return to the ADC via the feedback line.
+
+During the experiment, a single pulse is transmitted through the readout line.
+We initiate data acquisition immediately, without any delay, in order to precisely determine the delay required for measurements.
+After this experiment, we will always start acquiring after the delay found, so that the acquisition corresponds to the pulse.
+
 Qibosoq
 -------
+
+For Qibosoq, we need to define the pulses explicitly at the beginning of each experiment. Along with them, other components are required by the server: in particular the operation_code, the configuration object, qubits and then, eventually, sweepers.
 
 .. code-block:: python
 
@@ -255,6 +263,12 @@ Qibosoq
 Qibolab
 -------
 
+For Qibolab, the pulses are generally created from the values saved in the platform runcard.
+This enables to save some time in the definition of the experiments.
+Moreover, the results object are more accessible through the API.
+
+It is still required to define the pulse sequence and the whole experiment.
+
 .. code-block:: python
 
   from qibolab import create_platform
@@ -289,11 +303,15 @@ Qibolab
 Qibocal
 -------
 
+For Qibocal, the experiment does not need to be defined again and just some basic parameters are required, on top of the ones defined in the platform runcard.
+
+Executing the experiment with `qq actions.yml -o OUTPUT_FOLDER` will produce a new platform runcard with the updated parameters, as well as plots and data of the experiment.
+
 File ``actions.yml``.
 
 .. code-block:: yaml
 
-  platform: platform
+  platform: my_platform
   qubits: [0]
   actions:
 
@@ -308,8 +326,15 @@ File ``actions.yml``.
 Resonator Spectroscopy
 """"""""""""""""""""""
 
+In the resonator spectroscopy experiment, we aim to find the frequency of the resonator.
+
+We perform a measurement, composed of a pulse and a subsequent acquisition, repeating it with different frequencies of the pulse.
+In the plot of the measured amplitude, we expect to see a Lorentzian shape, with the peak being the resonator one.
+
 Qibosoq
 -------
+
+For Qibosoq, the experiment needs to be defined from scratch as per the time of flight one. Indeed, the only real difference with that experiment is the use of the sweeper functionality.
 
 .. code-block:: python
 
@@ -371,6 +396,9 @@ Qibosoq
 Qibolab
 -------
 
+For Qibolab, the situation is more or less equal to the one of the last experiment.
+Also here, the big difference is the use of sweepers.
+
 .. code-block:: python
 
   from qibolab import create_platform
@@ -414,11 +442,13 @@ Qibolab
 Qibocal
 -------
 
+Qibocal, on the other hand, maintains a higher level of abstraction.
+
 File ``actions.yml``.
 
 .. code-block:: yaml
 
-  platform: platform
+  platform: my_platform
   qubits: [0]
   actions:
 
@@ -436,8 +466,13 @@ File ``actions.yml``.
 Qubit Spectroscopy
 """"""""""""""""""
 
+This is a two tone spectroscopy where a first pulse is sent to excite the qubit and then a measurement is performed.
+The experiment is repeated with different drive frequencies and we expect to see a Lorentzian peak in correspondence of the qubit transition frequency.
+
 Qibosoq
 -------
+
+As Qibosoq does not have a way of natively storing results of experiments, the numbers found for the last experiments are just explicitly written here.
 
 .. code-block:: python
 
@@ -515,6 +550,8 @@ Qibosoq
 Qibolab
 -------
 
+For Qibolab, we have the runcard platform to contain the parameters found in calibration. In particular, we can see that the readout parameters are not explicitly written here, since they are included in the platform runcard.
+
 .. code-block:: python
 
   from qibolab import create_platform
@@ -562,11 +599,13 @@ Qibolab
 Qibocal
 -------
 
+Also Qibocal maintains all the parameters in the platform runcard.
+
 File ``actions.yml``.
 
 .. code-block:: yaml
 
-  platform: platform
+  platform: my_platform
   qubits: [0]
   actions:
 
@@ -583,8 +622,12 @@ File ``actions.yml``.
 Rabi Oscillations (amplitude)
 """""""""""""""""""""""""""""
 
+In the Rabi experiment, we fire a drive pulse with a varying parameter (in this case the amplitude of the pulse) and then measure. We expect to see a sinusoidal oscillation between the state 0 and 1 of the qubit.
+
 Qibosoq
 -------
+
+The experiment is similar to the ones before it, we just need to change a couple of parameters and specify as amplitude the parameter type of the sweeper.
 
 .. code-block:: python
 
@@ -663,6 +706,8 @@ Qibosoq
 Qibolab
 -------
 
+For Qibolab, considering that the pulses are defined from the runcard parameters, we just need to change the sweeper definition to change the whole experiment.
+
 .. code-block:: python
 
   from qibolab import create_platform
@@ -707,18 +752,19 @@ Qibolab
 Qibocal
 -------
 
+As we learnt, Qibocal always requires just minimal experiments definitions.
+
 File ``actions.yml``.
 
 .. code-block:: yaml
 
-  platform: platform
+  platform: my_platform
   qubits: [0]
   actions:
 
   - id: rabi
     priority: 0
     operation: rabi_amplitude
-    # main: single shot classification
     parameters:
       min_amp_factor: 0.0
       max_amp_factor: 10
@@ -728,8 +774,16 @@ File ``actions.yml``.
 T1
 ""
 
+In the T1 experiment we use already calibrated pulses (the Pi-pulse for the X gate and the measurement) to extract the relaxation parameter of the qubit.
+
+We first excite the qubit, wait a certain time and then measure.
+Increasing the delay between excitation and measurement will lead to an exponential decrease of the excited state population.
+
 Qibosoq
 -------
+
+As we already saw, Qibosoq is a rather low level API, however it enables to focus on the experiments themselves.
+In this case, for example, we can see a new type of sweeper (the delay one) that has an identical implementation in respect to the others already seen, despite being internally treated differently.
 
 .. code-block:: python
 
@@ -807,6 +861,8 @@ Qibosoq
 Qibolab
 -------
 
+Qibolab always behaves as an intermediate language step between Qibosoq and Qibocal.
+
 .. code-block:: python
 
   from qibolab import create_platform
@@ -830,7 +886,7 @@ Qibolab
   # allocate frequency sweeper
   sweeper = Sweeper(
       parameter=Parameter.START,
-      values=np.arange(0, 100_000, 1000).astype(int),
+      values=np.arange(0, 100_000, 1000),
       pulses=[readout_pulse],
       type=SweeperType.OFFSET,
   )
@@ -855,14 +911,13 @@ File ``actions.yml``.
 
 .. code-block:: yaml
 
-  platform: platform
+  platform: my_platform
   qubits: [0]
   actions:
 
   - id: t1
     priority: 0
     operation: t1
-    #main: ramsey
     parameters:
       delay_before_readout_start: 0
       delay_before_readout_end: 100_000
@@ -871,8 +926,13 @@ File ``actions.yml``.
 Classification experiment
 """""""""""""""""""""""""
 
+In the classification experiment, we perform just single shot measurements with and without previously having excited the qubit.
+Plotting the non-averaged results, we should be able to identify two different "blobs" for the qubit when is prepared in the state 1 and when is prepared in the state 0.
+
 Qibosoq
 -------
+
+For Qibosoq we just need to deactivate the averaging option in the Config object.
 
 .. code-block:: python
 
@@ -935,10 +995,12 @@ Qibosoq
 
   i, q = execute(server_commands, HOST, PORT)
 
-  plt.scatter(i, q)
+  plt.scatter(i[0][0], q[0][0])
 
 Qibolab
 -------
+
+Also for Qibolab, it is sufficient to change the AveragingMode to SINGLESHOT.
 
 .. code-block:: python
 
@@ -974,11 +1036,13 @@ Qibolab
 Qibocal
 -------
 
+For Qibocal there are no substantial changes, since everything is taken into account under the hood.
+
 File ``actions.yml``.
 
 .. code-block:: yaml
 
-  platform: platform
+  platform: my_platform
   qubits: [0]
   actions:
 
