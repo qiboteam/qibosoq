@@ -7,16 +7,44 @@ In these examples, we will see how to perform some basic qubit calibration exper
 - Qibolab: higher pulse level and integrated control of the complete setup
 - Qibocal: experiment level
 
+With these three packages, we perform the exact same experiments, showcasing how to implement the same program with different complexity levels.
+In particular, Qibosoq is the most base language and requires explicit definition of all the pulses, sweepers and experiment parameters. Qibolab is slightly more intuitive, but still requires to define all the experiment. Qibocal, on the other hand, leverages experiments already coded.
+
+For these experiments we are considering to not yet have the final calibration parameters, but for the sake of clarity, the following parameters are final ones of the calibration:
+
+Lines:
+
+- Drive line DAC: 0
+- Readout line DAC: 1
+- Feedback line ADC: 0
+
+Qubit parameters:
+
+- Qubit frequency: 5_755_000_000 Hz
+- Pi-pulse duration: 43 ns
+- Pi-pulse amplitude: 0.02
+- Pi-pulse shape: Gaussian(3)
+
+Resonator parameters:
+
+- Resonator frequency: 6_953_000_000 Hz
+- Measurement duration: 1000 ns
+- Measurement amplitude: 0.1
+- Measurement shape: Rectangular()
+
+Experiments parameters:
+
+- Relaxation time: 50_000 ns
 
 Preparation pre-experiments
 """""""""""""""""""""""""""
 
-For all the control modes, we are suppossing to have a qibosoq server running on board.
+For all the control modes, we are supposing to have a Qibosoq server running on board.
 
 Qibosoq
 -------
 
-For a control through Qibosoq, no particular preparation is required.
+For control through Qibosoq, no particular preparation is required.
 
 In any case, for every experiment, we have to start the script with:
 
@@ -37,23 +65,22 @@ In any case, for every experiment, we have to start the script with:
   HOST = "192.168.0.200"
   PORT = 6000
 
-
 Qibolab
 -------
 
-For Qibolab, we first need to setup the platform. This includes writing the ``platform.py`` and the ``platform.yml`` files. For more detailed instructions to write these experiments, please refer to the Qibolab documentation [ADD LINK].
+For Qibolab, we first need to setup the platform. This includes writing the ``my_platform.py`` and the ``my_platform.yml`` files. For more detailed instructions to write these experiments, please refer to the Qibolab documentation [ADD LINK].
 
 In this section we will provide a base platform that includes only a RFSoC4x2 board (with o additional instruments) that controls a single qubit.
 
-The path of these two files will have to be exported in an enviroment variable with:
+The path of these two files will have to be exported in an environment variable with:
 
 
 .. code-block:: bash
 
-  export QIBOLAB_PLATFORMS=<path-to-create-file>
+  export QIBOLAB_PLATFORMS=<path-to-platform-files>
 
 
-File ``platform.py``:
+File ``my_platform.py``:
 
 .. code-block:: python
 
@@ -95,31 +122,31 @@ File ``platform.py``:
       return Platform(NAME, qubits, pairs, instruments, settings, resonator_type="3D")
 
 
-File ``platform.yml``:
+File ``my_platform.yml`` (note that this file is just a starting one, with the parameters not completely calibrated):
 
 .. code-block:: yaml
 
   nqubits: 1
   qubits: [0]
   topology: []
-  settings: {nshots: 1024, relaxation_time: 70000, sampling_rate: 9830400000}
+  settings: {nshots: 1024, relaxation_time: 50_000}
 
   native_gates:
       single_qubit:
           0:
               RX:  # pi-pulse for X gate
                   duration: 40
-                  amplitude: 0.5
-                  frequency: 5_500_000_000
+                  amplitude: 0.1
+                  frequency: 5_700_000_000
                   shape: Gaussian(3)
                   type: qd
                   start: 0
                   phase: 0
 
               MZ:  # measurement pulse
-                  duration: 2000
-                  amplitude: 0.02
-                  frequency: 7_370_000_000
+                  duration: 1000
+                  amplitude: 0.1
+                  frequency: 7_000_000_000
                   shape: Rectangular()
                   type: ro
                   start: 0
@@ -129,8 +156,8 @@ File ``platform.yml``:
   characterization:
       single_qubit:
           0:
-              readout_frequency: 7370000000
-              drive_frequency: 5500000000
+              readout_frequency: 7000000000
+              drive_frequency: 5700000000
               anharmonicity: 0
               Ec: 0
               Ej: 0
@@ -175,10 +202,24 @@ Qibosoq
 
 .. code-block:: python
 
+  import json
+  import socket
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  from qibosoq.client import execute
+  from qibosoq.components.base import (
+      Qubit,
+      OperationCode,
+      Config
+  )
   from qibosoq.components.pulses import Rectangular
 
+  HOST = "192.168.0.200"
+  PORT = 6000
+
   pulse = Rectangular(
-            frequency = 7400, #MHz
+            frequency = 7000, #MHz
             amplitude = 0.5,
             relative_phase = 0,
             start_delay = 0,
@@ -191,11 +232,11 @@ Qibosoq
 
   sequence = [pulse]
   config = Config(
-            repetition_duration=0.05,
+            repetition_duration=50, # us
             adc_trig_offset=0,
             reps=1,
             soft_avgs=1000,
-            average=False
+            average=True
   )
   qubit = Qubit()
 
@@ -208,7 +249,7 @@ Qibosoq
 
   i, q = execute(server_commands, HOST, PORT)
 
-  plt.plot(np.abs(np.array(i) + 1j * np.array(q))
+  plt.plot(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
 
 
 Qibolab
@@ -216,15 +257,28 @@ Qibolab
 
 .. code-block:: python
 
+  from qibolab import create_platform
+  from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+
+  from qibolab.pulses import (
+      DrivePulse,
+      ReadoutPulse,
+      PulseSequence,
+  )
+
+  # Define platform and load specific runcard
+  platform = create_platform("platform")
+
   # Define PulseSequence
   sequence = PulseSequence()
 
   readout_pulse = platform.create_MZ_pulse(qubit=0, start=0)
+  readout_pulse.amplitude = 0.5
   sequence.add(readout_pulse)
 
   options=ExecutionParameters(
       nshots=1000,
-      relaxation_time=50,
+      relaxation_time=50_000, # ns
       acquisition_type=AcquisitionType.RAW,
       averaging_mode=AveragingMode.CYCLIC,
   )
@@ -259,12 +313,26 @@ Qibosoq
 
 .. code-block:: python
 
+  import json
+  import socket
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  from qibosoq.client import execute
+  from qibosoq.components.base import (
+      Qubit,
+      OperationCode,
+      Config
+  )
   from qibosoq.components.pulses import Rectangular
 
-  frequencies = np.arange(7200, 7600, 1)
+  HOST = "192.168.0.200"
+  PORT = 6000
+
+  frequencies = np.arange(6800, 7200, 1)
 
   pulse = Rectangular(
-            frequency = 7400, #MHz
+            frequency = 7000, #MHz
             amplitude = 0.5,
             relative_phase = 0,
             start_delay = 0,
@@ -277,8 +345,8 @@ Qibosoq
 
   sequence = [pulse]
   config = Config(
-            repetition_duration=0.05,
-            adc_trig_offset=200,  # <--- add value found with previous experiment
+            repetition_duration=50,
+            adc_trig_offset=200,
             reps=1000,
             average=True
   )
@@ -295,7 +363,7 @@ Qibosoq
   for freq in frequencies:
       server_commands["sequence"][0].frequency = freq
       i, q = execute(server_commands, HOST, PORT)
-      results.append(np.abs(np.array(i) + 1j * np.array(q)))
+      results.append(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0])))
 
   plt.plot(results)
 
@@ -305,13 +373,24 @@ Qibolab
 
 .. code-block:: python
 
-  from qibolab.pulses import Rectangular
+  from qibolab import create_platform
+  from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+
+  from qibolab.pulses import (
+      DrivePulse,
+      ReadoutPulse,
+      PulseSequence,
+  )
+
+  # Define platform and load specific runcard
+  platform = create_platform("platform")
 
   # Define PulseSequence
   sequence = PulseSequence()
 
   # Add some pulses to the pulse sequence
   readout_pulse = platform.create_MZ_pulse(qubit=0, start=0)
+  readout_pulse.amplitude = 0.5
   sequence.add(readout_pulse)
 
   options=ExecutionParameters(
@@ -351,7 +430,7 @@ File ``actions.yml``.
         freq_width: 400_000_000
         freq_step: 1_000_000
         amplitude: 0.5
-        nshots: 10
+        nshots: 1000
 
 
 Qubit Spectroscopy
@@ -362,12 +441,28 @@ Qibosoq
 
 .. code-block:: python
 
+  import json
+  import socket
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  from qibosoq.client import execute
+  from qibosoq.components.base import (
+      Qubit,
+      OperationCode,
+      Config
+  )
+  from qibosoq.components.pulses import Rectangular
+
+  HOST = "192.168.0.200"
+  PORT = 6000
+
   pulse_1 = Rectangular(
               frequency = 5400, #MHz
-              amplitude = 0.01,
+              amplitude = 0.1,
               relative_phase = 0,
               start_delay = 0,
-              duration = 0.02,
+              duration = 2,
               name = "drive_pulse",
               type = "drive",
               dac = 0,
@@ -375,11 +470,11 @@ Qibosoq
   )
 
   pulse_2 = Rectangular(
-              frequency = 7400, #MHz
-              amplitude = 0.05,
+              frequency = 6953, #MHz
+              amplitude = 0.1,
               relative_phase = 0,
-              start_delay = 0.02,
-              duration = 2,
+              start_delay = 2,
+              duration = 1,
               name = "readout_pulse",
               type = "readout",
               dac = 1,
@@ -391,9 +486,9 @@ Qibosoq
   sweeper = Sweeper(
               parameters = [Parameter.FREQUENCY],
               indexes = [0],
-              starts = [4200],
-              stops = [4400],
-              expts = 400
+              starts = [5400],
+              stops = [6000],
+              expts = 600
   )
 
   config = Config(
@@ -422,10 +517,22 @@ Qibolab
 
 .. code-block:: python
 
+  from qibolab import create_platform
+  from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+
+  from qibolab.pulses import (
+      DrivePulse,
+      ReadoutPulse,
+      PulseSequence,
+  )
+
+  # Define platform and load specific runcard
+  platform = create_platform("platform")
+
   sequence = PulseSequence()
   drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
   drive_pulse.duration = 2000
-  drive_pulse.amplitude = 0.01
+  drive_pulse.amplitude = 0.1
   readout_pulse = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
   sequence.add(drive_pulse)
   sequence.add(readout_pulse)
@@ -433,7 +540,7 @@ Qibolab
   # allocate frequency sweeper
   sweeper = Sweeper(
       parameter=Parameter.frequency,
-      values=np.arange(-2e8, +2e8, 1e6),
+      values=np.arange(-3e8, +3e8, 1e6),
       pulses=[drive_pulse],
       type=SweeperType.OFFSET,
   )
@@ -447,7 +554,7 @@ Qibolab
   results = platform.sweep(sequence, options, sweeper)
 
   amplitudes = results[readout_pulse.serial].magnitude
-  frequencies = np.arange(-2e8, +2e8, 1e6) + drive_pulse.frequency
+  frequencies = np.arange(-3e8, +3e8, 1e6) + drive_pulse.frequency
 
   plt.plot(frequencies, plt.amplitudes)
 
@@ -469,18 +576,426 @@ File ``actions.yml``.
       parameters:
         drive_amplitude: 0.01
         drive_duration: 2000
-        freq_width: 400_000_000
+        freq_width: 600_000_000
         freq_step: 1_000_000
         nshots: 1000
 
-Rabi Oscillations
-"""""""""""""""""
+Rabi Oscillations (amplitude)
+"""""""""""""""""""""""""""""
+
+Qibosoq
+-------
+
+.. code-block:: python
+
+  import json
+  import socket
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  from qibosoq.client import execute
+  from qibosoq.components.base import (
+      Qubit,
+      OperationCode,
+      Config
+  )
+  from qibosoq.components.pulses import Rectangular, Gaussian
+
+  HOST = "192.168.0.200"
+  PORT = 6000
+
+  pulse_1 = Gaussian(
+              frequency = 5755, #MHz
+              amplitude = 0.01,
+              relative_phase = 0,
+              start_delay = 0,
+              duration = 0.043,
+              rel_sigma = 3,
+              name = "drive_pulse",
+              type = "drive",
+              dac = 0,
+              adc = None
+  )
+
+  pulse_2 = Rectangular(
+              frequency = 6953, #MHz
+              amplitude = 0.1,
+              relative_phase = 0,
+              start_delay = 0.043,
+              duration = 1,
+              name = "readout_pulse",
+              type = "readout",
+              dac = 1,
+              adc = 0
+  )
+
+  sequence = [pulse_1, pulse_2]
+
+  sweeper = Sweeper(
+              parameters = [Parameter.AMPLITUDE],
+              indexes = [0],
+              starts = [0],
+              stops = [1],
+              expts = 100
+  )
+
+  config = Config(
+      repetition_duration = 50,
+      reps = 1000
+  )
+  qubit = Qubit()
+
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence,
+      "qubits": [qubit],
+      "sweepers": [sweeper],
+  }
+
+  i, q = execute(server_commands, HOST, PORT)
+
+  amplitudes = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  plt.plot(amplitudes, np.abs(results))
+
+
+Qibolab
+-------
+
+.. code-block:: python
+
+  from qibolab import create_platform
+  from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+
+  from qibolab.pulses import (
+      DrivePulse,
+      ReadoutPulse,
+      PulseSequence,
+  )
+
+  # Define platform and load specific runcard
+  platform = create_platform("platform")
+
+  sequence = PulseSequence()
+  drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
+  readout_pulse = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
+  sequence.add(drive_pulse)
+  sequence.add(readout_pulse)
+
+  # allocate frequency sweeper
+  sweeper = Sweeper(
+      parameter=Parameter.amplitude,
+      values=np.arange(0, 1, 0.01),
+      pulses=[drive_pulse],
+      type=SweeperType.ABSOLUTE,
+  )
+  options = ExecutionParameters(
+      nshots=1000,
+      relaxation_time=50,
+      averaging_mode=AveragingMode.CYCLIC,
+      acquisition_type=AcquisitionType.INTEGRATION,
+  )
+
+  results = platform.sweep(sequence, options, sweeper)
+
+  magnitudes = results[readout_pulse.serial].magnitude
+  amplitudes = np.arange(0, 1, 0.01)
+
+  plt.plot(magnitudes, amplitudes)
+
+Qibocal
+-------
+
+File ``actions.yml``.
+
+.. code-block:: yaml
+
+  platform: platform
+  qubits: [0]
+  actions:
+
+  - id: rabi
+    priority: 0
+    operation: rabi_amplitude
+    # main: single shot classification
+    parameters:
+      min_amp_factor: 0.0
+      max_amp_factor: 10
+      step_amp_factor: 0.1
+      pulse_length: 43
 
 T1
 ""
 
-Single Shot
-"""""""""""
+Qibosoq
+-------
+
+.. code-block:: python
+
+  import json
+  import socket
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  from qibosoq.client import execute
+  from qibosoq.components.base import (
+      Qubit,
+      OperationCode,
+      Config
+  )
+  from qibosoq.components.pulses import Rectangular, Gaussian
+
+  HOST = "192.168.0.200"
+  PORT = 6000
+
+  pulse_1 = Gaussian(
+              frequency = 5755, #MHz
+              amplitude = 0.02,
+              relative_phase = 0,
+              start_delay = 0,
+              duration = 0.043,
+              rel_sigma = 3,
+              name = "drive_pulse",
+              type = "drive",
+              dac = 0,
+              adc = None
+  )
+
+  pulse_2 = Rectangular(
+              frequency = 6953, #MHz
+              amplitude = 0.1,
+              relative_phase = 0,
+              start_delay = 0.043,
+              duration = 1,
+              name = "readout_pulse",
+              type = "readout",
+              dac = 1,
+              adc = 0
+  )
+
+  sequence = [pulse_1, pulse_2]
+
+  sweeper = Sweeper(
+              parameters = [Parameter.DELAY],
+              indexes = [1],
+              starts = [0.043],
+              stops = [100.043],
+              expts = 100
+  )
+
+  config = Config(
+      repetition_duration = 50,
+      reps = 1000
+  )
+  qubit = Qubit()
+
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence,
+      "qubits": [qubit],
+      "sweepers": [sweeper],
+  }
+
+  i, q = execute(server_commands, HOST, PORT)
+
+  delays = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  plt.plot(delays, np.abs(results))
+
+Qibolab
+-------
+
+.. code-block:: python
+
+  from qibolab import create_platform
+  from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+
+  from qibolab.pulses import (
+      DrivePulse,
+      ReadoutPulse,
+      PulseSequence,
+  )
+
+  # Define platform and load specific runcard
+  platform = create_platform("platform")
+
+  sequence = PulseSequence()
+  drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
+  readout_pulse = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
+  sequence.add(drive_pulse)
+  sequence.add(readout_pulse)
+
+  # allocate frequency sweeper
+  sweeper = Sweeper(
+      parameter=Parameter.START,
+      values=np.arange(0, 100_000, 1000).astype(int),
+      pulses=[readout_pulse],
+      type=SweeperType.OFFSET,
+  )
+  options = ExecutionParameters(
+      nshots=1000,
+      relaxation_time=50,
+      averaging_mode=AveragingMode.CYCLIC,
+      acquisition_type=AcquisitionType.INTEGRATION,
+  )
+
+  results = platform.sweep(sequence, options, sweeper)
+
+  magnitudes = results[readout_pulse.serial].magnitude
+  start_times = np.arange(0, 100_000, 1000)
+
+  plt.plot(start_times, magnitudes)
+
+Qibocal
+-------
+
+File ``actions.yml``.
+
+.. code-block:: yaml
+
+  platform: platform
+  qubits: [0]
+  actions:
+
+  - id: t1
+    priority: 0
+    operation: t1
+    #main: ramsey
+    parameters:
+      delay_before_readout_start: 0
+      delay_before_readout_end: 100_000
+      delay_before_readout_step: 1000
+
+Classification experiment
+"""""""""""""""""""""""""
+
+Qibosoq
+-------
+
+.. code-block:: python
+
+  import json
+  import socket
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  from qibosoq.client import execute
+  from qibosoq.components.base import (
+      Qubit,
+      OperationCode,
+      Config
+  )
+  from qibosoq.components.pulses import Rectangular, Gaussian
+
+  HOST = "192.168.0.200"
+  PORT = 6000
+
+  pulse_1 = Gaussian(
+              frequency = 5755, #MHz
+              amplitude = 0.02,
+              relative_phase = 0,
+              start_delay = 0,
+              duration = 0.043,
+              rel_sigma = 3,
+              name = "drive_pulse",
+              type = "drive",
+              dac = 0,
+              adc = None
+  )
+
+  pulse_2 = Rectangular(
+              frequency = 6953, #MHz
+              amplitude = 0.1,
+              relative_phase = 0,
+              start_delay = 0.043,
+              duration = 1,
+              name = "readout_pulse",
+              type = "readout",
+              dac = 1,
+              adc = 0
+  )
+
+  sequence = [pulse_1, pulse_2]
+
+  config = Config(
+      repetition_duration = 50,
+      reps = 10000,
+      average = False
+  )
+  qubit = Qubit()
+
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence,
+      "qubits": [qubit],
+  }
+
+  i, q = execute(server_commands, HOST, PORT)
+
+  plt.scatter(i, q)
+
+Qibolab
+-------
+
+.. code-block:: python
+
+  from qibolab import create_platform
+  from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+
+  from qibolab.pulses import (
+      DrivePulse,
+      ReadoutPulse,
+      PulseSequence,
+  )
+
+  # Define platform and load specific runcard
+  platform = create_platform("platform")
+
+  sequence = PulseSequence()
+  drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
+  readout_pulse = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
+  sequence.add(drive_pulse)
+  sequence.add(readout_pulse)
+
+  options = ExecutionParameters(
+      nshots=10000,
+      relaxation_time=50,
+      averaging_mode=AveragingMode.SINGLESHOT,
+      acquisition_type=AcquisitionType.INTEGRATION,
+  )
+
+  results = platform.sweep(sequence, options, sweeper)
+
+  plt.plot(results.i, results.q)
+
+Qibocal
+-------
+
+File ``actions.yml``.
+
+.. code-block:: yaml
+
+  platform: platform
+  qubits: [0]
+  actions:
+
+  - id: single shot classification
+    priority: 0
+    operation: single_shot_classification
+    parameters:
+      nshots: 10000
 
 Randomized Benchmarking
 """""""""""""""""""""""
+
+Qibosoq
+-------
+
+Qibolab
+-------
+
+Qibocal
+-------
