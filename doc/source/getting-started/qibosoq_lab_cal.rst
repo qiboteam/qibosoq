@@ -257,7 +257,7 @@ For Qibosoq, we need to define the pulses explicitly at the beginning of each ex
 
   i, q = execute(server_commands, HOST, PORT)
 
-  plt.plot(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  plt.plot(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0])))
 
 
 Qibolab
@@ -543,7 +543,7 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
   i, q = execute(server_commands, HOST, PORT)
 
   frequency = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
-  results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(frequency, np.abs(results))
 
 
@@ -699,7 +699,7 @@ The experiment is similar to the ones before it, we just need to change a couple
   i, q = execute(server_commands, HOST, PORT)
 
   amplitudes = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
-  results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(amplitudes, np.abs(results))
 
 
@@ -855,7 +855,7 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
   i, q = execute(server_commands, HOST, PORT)
 
   delays = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
-  results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+  results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(delays, np.abs(results))
 
 Qibolab
