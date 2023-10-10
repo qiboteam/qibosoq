@@ -1051,15 +1051,3 @@ File ``actions.yml``.
     operation: single_shot_classification
     parameters:
       nshots: 10000
-
-Randomized Benchmarking
-"""""""""""""""""""""""
-
-Qibosoq
--------
-
-Qibolab
--------
-
-Qibocal
--------
