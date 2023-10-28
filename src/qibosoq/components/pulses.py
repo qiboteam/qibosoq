@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 
@@ -21,9 +21,9 @@ class Element:
     duration: float
     """Duration of the pulse (us)."""
 
-    adc: Optional[int]
+    adc: int
     """ADC to acquire pulse back, for readout pulses."""
-    dac: Optional[int]
+    dac: int
     """DAC responsible for firing the pulse."""
 
 
@@ -32,7 +32,6 @@ class Measurement(Element):
     """Measurement without pulse."""
 
     type = "readout"
-    dac = None
 
 
 @dataclass
