@@ -9,7 +9,7 @@ import qibosoq
 from qibosoq.components.base import Parameter
 from qibosoq.components.pulses import Rectangular
 from qibosoq.log import define_loggers
-from qibosoq.server import execute_program, load_pulses
+from qibosoq.server import execute_program, load_elements
 
 qibosoq.configuration.MAIN_LOGGER_FILE = "/tmp/test_log_rfsoc.log"
 qibosoq.configuration.PROGRAM_LOGGER_FILE = "/tmp/test_log2_rfsoc.log"
@@ -30,7 +30,7 @@ def soc():
     return soc
 
 
-def test_load_pulses():
+def test_load_elements():
     sequence = [
         {
             "shape": "rectangular",
@@ -81,7 +81,7 @@ def test_load_pulses():
     )
     sequence_obj = [pulse_1, pulse_2]
 
-    assert load_pulses(sequence) == sequence_obj
+    assert load_elements(sequence) == sequence_obj
 
 
 def test_execute_program(mocker, soc):

@@ -8,7 +8,7 @@ from qick.averager_program import QickSweep, merge_sweeps
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
-from qibosoq.components.pulses import Pulse
+from qibosoq.components.pulses import Element, Pulse
 from qibosoq.programs.flux import FluxProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -27,7 +27,14 @@ def reversed_sweepers(sweepers: Union[Sweeper, Iterable[Sweeper]]) -> List[Sweep
 class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep."""
 
-    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit], *sweepers: Sweeper):
+    def __init__(
+        self,
+        soc: QickSoc,
+        qpcfg: Config,
+        sequence: List[Element],
+        qubits: List[Qubit],
+        *sweepers: Sweeper,
+    ):
         """Init function, sets sweepers parameters before calling super.__init__."""
         self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
@@ -91,6 +98,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         else:
             for idx, jdx in enumerate(sweeper.indexes):
                 pulse = self.sequence[jdx]
+                assert isinstance(pulse, Pulse)
                 gen_ch = pulse.dac
 
                 sweep_type = sweeper.parameters[idx].value
@@ -124,10 +132,10 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
         Function called by AveragerProgram.__init__.
         """
-        self.declare_zones_and_ro(self.sequence)
+        self.declare_zones_and_ro(self.pulse_sequence)
 
         self.pulses_registered = True
-        for pulse in self.sequence:
+        for pulse in self.pulse_sequence:
             if self.is_mux:
                 if pulse.type != "drive":
                     continue

@@ -42,7 +42,7 @@ def convert_commands(obj_dictionary: dict) -> dict:
     dict_dictionary = {
         "operation_code": obj_dictionary["operation_code"],
         "cfg": asdict(obj_dictionary["cfg"]),
-        "sequence": [asdict(pulse) for pulse in obj_dictionary["sequence"]],
+        "sequence": [asdict(element) for element in obj_dictionary["sequence"]],
         "qubits": [asdict(qubit) for qubit in obj_dictionary["qubits"]],
     }
     if "sweepers" in obj_dictionary:
