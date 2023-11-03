@@ -47,7 +47,7 @@ In ``Qibosoq`` there is a object :class:`qibosoq.components.pulses.Pulse`:
     )
 
 
-* The ``starts_delay`` is the difference in start time between this pulse and the one before it.
+* The ``start_delay`` is the difference in start time between this pulse and the one before it.
   We can consider the execution of a pulse always divided in two moments:
 
     * wait ``start_delay`` if it's not zero
@@ -83,3 +83,27 @@ The shape objects inherits from :class:`qibosoq.components.pulses.Pulse` and sha
         i_values = [...],  # list of floats
         q_values = [...],      # list of floats
     )
+
+Measurements
+""""""""""""
+
+From version ``0.1.1``, ``Qibosoq`` supports the execution of measurements decoupled from pulses. This allows to perform acquisition from an ADC without the need of genereting a pulse from a DAC.
+
+.. code-block:: python
+
+   from qibosoq.components.pulses import Measurement
+
+   meas = Measurement(
+        type = "readout",
+        frequency = 6400,    # float in MHz
+        start_delay = 0,     # float in us
+        duration = 1,        # float in us
+        dac = 1,             # int
+        adc = 0,          # int
+   )
+
+
+The frequency parameter is the one of the signal we want to acquire.
+This is required by the downspampling scheme, to perform ADC acquisitions.
+
+The DAC number, that could seem useless, can be used to ensure frequency matching between the ADC and a DAC. Namely, DACs and ADCs have different memory registers and we usually want to esure that have the same frequencies stored so that relative phases do not change during the experiment.
