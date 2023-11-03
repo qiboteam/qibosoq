@@ -193,6 +193,7 @@ class BaseProgram(ABC, QickProgram):
         if self.is_mux:
             if elem in muxed_pulses_executed:
                 return
+
             idx_mux = next(idx for idx, mux_time in enumerate(self.multi_ro_pulses) if elem in mux_time)
             self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
             muxed_ro_executed_indexes.append(idx_mux)
@@ -326,12 +327,9 @@ class BaseProgram(ABC, QickProgram):
         Example of list:
         [[pulse1, pulse2], [pulse3]]
         """
-        mux_list: List[List[Pulse]] = []
+        mux_list: List[List[Element]] = []
         len_last_readout = 0.0
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
-            if not isinstance(pulse, Pulse):
-                continue
-
             if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
                 # add the pulse to the last multiplexed readout
                 mux_list[-1].append(pulse)
