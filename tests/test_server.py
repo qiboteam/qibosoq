@@ -7,7 +7,7 @@ import qick
 qick.QickSoc = None
 import qibosoq
 from qibosoq.components.base import Parameter
-from qibosoq.components.pulses import Rectangular
+from qibosoq.components.pulses import Measurement, Rectangular
 from qibosoq.log import define_loggers
 from qibosoq.server import execute_program, load_elements
 
@@ -56,6 +56,14 @@ def test_load_elements():
             "dac": 1,
             "adc": 0,
         },
+        {
+            "frequency": 6400,  # MHz
+            "start_delay": 0.04,
+            "duration": 2,
+            "type": "readout",
+            "dac": 1,
+            "adc": 0,
+        },
     ]
     pulse_1 = Rectangular(
         frequency=5400,  # MHz
@@ -79,7 +87,15 @@ def test_load_elements():
         dac=1,
         adc=0,
     )
-    sequence_obj = [pulse_1, pulse_2]
+    meas = Measurement(
+        type="readout",
+        frequency=6400,
+        start_delay=0.04,
+        duration=2,
+        dac=1,
+        adc=0,
+    )
+    sequence_obj = [pulse_1, pulse_2, meas]
 
     assert load_elements(sequence) == sequence_obj
 

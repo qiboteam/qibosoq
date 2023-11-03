@@ -25,7 +25,7 @@ def load_elements(list_sequence: List[Dict]) -> List[Element]:
     """Convert a list of elements in dict form (pulses or measurements) to a list of Pulse objects."""
     obj_sequence = []
     for element in list_sequence:
-        if "frequency" in element:  # if element is a pulse
+        if "amplitude" in element:  # if element is a pulse
             cls = Shape[element["shape"].upper()].value
             converted_pulse = cls(**element)
             obj_sequence.append(converted_pulse)
