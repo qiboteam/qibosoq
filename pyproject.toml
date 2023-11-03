@@ -9,7 +9,7 @@ authors = [
 license = "Apache License 2.0"
 readme = "README.md"
 repository = "https://github.com/qiboteam/qibosoq/"
-documentation = ""
+documentation = "https://qibo.science/docs/qibosoq/stable"
 keywords = []
 classifiers = [
   "Programming Language :: Python :: 3",
