@@ -8,7 +8,7 @@ In these examples, we will see how to perform some basic qubit calibration exper
 - Qibocal: experiment level
 
 With these three packages, we perform the exact same experiments, showcasing how to implement the same program with different complexity levels.
-In particular, Qibosoq is the lowest-level language and requires explicit definition of all the pulses, sweepers and experiment parameters. Qibolab is slightly more intuitive, but still requires to define all the experiment. Qibocal, on the other hand, leverages experiments already coded.
+In particular, Qibosoq is the lowest-level language and requires explicit definition of all the pulses, sweepers and experiment parameters. Qibolab is slightly more intuitive, but still requires to define the entire experiment. Qibocal, implements a set of these experiments, and gives the user chance to compose them.
 
 For these experiments we are considering to not yet have the final calibration parameters, but for the sake of clarity, the following parameters are final ones of the calibration:
 
@@ -68,7 +68,8 @@ In any case, for every experiment, we have to start the script with:
 Qibolab
 -------
 
-For Qibolab, we first need to setup the platform. This includes writing the ``my_platform.py`` and the ``my_platform.yml`` files. For more detailed instructions to write these experiments, please refer to the Qibolab documentation [ADD LINK].
+For Qibolab, we first need to setup the platform. This includes writing the ``my_platform.py`` and the ``my_platform.yml`` files.
+For more detailed instructions to write these experiments, please refer to the `Qibolab documentation  <https://qibo.science/qibolab/stable/>`_ .
 
 In this section we will provide a base platform that includes only a RFSoC4x2 board (with o additional instruments) that controls a single qubit.
 
