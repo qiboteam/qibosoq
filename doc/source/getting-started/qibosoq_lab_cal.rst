@@ -8,7 +8,7 @@ In these examples, we will see how to perform some basic qubit calibration exper
 - Qibocal: experiment level
 
 With these three packages, we perform the exact same experiments, showcasing how to implement the same program with different complexity levels.
-In particular, Qibosoq is the most base language and requires explicit definition of all the pulses, sweepers and experiment parameters. Qibolab is slightly more intuitive, but still requires to define all the experiment. Qibocal, on the other hand, leverages experiments already coded.
+In particular, Qibosoq is the lowest-level language and requires explicit definition of all the pulses, sweepers and experiment parameters. Qibolab is slightly more intuitive, but still requires to define all the experiment. Qibocal, on the other hand, leverages experiments already coded.
 
 For these experiments we are considering to not yet have the final calibration parameters, but for the sake of clarity, the following parameters are final ones of the calibration:
 
