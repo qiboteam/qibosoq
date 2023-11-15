@@ -11,3 +11,4 @@ In this section we present the basic aspects of Qibosoq and provide installation
     pulses
     sweepers
     tutorials
+    qibosoq_lab_cal
