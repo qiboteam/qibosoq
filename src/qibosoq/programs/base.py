@@ -10,7 +10,14 @@ from qick import QickProgram, QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Arbitrary, Drag, Gaussian, Pulse, Rectangular
+from qibosoq.components.pulses import (
+    Arbitrary,
+    Drag,
+    FlatTop,
+    Gaussian,
+    Pulse,
+    Rectangular,
+)
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -113,7 +120,14 @@ class BaseProgram(ABC, QickProgram):
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
         if isinstance(pulse, Rectangular):
-            self.set_pulse_registers(ch=gen_ch, style="const", freq=freq, phase=phase, gain=gain, length=soc_length)
+            self.set_pulse_registers(
+                ch=gen_ch,
+                style="const",
+                freq=freq,
+                phase=phase,
+                gain=gain,
+                length=soc_length,
+            )
             return
 
         if isinstance(pulse, Gaussian):
@@ -135,6 +149,13 @@ class BaseProgram(ABC, QickProgram):
                     alpha=pulse.beta,
                     length=soc_length,
                 )
+                self.registered_waveforms[gen_ch].append(name)
+        elif isinstance(pulse, FlatTop):
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+            name = f"{gen_ch}_flattop_{round(sigma, 2)}_{round(soc_length), 2}"
+            if name not in self.registered_waveforms[gen_ch]:
+                self.set_pulse_registers(ch=gen_ch, style="flat_top", freq=freq, gain=gain, length=soc_length)
+
                 self.registered_waveforms[gen_ch].append(name)
         elif isinstance(pulse, Arbitrary):
             name = pulse.name
@@ -167,7 +188,10 @@ class BaseProgram(ABC, QickProgram):
         self.pulse(ch=pulse.dac, t=0)
 
     def execute_readout_pulse(
-        self, pulse: Pulse, muxed_pulses_executed: List[Pulse], muxed_ro_executed_indexes: List[int]
+        self,
+        pulse: Pulse,
+        muxed_pulses_executed: List[Pulse],
+        muxed_ro_executed_indexes: List[int],
     ):
         """Register a readout pulse and perform a measurement."""
         adcs = []

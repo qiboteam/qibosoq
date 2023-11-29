@@ -61,6 +61,15 @@ class Drag(Pulse):
 
 
 @dataclass
+class FlatTop(Pulse):
+    """FlatTop pulse."""
+
+    rel_sigma: float
+    """Sigma of the FlatTop as a fraction of duration."""
+    shape: str = "flattop"
+
+
+@dataclass
 class FluxExponential(Pulse):
     """Flux pulse with exponential rising edge to correct distortions."""
 
