@@ -157,7 +157,8 @@ class BaseProgram(ABC, QickProgram):
                 self.set_pulse_registers(ch=gen_ch, style="flat_top", freq=freq, gain=gain, length=soc_length)
 
                 self.registered_waveforms[gen_ch].append(name)
-        elif isinstance(pulse, Arbitrary):
+        else:
+            assert isinstance(pulse, Arbitrary)
             name = pulse.name
             if name not in self.registered_waveforms[gen_ch]:
                 self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)

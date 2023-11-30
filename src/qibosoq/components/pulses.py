@@ -2,9 +2,10 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List
+from typing import List, Union
 
 import numpy as np
+from qick.averager_program import QickRegister
 
 
 @dataclass
@@ -17,7 +18,7 @@ class Pulse:
     """Amplitude factor, multiplied by maximum gain of the DAC."""
     relative_phase: int
     """Relative phase (degrees)."""
-    start_delay: float = field(compare=False)
+    start_delay: Union[float, QickRegister] = field(compare=False)
     """Delay before pulse is triggered (us)."""
     duration: float
     """Duration of the pulse (us)."""
@@ -101,5 +102,6 @@ class Shape(Enum):
     RECTANGULAR = Rectangular
     GAUSSIAN = Gaussian
     DRAG = Drag
-    ARBITRARY = Arbitrary
     FLUXEXPONENTIAL = FluxExponential
+    FLATTOP = FlatTop
+    ARBITRARY = Arbitrary
