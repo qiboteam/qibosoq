@@ -154,7 +154,16 @@ class BaseProgram(ABC, QickProgram):
             sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
             name = f"{gen_ch}_flattop_{round(sigma, 2)}_{round(soc_length), 2}"
             if name not in self.registered_waveforms[gen_ch]:
-                self.set_pulse_registers(ch=gen_ch, style="flat_top", freq=freq, gain=gain, length=soc_length)
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                self.set_pulse_registers(
+                    ch=gen_ch,
+                    style="flat_top",
+                    freq=freq,
+                    phase=phase,
+                    gain=gain,
+                    length=soc_length,
+                    waveform=name,
+                )
 
                 self.registered_waveforms[gen_ch].append(name)
         else:

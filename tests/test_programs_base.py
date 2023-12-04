@@ -161,6 +161,7 @@ def test_add_pulse_to_register(execute_pulse_sequence):
     execute_pulse_sequence.add_pulse_to_register(pulse1)
     execute_pulse_sequence.add_pulse_to_register(pulse2)
     execute_pulse_sequence.add_pulse_to_register(pulse3)
+    execute_pulse_sequence.add_pulse_to_register(pulse4)
 
 
 def test_body(soc):
