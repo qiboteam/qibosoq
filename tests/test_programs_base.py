@@ -8,7 +8,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Arbitrary, Drag, Gaussian, Rectangular
+from qibosoq.components.pulses import Arbitrary, Drag, FlatTop, Gaussian, Rectangular
 from qibosoq.programs.base import BaseProgram
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 
@@ -143,6 +143,18 @@ def test_add_pulse_to_register(execute_pulse_sequence):
         adc=None,
         i_values=[0.2] * 64,
         q_values=[0.2] * 64,
+    )
+    pulse4 = FlatTop(
+        frequency=100,
+        amplitude=0.1,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.04,
+        name="pulse2",
+        type="drive",
+        dac=3,
+        adc=None,
+        rel_sigma=2,
     )
 
     execute_pulse_sequence.add_pulse_to_register(pulse0)
