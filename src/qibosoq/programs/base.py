@@ -129,6 +129,22 @@ class BaseProgram(ABC, QickProgram):
                 length=soc_length,
             )
             return
+        if isinstance(pulse, FlatTop):
+            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+            name = f"{gen_ch}_flattop_{round(sigma, 2)}_{round(soc_length), 2}"
+            if name not in self.registered_waveforms[gen_ch]:
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+                self.registered_waveforms[gen_ch].append(name)
+            self.set_pulse_registers(
+                ch=gen_ch,
+                style="flat_top",
+                freq=freq,
+                phase=phase,
+                gain=gain,
+                waveform=name,
+                length=soc_length,
+            )
+            return
 
         if isinstance(pulse, Gaussian):
             sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
@@ -149,22 +165,6 @@ class BaseProgram(ABC, QickProgram):
                     alpha=pulse.beta,
                     length=soc_length,
                 )
-                self.registered_waveforms[gen_ch].append(name)
-        elif isinstance(pulse, FlatTop):
-            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
-            name = f"{gen_ch}_flattop_{round(sigma, 2)}_{round(soc_length), 2}"
-            if name not in self.registered_waveforms[gen_ch]:
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
-                self.set_pulse_registers(
-                    ch=gen_ch,
-                    style="flat_top",
-                    freq=freq,
-                    phase=phase,
-                    gain=gain,
-                    length=soc_length,
-                    waveform=name,
-                )
-
                 self.registered_waveforms[gen_ch].append(name)
         else:
             assert isinstance(pulse, Arbitrary)
