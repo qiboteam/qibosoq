@@ -130,6 +130,7 @@ class BaseProgram(ABC, QickProgram):
             )
             return
         if isinstance(pulse, FlatTop):
+            soc_length = soc_length / 2  # required for unknown reasons probably linked to add.gauss
             sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
             name = f"{gen_ch}_flattop_{round(sigma, 2)}_{round(soc_length), 2}"
             if name not in self.registered_waveforms[gen_ch]:
