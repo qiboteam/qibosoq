@@ -39,5 +39,5 @@ Now the installation can be done in normal mode or in developer mode (using ``po
     For running qibosoq on board, sudo privileges are required, so the installation must be done with:
 .. code-block:: bash
 
-    sudo -i python -m pip install <path_to_qibosoq>  # normal mode
-    sudo -i python -m poetry install <path_to_qibosoq> # developer mode
+    sudo -E python -m pip install <path_to_qibosoq>  # normal mode
+    sudo -E python -m poetry install <path_to_qibosoq> # developer mode

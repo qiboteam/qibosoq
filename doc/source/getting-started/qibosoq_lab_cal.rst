@@ -387,7 +387,7 @@ For Qibosoq, the experiment needs to be defined from scratch as per the time of 
 
   results = []
   for freq in frequencies:
-      server_commands["sequence"][0].frequency = freq
+      server_commands["sequence"][0].frequency = int(freq)
       i, q = execute(server_commands, HOST, PORT)
       results.append(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0])))
 
@@ -534,7 +534,7 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
   qubit = Qubit()
 
   server_commands = {
-      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "operation_code": OperationCode.EXECUTE_SWEEPS,
       "cfg": config,
       "sequence": sequence,
       "qubits": [qubit],
@@ -543,7 +543,7 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
 
   i, q = execute(server_commands, HOST, PORT)
 
-  frequency = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  frequency = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(frequency, np.abs(results))
 
@@ -690,7 +690,7 @@ The experiment is similar to the ones before it, we just need to change a couple
   qubit = Qubit()
 
   server_commands = {
-      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "operation_code": OperationCode.EXECUTE_SWEEPS,
       "cfg": config,
       "sequence": sequence,
       "qubits": [qubit],
@@ -699,7 +699,7 @@ The experiment is similar to the ones before it, we just need to change a couple
 
   i, q = execute(server_commands, HOST, PORT)
 
-  amplitudes = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  amplitudes = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(amplitudes, np.abs(results))
 
@@ -846,7 +846,7 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
   qubit = Qubit()
 
   server_commands = {
-      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "operation_code": OperationCode.EXECUTE_SWEEPS,
       "cfg": config,
       "sequence": sequence,
       "qubits": [qubit],
@@ -855,7 +855,7 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
 
   i, q = execute(server_commands, HOST, PORT)
 
-  delays = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  delays = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(delays, np.abs(results))
 
@@ -994,9 +994,19 @@ For Qibosoq we just need to deactivate the averaging option in the Config object
       "qubits": [qubit],
   }
 
-  i, q = execute(server_commands, HOST, PORT)
+  i1, q1 = execute(server_commands, HOST, PORT)
 
-  plt.scatter(i[0][0], q[0][0])
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence[1:],
+      "qubits": [qubit],
+  }
+
+  i2, q2 = execute(server_commands, HOST, PORT)
+
+  plt.scatter(i1[0][0], q1[0][0])
+  plt.scatter(i2[0][0], q2[0][0])
 
 Qibolab
 -------

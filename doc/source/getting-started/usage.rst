@@ -20,9 +20,9 @@ A list of the configurable variables (with values set to the default ones) is th
    # program logger name
    export QIBOSOQ_PROGRAM_LOGGER_NAME=qick_logger
    # bitsream path
-   export QIBOSOQ_BITSTREAM=/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit
+   export QIBOSOQ_BITSTREAM=/usr/local/share/pynq-venv/lib/python3.10/site-packages/qick/qick_111.bit
    # is the readout multiplexed?
-   export QIBOSOQ_IS_MULTIPLEXED=True
+   export QIBOSOQ_IS_MULTIPLEXED=False
 
 
 Running the server
@@ -33,6 +33,7 @@ To run the server:
 .. code-block:: bash
 
     nohup sudo -E python -m qibosoq &
+    sudo -E python -m qibosoq  # or with on-screen output
 
 To close the server you will need to find the PID of the process (present in the second line of the log file) and:
 
