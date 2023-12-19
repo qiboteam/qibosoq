@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 from qick.averager_program import QickRegister
@@ -33,12 +33,24 @@ class Pulse:
     adc: int
     """ADC to acquire pulse back, for readout pulses."""
 
+    def get_waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return None
+
+    def get_waveform_style(self) -> Optional[str]:
+        """Return waveform style from parameters."""
+        return "arb"
+
 
 @dataclass
 class Rectangular(Pulse):
     """Rectangular pulse."""
 
     shape: str = "rectangular"
+
+    def get_waveform_style(self) -> Optional[str]:
+        """Return waveform style from parameters."""
+        return "const"
 
 
 @dataclass
@@ -48,6 +60,10 @@ class Gaussian(Pulse):
     rel_sigma: float
     """Sigma of the gaussian as a fraction of duration."""
     shape: str = "gaussian"
+
+    def get_waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_gaus_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}"
 
 
 @dataclass
@@ -60,6 +76,10 @@ class Drag(Pulse):
     """Beta parameter for drag pulse."""
     shape: str = "drag"
 
+    def get_waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_drag_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}_{round(self.beta, 2)}"
+
 
 @dataclass
 class FlatTop(Pulse):
@@ -68,6 +88,14 @@ class FlatTop(Pulse):
     rel_sigma: float
     """Sigma of the FlatTop as a fraction of duration."""
     shape: str = "flattop"
+
+    def get_waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
+
+    def get_waveform_style(self) -> Optional[str]:
+        """Return waveform style from parameters."""
+        return "flat_top"
 
 
 @dataclass
@@ -94,6 +122,10 @@ class Arbitrary(Pulse):
     i_values: List[float]
     q_values: List[float]
     shape: str = "arbitrary"
+
+    def get_waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return self.name
 
 
 class Shape(Enum):

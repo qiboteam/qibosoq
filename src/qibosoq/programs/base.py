@@ -10,14 +10,7 @@ from qick import QickProgram, QickSoc
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import (
-    Arbitrary,
-    Drag,
-    FlatTop,
-    Gaussian,
-    Pulse,
-    Rectangular,
-)
+from qibosoq.components.pulses import Drag, FlatTop, Gaussian, Pulse, Rectangular
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -119,6 +112,44 @@ class BaseProgram(ABC, QickProgram):
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
+        name = pulse.get_waveform_name()
+        style = pulse.get_waveform_style()
+
+        if name is not None and name not in self.registered_waveforms[gen_ch]:
+            if isinstance(pulse, Gaussian):
+                sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+            elif isinstance(pulse, FlatTop):
+                soc_length /= 2  # required for unknown reasons
+                sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+            elif isinstance(pulse, Drag):
+                delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
+                sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+                self.add_DRAG(
+                    ch=gen_ch,
+                    name=name,
+                    sigma=sigma,
+                    delta=delta,
+                    alpha=pulse.beta,
+                    length=soc_length,
+                )
+            self.registered_waveforms[gen_ch].append(name)
+
+        args = {"waveform": name} if name is not None else {}
+        if isinstance(pulse, Rectangular) or isinstance(pulse, FlatTop):
+            args["length"] = soc_length
+
+        self.set_pulse_registers(
+            ch=gen_ch,
+            style=style,
+            freq=freq,
+            phase=phase,
+            gain=gain,
+            *args,
+        )
+
+        """
         if isinstance(pulse, Rectangular):
             self.set_pulse_registers(
                 ch=gen_ch,
@@ -182,6 +213,7 @@ class BaseProgram(ABC, QickProgram):
             gain=gain,
             waveform=name,
         )
+        """
 
     def execute_drive_pulse(self, pulse: Pulse, last_pulse_registered: Dict):
         """Register a drive pulse if needed, then trigger the respective DAC.
