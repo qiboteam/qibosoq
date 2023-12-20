@@ -147,7 +147,7 @@ class BaseProgram(ABC, QickProgram):
             self.registered_waveforms[gen_ch].append(name)
 
         args = {"waveform": name} if name is not None else {}
-        if isinstance(pulse, Rectangular) or isinstance(pulse, FlatTop):
+        if isinstance(pulse, (Rectangular, FlatTop)):
             args["length"] = soc_length
 
         self.set_pulse_registers(
