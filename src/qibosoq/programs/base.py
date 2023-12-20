@@ -119,8 +119,7 @@ class BaseProgram(ABC, QickProgram):
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
-        name = pulse.get_waveform_name()
-        style = pulse.get_waveform_style()
+        name = pulse.waveform_name
 
         if name is not None and name not in self.registered_waveforms[gen_ch]:
             if isinstance(pulse, Gaussian):
@@ -152,7 +151,7 @@ class BaseProgram(ABC, QickProgram):
 
         self.set_pulse_registers(
             ch=gen_ch,
-            style=style,
+            style=pulse.style,
             freq=freq,
             phase=phase,
             gain=gain,

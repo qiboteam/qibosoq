@@ -33,11 +33,13 @@ class Pulse:
     adc: int
     """ADC to acquire pulse back, for readout pulses."""
 
-    def get_waveform_name(self) -> Optional[str]:
+    @property
+    def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
         return None
 
-    def get_waveform_style(self) -> Optional[str]:
+    @property
+    def style(self) -> Optional[str]:
         """Return waveform style from parameters."""
         return "arb"
 
@@ -48,7 +50,8 @@ class Rectangular(Pulse):
 
     shape: str = "rectangular"
 
-    def get_waveform_style(self) -> Optional[str]:
+    @property
+    def style(self) -> Optional[str]:
         """Return waveform style from parameters."""
         return "const"
 
@@ -61,7 +64,8 @@ class Gaussian(Pulse):
     """Sigma of the gaussian as a fraction of duration."""
     shape: str = "gaussian"
 
-    def get_waveform_name(self) -> Optional[str]:
+    @property
+    def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
         return f"{self.dac}_gaus_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}"
 
@@ -76,7 +80,8 @@ class Drag(Pulse):
     """Beta parameter for drag pulse."""
     shape: str = "drag"
 
-    def get_waveform_name(self) -> Optional[str]:
+    @property
+    def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
         return f"{self.dac}_drag_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}_{round(self.beta, 2)}"
 
@@ -89,11 +94,13 @@ class FlatTop(Pulse):
     """Sigma of the FlatTop as a fraction of duration."""
     shape: str = "flattop"
 
-    def get_waveform_name(self) -> Optional[str]:
+    @property
+    def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
         return f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
 
-    def get_waveform_style(self) -> Optional[str]:
+    @property
+    def style(self) -> Optional[str]:
         """Return waveform style from parameters."""
         return "flat_top"
 
@@ -123,7 +130,8 @@ class Arbitrary(Pulse):
     q_values: List[float]
     shape: str = "arbitrary"
 
-    def get_waveform_name(self) -> Optional[str]:
+    @property
+    def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
         return self.name
 
