@@ -1754,19 +1754,22 @@ cffi = {version = "*", markers = "implementation_name == \"pypy\""}
 
 [[package]]
 name = "qick"
-version = "0.2.135"
+version = "0.2.165"
 description = "Quantum Instrumentation Controller Kit software library"
 optional = false
 python-versions = ">=3.6, <4"
 files = [
-    {file = "qick-0.2.135-py3-none-any.whl", hash = "sha256:e1bbefef86aae3aa014e93d05fffe6b6d7457ca4a735aef4dabdf73600039cff"},
-    {file = "qick-0.2.135.tar.gz", hash = "sha256:dd3055dc7de51c2e34e4e992d15901a662693b3612d82c9a6deb4dc4aff3e098"},
+    {file = "qick-0.2.165-py3-none-any.whl", hash = "sha256:0d08e8bd0bea1cf2c9b10f710055e70a04d166591297d77f04dcafcb824cc46c"},
+    {file = "qick-0.2.165.tar.gz", hash = "sha256:6a42f54bce9abc68cc3f2c4038fad1341ec4b7a9f63dd976af1bf4b00f2a32fc"},
 ]
 
 [package.dependencies]
 numpy = "*"
 pynq = {version = ">=2.6", markers = "platform_machine == \"aarch64\" or platform_machine == \"armv7l\""}
 tqdm = "*"
+
+[package.extras]
+full = ["pyro4"]
 
 [[package]]
 name = "recommonmark"
@@ -2363,4 +2366,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.12"
-content-hash = "1c9404ddfe2ecd95ab2a98e1994a711f9f60f31aa7b0b21587b6c088d8830fbd"
+content-hash = "8dc0e741299c4e73356eca17fde224aa48dec66dbf48bfb126fc3a93a4a5cba9"
