@@ -52,9 +52,13 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         for idx, par in enumerate(sweeper.parameters):
             if par is Parameter.BIAS:
                 if any(pulse.type == "flux" for pulse in self.sequence):
-                    raise NotImplementedError("Sweepers on bias are not compatible with flux pulses.")
+                    raise NotImplementedError(
+                        "Sweepers on bias are not compatible with flux pulses."
+                    )
                 if any(par is not Parameter.BIAS for par in sweeper.parameters):
-                    raise NotImplementedError("Sweepers on bias cannot be swept at the same time with other sweepers.")
+                    raise NotImplementedError(
+                        "Sweepers on bias cannot be swept at the same time with other sweepers."
+                    )
                 qubit = self.qubits[sweeper.indexes[idx]]
                 if qubit.dac is None or qubit.bias is None:
                     raise ValueError(f"Bias swept qubit had incomplete values: {qubit}")
@@ -62,7 +66,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                 raise NotImplementedError("Sweepers on duration are not implemented.")
             else:
                 if self.sequence[sweeper.indexes[idx]].type == "flux":
-                    raise NotImplementedError("Sweepers on flux pulses are not implemented.")
+                    raise NotImplementedError(
+                        "Sweepers on flux pulses are not implemented."
+                    )
 
     def add_sweep_info(self, sweeper: Sweeper):
         """Register RfsocSweep objects.

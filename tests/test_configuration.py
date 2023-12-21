@@ -38,5 +38,7 @@ def test_configuration_default():
     assert cfg.MAIN_LOGGER_NAME == "qibosoq_logger"
     assert cfg.PROGRAM_LOGGER_FILE == "/home/xilinx/logs/program.log"
     assert cfg.PROGRAM_LOGGER_NAME == "qick_program"
-    assert cfg.QICKSOC_LOCATION == "/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit"
+    assert (
+        cfg.QICKSOC_LOCATION == "/home/xilinx/jupyter_notebooks/qick_111_rfbv1_mux.bit"
+    )
     assert cfg.IS_MULTIPLEXED is True

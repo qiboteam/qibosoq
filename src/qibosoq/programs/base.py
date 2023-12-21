@@ -25,7 +25,9 @@ logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 class BaseProgram(ABC, QickProgram):
     """Abstract class for QickPrograms."""
 
-    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
+    def __init__(
+        self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]
+    ):
         """In this function we define the most important settings.
 
         In detail:
@@ -48,7 +50,9 @@ class BaseProgram(ABC, QickProgram):
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
-        self.readouts_per_experiment = len([pulse for pulse in self.sequence if pulse.type == "readout"])
+        self.readouts_per_experiment = len(
+            [pulse for pulse in self.sequence if pulse.type == "readout"]
+        )
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
         self.syncdelay = self.us2cycles(0)
@@ -87,7 +91,9 @@ class BaseProgram(ABC, QickProgram):
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies."""
         adc_ch_already_declared = []
-        for readout_pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
+        for readout_pulse in (
+            pulse for pulse in self.sequence if pulse.type == "readout"
+        ):
             adc_ch = readout_pulse.adc
             ro_ch = readout_pulse.dac
             if adc_ch not in adc_ch_already_declared:
@@ -130,7 +136,11 @@ class BaseProgram(ABC, QickProgram):
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
             elif isinstance(pulse, Drag):
-                delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
+                delta = (
+                    -self.soccfg["gens"][gen_ch]["samps_per_clk"]
+                    * self.soccfg["gens"][gen_ch]["f_fabric"]
+                    / 2
+                )
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_DRAG(
                     ch=gen_ch,
@@ -167,7 +177,8 @@ class BaseProgram(ABC, QickProgram):
 
         """
         if not self.pulses_registered and (
-            pulse.dac not in last_pulse_registered or pulse != last_pulse_registered[pulse.dac]
+            pulse.dac not in last_pulse_registered
+            or pulse != last_pulse_registered[pulse.dac]
         ):
             self.add_pulse_to_register(pulse)
             last_pulse_registered[pulse.dac] = pulse
@@ -184,7 +195,11 @@ class BaseProgram(ABC, QickProgram):
         if self.is_mux:
             if pulse in muxed_pulses_executed:
                 return
-            idx_mux = next(idx for idx, mux_time in enumerate(self.multi_ro_pulses) if pulse in mux_time)
+            idx_mux = next(
+                idx
+                for idx, mux_time in enumerate(self.multi_ro_pulses)
+                if pulse in mux_time
+            )
             self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
             muxed_ro_executed_indexes.append(idx_mux)
             for ro_pulse in self.multi_ro_pulses[idx_mux]:
