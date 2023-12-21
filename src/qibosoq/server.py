@@ -22,7 +22,7 @@ qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
-    """Convert a list of elements in dict form (pulses or measurements) to a list of Pulse objects."""
+    """Convert a list of elements in dict form to a list of Pulse objects."""
     obj_sequence = []
     for element in list_sequence:
         if "amplitude" in element:  # if element is a pulse
