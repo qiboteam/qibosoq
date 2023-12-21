@@ -8,7 +8,7 @@ from qick.averager_program import QickSweep, merge_sweeps
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
-from qibosoq.components.pulses import Element, Pulse
+from qibosoq.components.pulses import Element
 from qibosoq.programs.flux import FluxProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -95,11 +95,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                     sweeper.expts,  # number of points
                 )
                 sweep_list.append(new_sweep)
-        else:
-            for idx, jdx in enumerate(sweeper.indexes):
-                pulse = self.sequence[jdx]
-                assert isinstance(pulse, Pulse)
-                gen_ch = pulse.dac
 
             self.add_sweep(merge_sweeps(sweep_list))
             return
