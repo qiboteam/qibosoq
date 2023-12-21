@@ -67,7 +67,9 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         programcls = ExecuteSweeps
         args = load_sweeps(data["sweepers"])
     else:
-        raise NotImplementedError(f"Operation code {data['operation_code']} not supported")
+        raise NotImplementedError(
+            f"Operation code {data['operation_code']} not supported"
+        )
 
     program = programcls(
         qick_soc,
@@ -85,7 +87,8 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     max_mem = qick_soc["tprocs"][0]["pmem_size"]
     if num_instructions > max_mem:
         raise MemoryError(
-            f"The tproc has a max memory size of {max_mem}, but the program had {num_instructions} instructions"
+            f"The tproc has a max memory size of {max_mem}, "
+            f"but the program had {num_instructions} instructions"
         )
 
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:

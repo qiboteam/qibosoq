@@ -98,7 +98,10 @@ class Drag(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        return f"{self.dac}_drag_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}_{round(self.beta, 2)}"
+        rel_sigma = round(self.rel_sigma, 2)
+        duration = round(self.duration, 2)
+        beta = round(self.beta, 2)
+        return f"{self.dac}_drag_{rel_sigma}_{duration}_{beta}"
 
 
 @dataclass
@@ -112,7 +115,9 @@ class FlatTop(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        return f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
+        return (
+            f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
+        )
 
     @property
     def style(self) -> Optional[str]:
@@ -133,7 +138,9 @@ class FluxExponential(Pulse):
         """Compute the waveform i values."""
         amp = int(self.amplitude * max_gain)
         time = np.arange(duration)
-        i_vals = (np.ones(duration) * np.exp(-time / self.upsilon)) + self.weight * np.exp(-time / self.tau)
+        i_vals = (
+            np.ones(duration) * np.exp(-time / self.upsilon)
+        ) + self.weight * np.exp(-time / self.tau)
         return amp * i_vals / (1 + self.weight)
 
 

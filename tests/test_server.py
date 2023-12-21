@@ -145,11 +145,15 @@ def test_execute_program(mocker, soc):
         ],
     }
 
-    mocker.patch("qibosoq.programs.base.BaseProgram.perform_experiment", return_value=res)
+    mocker.patch(
+        "qibosoq.programs.base.BaseProgram.perform_experiment", return_value=res
+    )
     execute_program(commands, soc)
 
     commands["operation_code"] = 2
-    mocker.patch("qibosoq.programs.base.BaseProgram.acquire_decimated", return_value=res)
+    mocker.patch(
+        "qibosoq.programs.base.BaseProgram.acquire_decimated", return_value=res
+    )
     execute_program(commands, soc)
 
     commands["sweepers"] = [

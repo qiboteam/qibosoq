@@ -313,15 +313,21 @@ def test_execute_readout_pulse(soc):
     muxed_pulse_executed = []
     muxed_ro_executed_indexes = []
 
-    program.execute_readout_pulse(sequence[0], muxed_pulse_executed, muxed_ro_executed_indexes)
+    program.execute_readout_pulse(
+        sequence[0], muxed_pulse_executed, muxed_ro_executed_indexes
+    )
     if program.is_mux:
         assert len(muxed_pulse_executed) == 2
         assert muxed_ro_executed_indexes == [0]
-    program.execute_readout_pulse(sequence[1], muxed_pulse_executed, muxed_ro_executed_indexes)
+    program.execute_readout_pulse(
+        sequence[1], muxed_pulse_executed, muxed_ro_executed_indexes
+    )
     if program.is_mux:
         assert len(muxed_pulse_executed) == 2
         assert muxed_ro_executed_indexes == [0]
-    program.execute_readout_pulse(sequence[2], muxed_pulse_executed, muxed_ro_executed_indexes)
+    program.execute_readout_pulse(
+        sequence[2], muxed_pulse_executed, muxed_ro_executed_indexes
+    )
     if program.is_mux:
         assert len(muxed_pulse_executed) == 4
         assert muxed_ro_executed_indexes == [0, 1]

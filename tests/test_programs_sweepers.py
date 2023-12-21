@@ -65,11 +65,27 @@ def execute_sweeps(soc):
             stops=np.array([100]),
             indexes=[0],
         ),
-        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=np.array([0]), stops=np.array([100]), indexes=[0]),
         Sweeper(
-            expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=np.array([0]), stops=np.array([100]), indexes=[0]
+            expts=1000,
+            parameters=[Parameter.AMPLITUDE],
+            starts=np.array([0]),
+            stops=np.array([100]),
+            indexes=[0],
         ),
-        Sweeper(expts=1000, parameters=[Parameter.DELAY], starts=np.array([0]), stops=np.array([1]), indexes=[0]),
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.RELATIVE_PHASE],
+            starts=np.array([0]),
+            stops=np.array([100]),
+            indexes=[0],
+        ),
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.DELAY],
+            starts=np.array([0]),
+            stops=np.array([1]),
+            indexes=[0],
+        ),
     )
 
     qubits = [Qubit()]
@@ -103,7 +119,15 @@ def test_set_bias_sweep(soc):
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 2)]
     sweepers = tuple(
-        [Sweeper(expts=100, parameters=[Parameter.BIAS], starts=np.array([0]), stops=np.array([1]), indexes=[0])]
+        [
+            Sweeper(
+                expts=100,
+                parameters=[Parameter.BIAS],
+                starts=np.array([0]),
+                stops=np.array([1]),
+                indexes=[0],
+            )
+        ]
     )
 
     program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
@@ -113,17 +137,37 @@ def test_set_bias_sweep(soc):
 
 def test_reversed_sweepers(execute_sweeps):
     sweepers = Sweeper(
-        expts=1000, parameters=[Parameter.FREQUENCY], starts=np.array([0]), stops=np.array([100]), indexes=[0]
+        expts=1000,
+        parameters=[Parameter.FREQUENCY],
+        starts=np.array([0]),
+        stops=np.array([100]),
+        indexes=[0],
     )
     converted = reversed_sweepers(sweepers)
     assert isinstance(converted, list)
     assert converted[0] == sweepers
 
     sweepers = (
-        Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=np.array([0]), stops=np.array([100]), indexes=[0]),
-        Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=np.array([0]), stops=np.array([100]), indexes=[0]),
         Sweeper(
-            expts=1000, parameters=[Parameter.RELATIVE_PHASE], starts=np.array([0]), stops=np.array([100]), indexes=[0]
+            expts=1000,
+            parameters=[Parameter.FREQUENCY],
+            starts=np.array([0]),
+            stops=np.array([100]),
+            indexes=[0],
+        ),
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.AMPLITUDE],
+            starts=np.array([0]),
+            stops=np.array([100]),
+            indexes=[0],
+        ),
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.RELATIVE_PHASE],
+            starts=np.array([0]),
+            stops=np.array([100]),
+            indexes=[0],
         ),
     )
     converted = reversed_sweepers(sweepers)
@@ -148,11 +192,27 @@ def test_check_validity_sweep(soc):
         ),
     ]
 
-    sweepers = [Sweeper(expts=1000, parameters=[Parameter.FREQUENCY], starts=[0], stops=[100], indexes=[0])]
+    sweepers = [
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.FREQUENCY],
+            starts=[0],
+            stops=[100],
+            indexes=[0],
+        )
+    ]
     qubits = [Qubit()]
     program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
 
-    sweepers = [Sweeper(expts=1000, parameters=[Parameter.BIAS], starts=[0], stops=[100], indexes=[0])]
+    sweepers = [
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.BIAS],
+            starts=[0],
+            stops=[100],
+            indexes=[0],
+        )
+    ]
 
     with pytest.raises(ValueError):
         program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
@@ -170,7 +230,15 @@ def test_check_validity_sweep(soc):
             adc=0,
         ),
     ]
-    sweepers = [Sweeper(expts=1000, parameters=[Parameter.BIAS], starts=[0], stops=[100], indexes=[0])]
+    sweepers = [
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.BIAS],
+            starts=[0],
+            stops=[100],
+            indexes=[0],
+        )
+    ]
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence_flux, qubits, *sweepers)
 
@@ -178,16 +246,38 @@ def test_check_validity_sweep(soc):
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence_flux, qubits_flux, *sweepers)
 
-    sweepers = [Sweeper(expts=1000, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[1], indexes=[0])]
+    sweepers = [
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.AMPLITUDE],
+            starts=[0],
+            stops=[1],
+            indexes=[0],
+        )
+    ]
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence_flux, qubits, *sweepers)
 
-    sweepers = [Sweeper(expts=1000, parameters=[Parameter.DURATION], starts=[0], stops=[1], indexes=[0])]
+    sweepers = [
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.DURATION],
+            starts=[0],
+            stops=[1],
+            indexes=[0],
+        )
+    ]
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence, qubits, *sweepers)
 
     sweepers = [
-        Sweeper(expts=1000, parameters=[Parameter.BIAS, Parameter.AMPLITUDE], starts=[0, 0], stops=[1, 1], indexes=[0])
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.BIAS, Parameter.AMPLITUDE],
+            starts=[0, 0],
+            stops=[1, 1],
+            indexes=[0],
+        )
     ]
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence, qubits_flux, *sweepers)
