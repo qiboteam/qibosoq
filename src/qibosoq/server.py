@@ -13,7 +13,7 @@ from qick import QickSoc
 
 import qibosoq.configuration as cfg
 from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
-from qibosoq.components.pulses import Pulse, Shape
+from qibosoq.components.pulses import Element, Measurement, Shape
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 from qibosoq.programs.sweepers import ExecuteSweeps
 
@@ -21,13 +21,16 @@ logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
 
-def load_pulses(list_sequence: List[Dict]) -> List[Pulse]:
-    """Convert a list of pulses (in dict form) to a list of Pulse objects."""
+def load_elements(list_sequence: List[Dict]) -> List[Element]:
+    """Convert a list of elements in dict form to a list of Pulse objects."""
     obj_sequence = []
-    for pulse in list_sequence:
-        cls = Shape[pulse["shape"].upper()].value
-        converted_pulse = cls(**pulse)
-        obj_sequence.append(converted_pulse)
+    for element in list_sequence:
+        if "amplitude" in element:  # if element is a pulse
+            cls = Shape[element["shape"].upper()].value
+            converted_pulse = cls(**element)
+            obj_sequence.append(converted_pulse)
+        else:  # if element is a measurement
+            obj_sequence.append(Measurement(**element))
     return obj_sequence
 
 
@@ -71,7 +74,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     program = programcls(
         qick_soc,
         Config(**data["cfg"]),
-        load_pulses(data["sequence"]),
+        load_elements(data["sequence"]),
         [Qubit(**qubit) for qubit in data["qubits"]],
         *args,
     )

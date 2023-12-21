@@ -8,7 +8,14 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Arbitrary, Drag, FlatTop, Gaussian, Rectangular
+from qibosoq.components.pulses import (
+    Arbitrary,
+    Drag,
+    FlatTop,
+    Gaussian,
+    Measurement,
+    Rectangular,
+)
 from qibosoq.programs.base import BaseProgram
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 
@@ -55,6 +62,14 @@ def execute_pulse_sequence(soc):
             dac=6,
             adc=0,
         ),
+        Measurement(
+            type="readout",
+            frequency=100,
+            start_delay=0,
+            duration=0.03,
+            adc=0,
+            dac=6,
+        ),
     ]
     qubits = [Qubit()]
 
@@ -85,6 +100,14 @@ def test_declare_nqz_zones(execute_pulse_sequence):
             type="readout",
             dac=6,
             adc=0,
+        ),
+        Measurement(
+            type="readout",
+            frequency=100,
+            start_delay=0,
+            duration=0.03,
+            adc=0,
+            dac=6,
         ),
     ]
     execute_pulse_sequence.declare_nqz_zones(sequence)
@@ -274,6 +297,14 @@ def test_execute_readout_pulse(soc):
             dac=6,
             adc=0,
         ),
+        Measurement(
+            type="readout",
+            frequency=100,
+            start_delay=0,
+            duration=0.04,
+            adc=0,
+            dac=6,
+        ),
     ]
     qubits = [Qubit()]
 
@@ -298,7 +329,7 @@ def test_execute_readout_pulse(soc):
         sequence[2], muxed_pulse_executed, muxed_ro_executed_indexes
     )
     if program.is_mux:
-        assert len(muxed_pulse_executed) == 3
+        assert len(muxed_pulse_executed) == 4
         assert muxed_ro_executed_indexes == [0, 1]
 
 

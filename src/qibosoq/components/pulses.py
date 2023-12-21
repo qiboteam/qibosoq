@@ -2,36 +2,29 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import numpy as np
-from qick.averager_program import QickRegister
 
 
 @dataclass
-class Pulse:
-    """Abstract Pulse object."""
+class Element:
+    """Abstract common oject for pulses and measurements."""
+
+    type: str
+    """Type of the pulse."""
 
     frequency: float
     """Frequency of the pulse (MHz)."""
-    amplitude: float
-    """Amplitude factor, multiplied by maximum gain of the DAC."""
-    relative_phase: int
-    """Relative phase (degrees)."""
-    start_delay: Union[float, QickRegister] = field(compare=False)
+    start_delay: float = field(compare=False)
     """Delay before pulse is triggered (us)."""
     duration: float
     """Duration of the pulse (us)."""
 
-    name: str
-    """Name of the pulse, typically a serial."""
-    type: str
-    """Can be 'readout', 'drive', 'flux'."""
-
-    dac: int
-    """DAC responsible for firing the pulse."""
     adc: int
     """ADC to acquire pulse back, for readout pulses."""
+    dac: int
+    """DAC responsible for firing the pulse."""
 
     @property
     def waveform_name(self) -> Optional[str]:
@@ -42,6 +35,28 @@ class Pulse:
     def style(self) -> Optional[str]:
         """Return waveform style from parameters."""
         return "arb"
+
+
+@dataclass
+class Measurement(Element):
+    """Measurement without pulse."""
+
+    type = "readout"
+
+
+@dataclass
+class Pulse(Element):
+    """Abstract Pulse object."""
+
+    amplitude: float
+    """Amplitude factor, multiplied by maximum gain of the DAC."""
+    relative_phase: int
+    """Relative phase (degrees)."""
+
+    name: str
+    """Name of the pulse, typically a serial."""
+    type: str
+    """Can be 'readout', 'drive', 'flux'."""
 
 
 @dataclass

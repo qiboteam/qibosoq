@@ -93,7 +93,7 @@ Just after qibosoq has received all the data, it converts ``cfg`` back into is o
 sequence
 --------
 
-The ``sequence`` key links to list of :class:`qibosoq.components.pulses.Pulse` objects in the form of dictionaries.
+The ``sequence`` key links to list of :class:`qibosoq.components.pulses.Element` objects in the form of dictionaries (Elements are usually pulses, but can also be just measurements).
 Also this dictionary can be obtained with ``asdict``.
 
 .. code-block:: python
@@ -111,7 +111,7 @@ Also this dictionary can be obtained with ``asdict``.
     }
 
 
-Note that ``qibosoq`` will convert these pulses back to the respective shape objects, so a general :class:`qibosoq.components.pulses.Pulse` will raise an error.
+Note that ``qibosoq``, for Pulse object in dictionary form, will convert these elements back to the respective shape objects, so a general :class:`qibosoq.components.pulses.Pulse` will raise an error.
 
 
 qubits

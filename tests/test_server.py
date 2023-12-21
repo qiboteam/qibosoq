@@ -7,9 +7,9 @@ import qick
 qick.QickSoc = None
 import qibosoq
 from qibosoq.components.base import Parameter
-from qibosoq.components.pulses import Rectangular
+from qibosoq.components.pulses import Measurement, Rectangular
 from qibosoq.log import define_loggers
-from qibosoq.server import execute_program, load_pulses
+from qibosoq.server import execute_program, load_elements
 
 qibosoq.configuration.MAIN_LOGGER_FILE = "/tmp/test_log_rfsoc.log"
 qibosoq.configuration.PROGRAM_LOGGER_FILE = "/tmp/test_log2_rfsoc.log"
@@ -30,7 +30,7 @@ def soc():
     return soc
 
 
-def test_load_pulses():
+def test_load_elements():
     sequence = [
         {
             "shape": "rectangular",
@@ -52,6 +52,14 @@ def test_load_pulses():
             "start_delay": 0.04,
             "duration": 2,
             "name": "readout_pulse",
+            "type": "readout",
+            "dac": 1,
+            "adc": 0,
+        },
+        {
+            "frequency": 6400,  # MHz
+            "start_delay": 0.04,
+            "duration": 2,
             "type": "readout",
             "dac": 1,
             "adc": 0,
@@ -79,9 +87,17 @@ def test_load_pulses():
         dac=1,
         adc=0,
     )
-    sequence_obj = [pulse_1, pulse_2]
+    meas = Measurement(
+        type="readout",
+        frequency=6400,
+        start_delay=0.04,
+        duration=2,
+        dac=1,
+        adc=0,
+    )
+    sequence_obj = [pulse_1, pulse_2, meas]
 
-    assert load_pulses(sequence) == sequence_obj
+    assert load_elements(sequence) == sequence_obj
 
 
 def test_execute_program(mocker, soc):

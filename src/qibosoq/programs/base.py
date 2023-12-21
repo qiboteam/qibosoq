@@ -13,8 +13,10 @@ from qibosoq.components.base import Config, Qubit
 from qibosoq.components.pulses import (
     Arbitrary,
     Drag,
+    Element,
     FlatTop,
     Gaussian,
+    Measurement,
     Pulse,
     Rectangular,
 )
@@ -26,7 +28,7 @@ class BaseProgram(ABC, QickProgram):
     """Abstract class for QickPrograms."""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]
+        self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
     ):
         """In this function we define the most important settings.
 
@@ -42,6 +44,7 @@ class BaseProgram(ABC, QickProgram):
         self.soccfg = soc  # this is used by qick
 
         self.sequence = sequence
+        self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
 
         # general settings
@@ -51,7 +54,7 @@ class BaseProgram(ABC, QickProgram):
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
         self.readouts_per_experiment = len(
-            [pulse for pulse in self.sequence if pulse.type == "readout"]
+            [elem for elem in self.sequence if elem.type == "readout"]
         )
 
         self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
@@ -60,7 +63,7 @@ class BaseProgram(ABC, QickProgram):
 
         self.pulses_registered = False
         self.registered_waveforms: Dict[int, list] = {}
-        for pulse in sequence:
+        for pulse in self.pulse_sequence:
             if pulse.dac not in self.registered_waveforms:
                 self.registered_waveforms[pulse.dac] = []
 
@@ -71,14 +74,14 @@ class BaseProgram(ABC, QickProgram):
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
 
-    def declare_nqz_zones(self, sequence: List[Pulse]):
+    def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
         """Declare nqz zone (1-2) for a given PulseSequence.
 
         Args:
-            sequence (PulseSequence): sequence of pulses to consider
+            pulse_sequence (PulseSequence): pulse_sequence of pulses to consider
         """
         ch_already_declared = []
-        for pulse in sequence:
+        for pulse in pulse_sequence:
             freq = pulse.frequency
             gen_ch = pulse.dac
 
@@ -91,16 +94,14 @@ class BaseProgram(ABC, QickProgram):
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies."""
         adc_ch_already_declared = []
-        for readout_pulse in (
-            pulse for pulse in self.sequence if pulse.type == "readout"
-        ):
-            adc_ch = readout_pulse.adc
-            ro_ch = readout_pulse.dac
+        for readout in (elem for elem in self.sequence if elem.type == "readout"):
+            adc_ch = readout.adc
+            ro_ch = readout.dac
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout_pulse.duration, gen_ch=ro_ch)
+                length = self.soc.us2cycles(readout.duration, gen_ch=ro_ch)
 
-                freq = readout_pulse.frequency
+                freq = readout.frequency
 
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
@@ -186,19 +187,20 @@ class BaseProgram(ABC, QickProgram):
 
     def execute_readout_pulse(
         self,
-        pulse: Pulse,
-        muxed_pulses_executed: List[Pulse],
+        elem: Element,
+        muxed_pulses_executed: List[Element],
         muxed_ro_executed_indexes: List[int],
     ):
         """Register a readout pulse and perform a measurement."""
         adcs = []
         if self.is_mux:
-            if pulse in muxed_pulses_executed:
+            if elem in muxed_pulses_executed:
                 return
+
             idx_mux = next(
                 idx
                 for idx, mux_time in enumerate(self.multi_ro_pulses)
-                if pulse in mux_time
+                if elem in mux_time
             )
             self.add_muxed_readout_to_register(self.multi_ro_pulses[idx_mux])
             muxed_ro_executed_indexes.append(idx_mux)
@@ -206,17 +208,22 @@ class BaseProgram(ABC, QickProgram):
                 adcs.append(ro_pulse.adc)
                 muxed_pulses_executed.append(ro_pulse)
         else:
-            if not self.pulses_registered:
-                self.add_pulse_to_register(pulse)
-            adcs = [pulse.adc]
+            if not self.pulses_registered and isinstance(elem, Pulse):
+                self.add_pulse_to_register(elem)
+            adcs = [elem.adc]
 
-        self.measure(
-            pulse_ch=pulse.dac,
-            adcs=adcs,
-            adc_trig_offset=self.adc_trig_offset,
-            wait=False,
-            syncdelay=self.syncdelay,
-        )
+        if isinstance(elem, Pulse):  #
+            self.measure(
+                pulse_ch=elem.dac,
+                adcs=adcs,
+                adc_trig_offset=self.adc_trig_offset,
+                wait=False,
+                syncdelay=self.syncdelay,
+            )
+        elif isinstance(elem, Measurement):
+            self.trigger(adcs, adc_trig_offset=self.adc_trig_offset)
+            if self.syncdelay is not None:
+                self.sync_all(self.syncdelay)
 
     def perform_experiment(
         self,
@@ -254,11 +261,11 @@ class BaseProgram(ABC, QickProgram):
 
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
-        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
-            adc_ch = pulse.adc
-            ro_ch = pulse.dac
+        for elem in (elem for elem in self.sequence if elem.type == "readout"):
+            adc_ch = elem.adc
+            ro_ch = elem.dac
             if adc_ch not in adcs:
-                lengths.append(self.soc.us2cycles(pulse.duration, gen_ch=ro_ch))
+                lengths.append(self.soc.us2cycles(elem.duration, gen_ch=ro_ch))
             adcs.append(adc_ch)
 
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
@@ -281,7 +288,10 @@ class BaseProgram(ABC, QickProgram):
         mux_gains = []
 
         ro_ch = None
+        zone = 1
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
+            if not isinstance(pulse, Pulse):
+                continue
             adc_ch = pulse.adc
             ro_ch = pulse.dac
 
@@ -291,8 +301,10 @@ class BaseProgram(ABC, QickProgram):
                 zone = 1 if freq < self.soccfg["gens"][ro_ch]["fs"] / 2 else 2
                 mux_freqs.append(freq)
                 mux_gains.append(pulse.amplitude)
+
         if ro_ch is None:
             return
+
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,
@@ -322,7 +334,7 @@ class BaseProgram(ABC, QickProgram):
         Example of list:
         [[pulse1, pulse2], [pulse3]]
         """
-        mux_list: List[List[Pulse]] = []
+        mux_list: List[List[Element]] = []
         len_last_readout = 0.0
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if pulse.start_delay <= len_last_readout and len(mux_list) > 0:

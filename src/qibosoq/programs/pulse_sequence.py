@@ -18,5 +18,5 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
 
         Function called by AveragerProgram.__init__.
         """
-        self.declare_zones_and_ro(self.sequence)
+        self.declare_zones_and_ro(self.pulse_sequence)
         self.sync_all(self.wait_initialize)

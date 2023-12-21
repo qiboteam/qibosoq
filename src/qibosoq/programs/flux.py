@@ -9,7 +9,13 @@ from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Arbitrary, FluxExponential, Pulse, Rectangular
+from qibosoq.components.pulses import (
+    Arbitrary,
+    Element,
+    FluxExponential,
+    Pulse,
+    Rectangular,
+)
 from qibosoq.programs.base import BaseProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -19,7 +25,7 @@ class FluxProgram(BaseProgram):
     """Abstract class for flux-tunable qubits programs."""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]
+        self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
     ):
         """Define an empty dictionary for bias sweepers and call super().__init__."""
         self.bias_sweep_registers: Dict[int, Tuple[QickRegister, QickRegister]] = {}
@@ -145,23 +151,25 @@ class FluxProgram(BaseProgram):
 
         self.set_bias("sweetspot")
 
-        for pulse in self.sequence:
+        for elem in self.sequence:
             # wait the needed wait time so that the start is timed correctly
-            if isinstance(pulse.start_delay, QickRegister):
-                self.sync(pulse.start_delay.page, pulse.start_delay.addr)
+            if isinstance(elem.start_delay, QickRegister):
+                self.sync(elem.start_delay.page, elem.start_delay.addr)
             else:  # assume is number
-                delay_start = self.soc.us2cycles(pulse.start_delay)
+                delay_start = self.soc.us2cycles(elem.start_delay)
                 if delay_start != 0:
                     self.synci(delay_start)
 
-            if pulse.type == "drive":
-                self.execute_drive_pulse(pulse, last_pulse_registered)
-            elif pulse.type == "flux":
-                self.execute_flux_pulse(pulse)
-            elif pulse.type == "readout":
+            if elem.type == "readout":
                 self.execute_readout_pulse(
-                    pulse, muxed_pulses_executed, muxed_ro_executed_indexes
+                    elem, muxed_pulses_executed, muxed_ro_executed_indexes
                 )
+            elif elem.type == "drive":
+                assert isinstance(elem, Pulse)
+                self.execute_drive_pulse(elem, last_pulse_registered)
+            elif elem.type == "flux":
+                assert isinstance(elem, Pulse)
+                self.execute_flux_pulse(elem)
 
         self.wait_all()
         self.set_bias("zero")
