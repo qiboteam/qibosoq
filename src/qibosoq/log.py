@@ -21,9 +21,13 @@ def configure_logger(name: str, filename: str, backup_count: int):
     else:
         new_logger = logging
     new_logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter("%(levelname)s :: %(asctime)s ::  %(message)s", "%Y-%m-%d %H:%M:%S")
+    formatter = logging.Formatter(
+        "%(levelname)s :: %(asctime)s ::  %(message)s", "%Y-%m-%d %H:%M:%S"
+    )
 
-    handler = logging.handlers.RotatingFileHandler(filename, mode="w", backupCount=backup_count, delay=True)
+    handler = logging.handlers.RotatingFileHandler(
+        filename, mode="w", backupCount=backup_count, delay=True
+    )
     if os.path.isfile(filename):
         handler.doRollover()
     handler.setFormatter(formatter)

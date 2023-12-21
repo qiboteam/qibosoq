@@ -18,7 +18,9 @@ logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 class FluxProgram(BaseProgram):
     """Abstract class for flux-tunable qubits programs."""
 
-    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]):
+    def __init__(
+        self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit]
+    ):
         """Define an empty dictionary for bias sweepers and call super().__init__."""
         self.bias_sweep_registers: Dict[int, Tuple[QickRegister, QickRegister]] = {}
         super().__init__(soc, qpcfg, sequence, qubits)
@@ -98,7 +100,9 @@ class FluxProgram(BaseProgram):
             i_vals = np.array(pulse.i_values)
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
-            raise NotImplementedError("Only Rectangular, FluxExponential and Arbitrary are supported for flux pulses")
+            raise NotImplementedError(
+                "Only Rectangular, FluxExponential and Arbitrary are supported for flux pulses"
+            )
 
         # add a clock cycle of sweetspot values
         i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
@@ -155,7 +159,9 @@ class FluxProgram(BaseProgram):
             elif pulse.type == "flux":
                 self.execute_flux_pulse(pulse)
             elif pulse.type == "readout":
-                self.execute_readout_pulse(pulse, muxed_pulses_executed, muxed_ro_executed_indexes)
+                self.execute_readout_pulse(
+                    pulse, muxed_pulses_executed, muxed_ro_executed_indexes
+                )
 
         self.wait_all()
         self.set_bias("zero")
@@ -171,5 +177,7 @@ class FluxProgram(BaseProgram):
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
-            self.declare_nqz_zones([pulse for pulse in sequence if pulse.type == "readout"])
+            self.declare_nqz_zones(
+                [pulse for pulse in sequence if pulse.type == "readout"]
+            )
         self.declare_readout_freq()
