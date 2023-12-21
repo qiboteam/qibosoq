@@ -7,7 +7,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import FluxExponential, Gaussian, Rectangular
+from qibosoq.components.pulses import Arbitrary, FluxExponential, Gaussian, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence
 
 
@@ -176,6 +176,19 @@ def test_flux_body(soc):
             tau=10,
             upsilon=1000,
             weight=0.1,
+        ),
+        Arbitrary(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0.1,
+            duration=0.04,
+            name="arbitrary",
+            type="flux",
+            dac=3,
+            adc=None,
+            i_values=[0.2] * 64,
+            q_values=[0.2] * 64,
         ),
     ]
     qubits = [Qubit(10, 0), Qubit(0, None), Qubit(0, 1)]

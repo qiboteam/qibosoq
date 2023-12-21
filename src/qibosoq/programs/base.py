@@ -14,6 +14,7 @@ from qibosoq.components.pulses import (
     Arbitrary,
     Drag,
     Element,
+    FlatTop,
     Gaussian,
     Measurement,
     Pulse,
@@ -121,28 +122,19 @@ class BaseProgram(ABC, QickProgram):
         us_length = pulse.duration
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
-        if isinstance(pulse, Rectangular):
-            self.set_pulse_registers(
-                ch=gen_ch,
-                style="const",
-                freq=freq,
-                phase=phase,
-                gain=gain,
-                length=soc_length,
-            )
-            return
+        name = pulse.waveform_name
 
-        if isinstance(pulse, Gaussian):
-            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
-            name = f"{gen_ch}_gaus_{round(sigma, 2)}_{round(soc_length, 2)}"
-            if name not in self.registered_waveforms[gen_ch]:
+        if name is not None and name not in self.registered_waveforms[gen_ch]:
+            if isinstance(pulse, Gaussian):
+                sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
-                self.registered_waveforms[gen_ch].append(name)
-        elif isinstance(pulse, Drag):
-            delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
-            sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
-            name = f"{gen_ch}_drag_{round(sigma, 2)}_{round(soc_length, 2)}_{round(pulse.beta, 2)}_{round(delta, 2)}"
-            if name not in self.registered_waveforms[gen_ch]:
+            elif isinstance(pulse, FlatTop):
+                soc_length /= 2  # required for unknown reasons
+                sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
+                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
+            elif isinstance(pulse, Drag):
+                delta = -self.soccfg["gens"][gen_ch]["samps_per_clk"] * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
+                sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_DRAG(
                     ch=gen_ch,
                     name=name,
@@ -151,20 +143,22 @@ class BaseProgram(ABC, QickProgram):
                     alpha=pulse.beta,
                     length=soc_length,
                 )
-                self.registered_waveforms[gen_ch].append(name)
-        elif isinstance(pulse, Arbitrary):
-            name = pulse.name
-            if name not in self.registered_waveforms[gen_ch]:
+
+            elif isinstance(pulse, Arbitrary):
                 self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
-                self.registered_waveforms[gen_ch].append(name)
+            self.registered_waveforms[gen_ch].append(name)
+
+        args = {"waveform": name} if name is not None else {}
+        if isinstance(pulse, (Rectangular, FlatTop)):
+            args["length"] = soc_length
 
         self.set_pulse_registers(
             ch=gen_ch,
-            style="arb",
+            style=pulse.style,
             freq=freq,
             phase=phase,
             gain=gain,
-            waveform=name,
+            **args,
         )
 
     def execute_drive_pulse(self, pulse: Pulse, last_pulse_registered: Dict):
