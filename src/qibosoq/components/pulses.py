@@ -2,9 +2,10 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List
+from typing import List, Optional, Union
 
 import numpy as np
+from qick.averager_program import QickRegister
 
 
 @dataclass
@@ -17,7 +18,7 @@ class Pulse:
     """Amplitude factor, multiplied by maximum gain of the DAC."""
     relative_phase: int
     """Relative phase (degrees)."""
-    start_delay: float = field(compare=False)
+    start_delay: Union[float, QickRegister] = field(compare=False)
     """Delay before pulse is triggered (us)."""
     duration: float
     """Duration of the pulse (us)."""
@@ -32,12 +33,27 @@ class Pulse:
     adc: int
     """ADC to acquire pulse back, for readout pulses."""
 
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return None
+
+    @property
+    def style(self) -> Optional[str]:
+        """Return waveform style from parameters."""
+        return "arb"
+
 
 @dataclass
 class Rectangular(Pulse):
     """Rectangular pulse."""
 
     shape: str = "rectangular"
+
+    @property
+    def style(self) -> Optional[str]:
+        """Return waveform style from parameters."""
+        return "const"
 
 
 @dataclass
@@ -47,6 +63,11 @@ class Gaussian(Pulse):
     rel_sigma: float
     """Sigma of the gaussian as a fraction of duration."""
     shape: str = "gaussian"
+
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_gaus_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}"
 
 
 @dataclass
@@ -58,6 +79,30 @@ class Drag(Pulse):
     beta: float
     """Beta parameter for drag pulse."""
     shape: str = "drag"
+
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_drag_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}_{round(self.beta, 2)}"
+
+
+@dataclass
+class FlatTop(Pulse):
+    """FlatTop pulse."""
+
+    rel_sigma: float
+    """Sigma of the FlatTop as a fraction of duration."""
+    shape: str = "flattop"
+
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
+
+    @property
+    def style(self) -> Optional[str]:
+        """Return waveform style from parameters."""
+        return "flat_top"
 
 
 @dataclass
@@ -85,6 +130,11 @@ class Arbitrary(Pulse):
     q_values: List[float]
     shape: str = "arbitrary"
 
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return self.name
+
 
 class Shape(Enum):
     """Map shape names to the corresponding objects."""
@@ -92,5 +142,6 @@ class Shape(Enum):
     RECTANGULAR = Rectangular
     GAUSSIAN = Gaussian
     DRAG = Drag
-    ARBITRARY = Arbitrary
     FLUXEXPONENTIAL = FluxExponential
+    FLATTOP = FlatTop
+    ARBITRARY = Arbitrary

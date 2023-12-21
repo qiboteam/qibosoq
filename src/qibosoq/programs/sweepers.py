@@ -27,7 +27,14 @@ def reversed_sweepers(sweepers: Union[Sweeper, Iterable[Sweeper]]) -> List[Sweep
 class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     """Class to execute arbitrary PulseSequences with a single sweep."""
 
-    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Pulse], qubits: List[Qubit], *sweepers: Sweeper):
+    def __init__(
+        self,
+        soc: QickSoc,
+        qpcfg: Config,
+        sequence: List[Pulse],
+        qubits: List[Qubit],
+        *sweepers: Sweeper,
+    ):
         """Init function, sets sweepers parameters before calling super.__init__."""
         self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
@@ -88,34 +95,37 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                     sweeper.expts,  # number of points
                 )
                 sweep_list.append(new_sweep)
-        else:
-            for idx, jdx in enumerate(sweeper.indexes):
-                pulse = self.sequence[jdx]
-                gen_ch = pulse.dac
 
-                sweep_type = sweeper.parameters[idx].value
-                register = self.get_gen_reg(gen_ch, sweep_type)
+            self.add_sweep(merge_sweeps(sweep_list))
+            return
 
-                if sweeper.parameters[idx] is Parameter.AMPLITUDE:
-                    max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-                    starts = (sweeper.starts * max_gain).astype(int)
-                    stops = (sweeper.stops * max_gain).astype(int)
-                else:
-                    starts = sweeper.starts
-                    stops = sweeper.stops
-                    if sweeper.parameters[idx] is Parameter.DELAY:
-                        # define a new register for the delay
-                        register = self.new_gen_reg(gen_ch, reg_type="time", tproc_reg=True)
-                        pulse.start_delay = register
+        for idx, jdx in enumerate(sweeper.indexes):
+            pulse = self.sequence[jdx]
+            gen_ch = pulse.dac
 
-                new_sweep = QickSweep(
-                    self,
-                    register,  # sweeper_register
-                    starts[idx],  # start
-                    stops[idx],  # stop
-                    sweeper.expts,  # number of points
-                )
-                sweep_list.append(new_sweep)
+            sweep_type = sweeper.parameters[idx].value
+            register = self.get_gen_reg(gen_ch, sweep_type)
+
+            if sweeper.parameters[idx] is Parameter.AMPLITUDE:
+                max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+                starts = (sweeper.starts * max_gain).astype(int)
+                stops = (sweeper.stops * max_gain).astype(int)
+            else:
+                starts = sweeper.starts
+                stops = sweeper.stops
+                if sweeper.parameters[idx] is Parameter.DELAY:
+                    # define a new register for the delay
+                    register = self.new_gen_reg(gen_ch, reg_type="time", tproc_reg=True)
+                    pulse.start_delay = register
+
+            new_sweep = QickSweep(
+                self,
+                register,  # sweeper_register
+                starts[idx],  # start
+                stops[idx],  # stop
+                sweeper.expts,  # number of points
+            )
+            sweep_list.append(new_sweep)
 
         self.add_sweep(merge_sweeps(sweep_list))
 

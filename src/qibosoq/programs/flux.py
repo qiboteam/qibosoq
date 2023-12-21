@@ -9,7 +9,7 @@ from qick.qick_asm import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import FluxExponential, Pulse, Rectangular
+from qibosoq.components.pulses import Arbitrary, FluxExponential, Pulse, Rectangular
 from qibosoq.programs.base import BaseProgram
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -94,8 +94,11 @@ class FluxProgram(BaseProgram):
             i_vals = np.full(duration, amp)
         elif isinstance(pulse, FluxExponential):
             i_vals = pulse.i_values(duration, max_gain)
+        elif isinstance(pulse, Arbitrary):
+            i_vals = np.array(pulse.i_values)
+            logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
-            raise NotImplementedError("Only Rectangular and FluxExponential flux pulses are supported")
+            raise NotImplementedError("Only Rectangular, FluxExponential and Arbitrary are supported for flux pulses")
 
         # add a clock cycle of sweetspot values
         i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
