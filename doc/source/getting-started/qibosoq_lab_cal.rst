@@ -36,6 +36,12 @@ Experiments parameters:
 
 - Relaxation time: 50_000 ns
 
+.. warning::
+   For this examples we used qibolab version `0.1.0` and qibocal version `0.1.0`.
+   While Qibosoq is compatible with newer versions, some part of the code
+   could be different. Make sure to use the correct versions.
+
+
 Preparation pre-experiments
 """""""""""""""""""""""""""
 
@@ -284,7 +290,7 @@ It is still required to define the pulse sequence and the whole experiment.
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
   # Define PulseSequence
   sequence = PulseSequence()
