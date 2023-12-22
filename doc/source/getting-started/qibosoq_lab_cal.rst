@@ -37,7 +37,7 @@ Experiments parameters:
 - Relaxation time: 50_000 ns
 
 .. warning::
-   For this examples we used qibolab version `0.1.0` and qibocal version `0.1.0`.
+   For this examples we used qibolab version `0.1.0` and qibocal version `0.0.4`.
    While Qibosoq is compatible with newer versions, some part of the code
    could be different. Make sure to use the correct versions.
 
@@ -314,7 +314,7 @@ Qibocal
 
 For Qibocal, the experiment does not need to be defined again and just some basic parameters are required, on top of the ones defined in the platform runcard.
 
-Executing the experiment with `qq actions.yml -o OUTPUT_FOLDER` will produce a new platform runcard with the updated parameters, as well as plots and data of the experiment.
+Executing the experiment with `qq auto actions.yml -o OUTPUT_FOLDER` will produce a new platform runcard with the updated parameters, as well as plots and data of the experiment.
 
 File ``actions.yml``.
 
