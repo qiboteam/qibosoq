@@ -36,6 +36,12 @@ Experiments parameters:
 
 - Relaxation time: 50_000 ns
 
+.. warning::
+   For this examples we used qibolab version `0.1.0` and qibocal version `0.0.4`.
+   While Qibosoq is compatible with newer versions, some part of the code
+   could be different. Make sure to use the correct versions.
+
+
 Preparation pre-experiments
 """""""""""""""""""""""""""
 
@@ -97,7 +103,7 @@ File ``my_platform.py``:
   PORT = 6000  # port of the controller
 
   # path to runcard file with calibration parameter
-  RUNCARD = pathlib.Path(__file__).parent / "platform.yml"
+  RUNCARD = pathlib.Path(__file__).parent / "my_platform.yml"
 
 
   def create(runcard_path=RUNCARD):
@@ -185,7 +191,7 @@ Every experiment, will then start with:
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
 Qibocal
 -------
@@ -272,6 +278,8 @@ It is still required to define the pulse sequence and the whole experiment.
 
 .. code-block:: python
 
+  import matplotlib.pyplot as plt
+
   from qibolab import create_platform
   from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
 
@@ -282,7 +290,7 @@ It is still required to define the pulse sequence and the whole experiment.
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
   # Define PulseSequence
   sequence = PulseSequence()
@@ -297,7 +305,7 @@ It is still required to define the pulse sequence and the whole experiment.
       acquisition_type=AcquisitionType.RAW,
       averaging_mode=AveragingMode.CYCLIC,
   )
-  results = platform.execute_pulse_sequence(ps, options=options)
+  results = platform.execute_pulse_sequence(sequence, options=options)
 
   plt.plot(results[sequence[0].serial].magnitude)
 
@@ -306,7 +314,7 @@ Qibocal
 
 For Qibocal, the experiment does not need to be defined again and just some basic parameters are required, on top of the ones defined in the platform runcard.
 
-Executing the experiment with `qq actions.yml -o OUTPUT_FOLDER` will produce a new platform runcard with the updated parameters, as well as plots and data of the experiment.
+Executing the experiment with `qq auto actions.yml -o OUTPUT_FOLDER` will produce a new platform runcard with the updated parameters, as well as plots and data of the experiment.
 
 File ``actions.yml``.
 
@@ -387,7 +395,7 @@ For Qibosoq, the experiment needs to be defined from scratch as per the time of 
 
   results = []
   for freq in frequencies:
-      server_commands["sequence"][0].frequency = freq
+      server_commands["sequence"][0].frequency = int(freq)
       i, q = execute(server_commands, HOST, PORT)
       results.append(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0])))
 
@@ -402,8 +410,12 @@ Also here, the big difference is the use of sweepers.
 
 .. code-block:: python
 
+  import numpy as np
+  import matplotlib.pyplot as plt
+
   from qibolab import create_platform
   from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+  from qibolab.sweeper import Parameter, Sweeper, SweeperType
 
   from qibolab.pulses import (
       DrivePulse,
@@ -412,7 +424,7 @@ Also here, the big difference is the use of sweepers.
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
   # Define PulseSequence
   sequence = PulseSequence()
@@ -436,6 +448,7 @@ Also here, the big difference is the use of sweepers.
   )
 
   results = platform.sweep(sequence, options, sweeper)
+  amplitudes = results[readout_pulse.serial].magnitude
 
   frequencies = np.arange(-2e8, +2e8, 1e6) + readout_pulse.frequency
   plt.plot(frequencies, amplitudes)
@@ -534,7 +547,7 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
   qubit = Qubit()
 
   server_commands = {
-      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "operation_code": OperationCode.EXECUTE_SWEEPS,
       "cfg": config,
       "sequence": sequence,
       "qubits": [qubit],
@@ -543,7 +556,7 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
 
   i, q = execute(server_commands, HOST, PORT)
 
-  frequency = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  frequency = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(frequency, np.abs(results))
 
@@ -555,8 +568,12 @@ For Qibolab, we have the runcard platform to contain the parameters found in cal
 
 .. code-block:: python
 
+  import numpy as np
+  import matplotlib.pyplot as plt
+
   from qibolab import create_platform
   from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+  from qibolab.sweeper import Parameter, Sweeper, SweeperType
 
   from qibolab.pulses import (
       DrivePulse,
@@ -565,7 +582,7 @@ For Qibolab, we have the runcard platform to contain the parameters found in cal
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
   sequence = PulseSequence()
   drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
@@ -594,7 +611,7 @@ For Qibolab, we have the runcard platform to contain the parameters found in cal
   amplitudes = results[readout_pulse.serial].magnitude
   frequencies = np.arange(-3e8, +3e8, 1e6) + drive_pulse.frequency
 
-  plt.plot(frequencies, plt.amplitudes)
+  plt.plot(frequencies, amplitudes)
 
 
 Qibocal
@@ -690,7 +707,7 @@ The experiment is similar to the ones before it, we just need to change a couple
   qubit = Qubit()
 
   server_commands = {
-      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "operation_code": OperationCode.EXECUTE_SWEEPS,
       "cfg": config,
       "sequence": sequence,
       "qubits": [qubit],
@@ -699,7 +716,7 @@ The experiment is similar to the ones before it, we just need to change a couple
 
   i, q = execute(server_commands, HOST, PORT)
 
-  amplitudes = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  amplitudes = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(amplitudes, np.abs(results))
 
@@ -711,8 +728,12 @@ For Qibolab, considering that the pulses are defined from the runcard parameters
 
 .. code-block:: python
 
+  import numpy as np
+  import matplotlib.pyplot as plt
+
   from qibolab import create_platform
   from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+  from qibolab.sweeper import Parameter, Sweeper, SweeperType
 
   from qibolab.pulses import (
       DrivePulse,
@@ -721,7 +742,7 @@ For Qibolab, considering that the pulses are defined from the runcard parameters
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
   sequence = PulseSequence()
   drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
@@ -748,7 +769,7 @@ For Qibolab, considering that the pulses are defined from the runcard parameters
   magnitudes = results[readout_pulse.serial].magnitude
   amplitudes = np.arange(0, 1, 0.01)
 
-  plt.plot(magnitudes, amplitudes)
+  plt.plot(amplitudes, magnitudes)
 
 Qibocal
 -------
@@ -846,7 +867,7 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
   qubit = Qubit()
 
   server_commands = {
-      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "operation_code": OperationCode.EXECUTE_SWEEPS,
       "cfg": config,
       "sequence": sequence,
       "qubits": [qubit],
@@ -855,7 +876,7 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
 
   i, q = execute(server_commands, HOST, PORT)
 
-  delays = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
+  delays = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
   plt.plot(delays, np.abs(results))
 
@@ -866,8 +887,12 @@ Qibolab always behaves as an intermediate language step between Qibosoq and Qibo
 
 .. code-block:: python
 
+  import numpy as np
+  import matplotlib.pyplot as plt
+
   from qibolab import create_platform
   from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
+  from qibolab.sweeper import Parameter, Sweeper, SweeperType
 
   from qibolab.pulses import (
       DrivePulse,
@@ -876,7 +901,7 @@ Qibolab always behaves as an intermediate language step between Qibosoq and Qibo
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
   sequence = PulseSequence()
   drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
@@ -886,7 +911,7 @@ Qibolab always behaves as an intermediate language step between Qibosoq and Qibo
 
   # allocate frequency sweeper
   sweeper = Sweeper(
-      parameter=Parameter.START,
+      parameter=Parameter.start,
       values=np.arange(0, 100_000, 1000),
       pulses=[readout_pulse],
       type=SweeperType.OFFSET,
@@ -994,9 +1019,19 @@ For Qibosoq we just need to deactivate the averaging option in the Config object
       "qubits": [qubit],
   }
 
-  i, q = execute(server_commands, HOST, PORT)
+  i1, q1 = execute(server_commands, HOST, PORT)
 
-  plt.scatter(i[0][0], q[0][0])
+  server_commands = {
+      "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+      "cfg": config,
+      "sequence": sequence[1:],
+      "qubits": [qubit],
+  }
+
+  i2, q2 = execute(server_commands, HOST, PORT)
+
+  plt.scatter(i1[0][0], q1[0][0])
+  plt.scatter(i2[0][0], q2[0][0])
 
 Qibolab
 -------
@@ -1004,6 +1039,9 @@ Qibolab
 Also for Qibolab, it is sufficient to change the AveragingMode to SINGLESHOT.
 
 .. code-block:: python
+
+  import numpy as np
+  import matplotlib.pyplot as plt
 
   from qibolab import create_platform
   from qibolab import AcquisitionType, AveragingMode, ExecutionParameters
@@ -1015,13 +1053,17 @@ Also for Qibolab, it is sufficient to change the AveragingMode to SINGLESHOT.
   )
 
   # Define platform and load specific runcard
-  platform = create_platform("platform")
+  platform = create_platform("my_platform")
 
-  sequence = PulseSequence()
+  sequence_0 = PulseSequence()
+  readout_pulse_0 = platform.create_MZ_pulse(qubit=0, start=0)
+  sequence_0.add(readout_pulse_0)
+
+  sequence_1 = PulseSequence()
   drive_pulse = platform.create_RX_pulse(qubit=0, start=0)
-  readout_pulse = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
-  sequence.add(drive_pulse)
-  sequence.add(readout_pulse)
+  readout_pulse_1 = platform.create_MZ_pulse(qubit=0, start=drive_pulse.finish)
+  sequence_1.add(drive_pulse)
+  sequence_1.add(readout_pulse_1)
 
   options = ExecutionParameters(
       nshots=10000,
@@ -1030,9 +1072,13 @@ Also for Qibolab, it is sufficient to change the AveragingMode to SINGLESHOT.
       acquisition_type=AcquisitionType.INTEGRATION,
   )
 
-  results = platform.sweep(sequence, options, sweeper)
+  results_1 = platform.execute_pulse_sequence(sequence_1, options=options)[0]
+  results_0 = platform.execute_pulse_sequence(sequence_0, options=options)[0]
 
-  plt.plot(results.i, results.q)
+
+  plt.scatter(results_0.voltage_i, results_0.voltage_q)
+  plt.scatter(results_1.voltage_i, results_1.voltage_q)
+
 
 Qibocal
 -------

@@ -83,7 +83,7 @@ For multiple readout pulses, on the same dac:
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
-        Config
+        Config,
         Sweeper,
         Parameter
     )
@@ -138,7 +138,7 @@ While if the measurement is done on a different adc the result will be slightly 
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
-        Config
+        Config,
         Sweeper,
         Parameter
     )
