@@ -43,6 +43,17 @@ nohup sudo -E python -m qibosoq &
 ```
 And the server can be closed with `sudo kill <PID>` (PID will be saved in log).
 
+## Supported QICK version
+
+QICK is an evolving project, and as such, Qibosoq frequently adapts to its changes to ensure ongoing support. 
+The table below provides a brief overview of the supported QICK versions corresponding to specific Qibosoq releases.
+
+| Qibosoq version | Supported QICK version   |
+|----------------- |------------------------ |
+| 0.1.0            | 0.2.135                 |
+| 0.1.1            | >=0.2.165, <=0.2.181    |
+| 0.1.2            | 0.2.211                 |
+
 ### TII boards
 
 With TII boards the server can also be executed using the alias `server-run-bkg`.
