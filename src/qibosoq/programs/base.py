@@ -49,7 +49,6 @@ class BaseProgram(ABC, QickProgram):
 
         # general settings
         self.adc_trig_offset = qpcfg.adc_trig_offset
-        self.reps = qpcfg.reps
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
@@ -73,6 +72,14 @@ class BaseProgram(ABC, QickProgram):
 
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
+
+        self.reps = qpcfg.reps  # must be done after QickProgram init
+
+        # This is one for all the standard experiments, it is not one
+        # in case of pulse_sequence_raw, but in that case the
+        # acquire_decimated function is called and soft_avgs passed
+        # as a parameter (in server.py)
+        self.soft_avgs = 1
 
     def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
         """Declare nqz zone (1-2) for a given PulseSequence.
@@ -241,7 +248,7 @@ class BaseProgram(ABC, QickProgram):
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
-        res = self.acquire(  # pylint: disable=E1123
+        res = self.acquire(  # pylint: disable=E1123,E1120
             soc,
             readouts_per_experiment=reads_per_rep,
         )
