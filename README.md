@@ -45,7 +45,7 @@ And the server can be closed with `sudo kill <PID>` (PID will be saved in log).
 
 ## Supported QICK version
 
-QICK is an evolving project, and as such, Qibosoq frequently adapts to its changes to ensure ongoing support. 
+QICK is an evolving project, and as such, Qibosoq frequently adapts to its changes to ensure ongoing support.
 The table below provides a brief overview of the supported QICK versions corresponding to specific Qibosoq releases.
 
 | Qibosoq version | Supported QICK version   |
