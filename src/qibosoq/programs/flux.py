@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 from qick import QickSoc
-from qick.qick_asm import QickRegister
+from qick.asm_v1 import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
