@@ -19,7 +19,7 @@ packages = [{ include = "qibosoq", from = "src" }]
 
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
-qick = ">=0.2.165, <=0.2.181"
+qick = "0.2.181"
 
 [build-system]
 requires = ["poetry-core"]
