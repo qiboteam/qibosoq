@@ -239,7 +239,7 @@ A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to max
     )
 
     server_commands = {
-        "operation_code": OperationCode.EXECUTE_SWEEP,
+        "operation_code": OperationCode.EXECUTE_SWEEPS,
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
@@ -269,7 +269,7 @@ We first import all the needed ``qibosoq`` components and ``matplotlib`` for plo
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
-        Config
+        Config,
         Sweeper,
         Parameter
     )
@@ -335,7 +335,7 @@ And we can execute and plot the results:
 .. code-block:: python
 
     server_commands = {
-        "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+        "operation_code": OperationCode.EXECUTE_SWEEPS,
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],
@@ -344,8 +344,8 @@ And we can execute and plot the results:
 
     i, q = execute(server_commands, HOST, PORT)
 
-    frequency = np.linespace(sweeper.starts[0], sweeper.stops[0], expts)
-    results = np.array(i[0][0]) + 1j * np.array(q[0][0]))
+    frequency = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
+    results = np.array(i[0][0]) + 1j * np.array(q[0][0])
     plt.plot(frequency, np.abs(results))
 
 .. image:: qubit_spectroscopy.png

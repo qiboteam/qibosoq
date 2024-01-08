@@ -77,8 +77,7 @@ class BaseProgram(ABC, QickProgram):
 
         # This is one for all the standard experiments, it is not one
         # in case of pulse_sequence_raw, but in that case the
-        # acquire_decimated function is called and soft_avgs passed
-        # as a parameter (in server.py)
+        # the parameter is changed in server.py
         self.soft_avgs = 1
 
     def declare_nqz_zones(self, pulse_sequence: List[Pulse]):

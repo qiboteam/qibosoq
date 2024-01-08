@@ -93,9 +93,9 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         )
 
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        results = program.acquire_decimated(
+        program.soft_avgs = soft_avgs
+        results = program.acquire_decimated(  # pylint: disable=E1120
             qick_soc,
-            soft_avgs=soft_avgs,
             load_pulses=True,
             progress=False,
         )
