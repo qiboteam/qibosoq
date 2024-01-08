@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qibosoq"
-version = "0.1.1"
+version = "0.1.2"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = [
   "Rodolfo Carobene <rodolfo.carobene@gmail.com>",
