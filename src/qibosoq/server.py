@@ -57,12 +57,11 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """
     opcode = OperationCode(data["operation_code"])
     args = []
-    soft_avgs = 1
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
         programcls = ExecutePulseSequence
     elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
         programcls = ExecutePulseSequence
-        soft_avgs = data["cfg"]["reps"]
+        data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
         data["cfg"]["reps"] = 1
     elif opcode is OperationCode.EXECUTE_SWEEPS:
         programcls = ExecuteSweeps
@@ -93,7 +92,6 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         )
 
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        program.soft_avgs = soft_avgs
         results = program.acquire_decimated(  # pylint: disable=E1120
             qick_soc,
             load_pulses=True,

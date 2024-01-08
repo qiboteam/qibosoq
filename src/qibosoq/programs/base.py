@@ -74,11 +74,7 @@ class BaseProgram(ABC, QickProgram):
         super().__init__(soc, asdict(qpcfg))
 
         self.reps = qpcfg.reps  # must be done after QickProgram init
-
-        # This is one for all the standard experiments, it is not one
-        # in case of pulse_sequence_raw, but in that case the
-        # the parameter is changed in server.py
-        self.soft_avgs = 1
+        self.soft_avgs = qpcfg.soft_avgs
 
     def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
         """Declare nqz zone (1-2) for a given PulseSequence.
