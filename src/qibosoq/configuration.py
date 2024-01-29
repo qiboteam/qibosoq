@@ -1,4 +1,5 @@
 """Qibosoq configuration file."""
+
 import os
 
 
