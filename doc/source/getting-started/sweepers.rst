@@ -4,7 +4,7 @@ Sweepers
 ``Qibosoq`` supports several sweepers, all executable at the same time in multi-dimentionals scans.
 A :class:`qibosoq.components.base.Sweeper` object can be istantiated with:
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.components.base import Sweeper, Parameter
 
@@ -15,6 +15,10 @@ A :class:`qibosoq.components.base.Sweeper` object can be istantiated with:
                 stops = [1, 0.5],
                 expts = 100  # number of points for the scan
     )
+
+The sweeper object will later be included in the ``server_commands`` dictionary as:
+
+.. code-block:: python
 
     server_commands = {
         ...
