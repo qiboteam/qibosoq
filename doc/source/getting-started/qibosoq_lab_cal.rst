@@ -68,7 +68,6 @@ In any case, for every experiment, we have to start the script with:
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
