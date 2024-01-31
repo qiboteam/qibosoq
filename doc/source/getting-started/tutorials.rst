@@ -300,7 +300,6 @@ We first import all the needed ``qibosoq`` components and ``matplotlib`` for plo
 .. testcode:: python
 
     import numpy as np
-    import matplotlib.pyplot as plt
 
     from qibosoq.client import execute
     from qibosoq.components.base import (
@@ -386,6 +385,8 @@ And we can execute and plot the results:
 And we can plot the final rsults with:
 
 .. code-block:: python
+
+    import matplotlib.pyplot as plt
 
     frequency = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
     results = np.array((i[0][0]) + 1j * np.array(q[0][0]))
