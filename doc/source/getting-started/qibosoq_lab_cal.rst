@@ -1,6 +1,15 @@
 Qibosoq - Qibolab - Qibocal
 ===========================
 
+.. testsetup:: python
+
+   import qibosoq.client as qiboclient
+
+   def pass_func(commands, host, port):
+      return [[1]], [[1]]
+
+   qiboclient.execute = pass_func
+
 In these examples, we will see how to perform some basic qubit calibration experiments using the three levels of abstraction provided by the Qibo ecosystem:
 
 - Qibosoq: basic pulse level and direct RFSoC connection
@@ -54,12 +63,11 @@ For control through Qibosoq, no particular preparation is required.
 
 In any case, for every experiment, we have to start the script with:
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
@@ -215,12 +223,11 @@ Qibosoq
 
 For Qibosoq, we need to define the pulses explicitly at the beginning of each experiment. Along with them, other components are required by the server: in particular the operation_code, the configuration object, qubits and then, eventually, sweepers.
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
@@ -263,6 +270,10 @@ For Qibosoq, we need to define the pulses explicitly at the beginning of each ex
   }
 
   i, q = execute(server_commands, HOST, PORT)
+
+.. code-block:: python
+
+  import matplotlib.pyplot as plt
 
   plt.plot(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0])))
 
@@ -345,12 +356,11 @@ Qibosoq
 
 For Qibosoq, the experiment needs to be defined from scratch as per the time of flight one. Indeed, the only real difference with that experiment is the use of the sweeper functionality.
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
@@ -398,6 +408,11 @@ For Qibosoq, the experiment needs to be defined from scratch as per the time of 
       server_commands["sequence"][0].frequency = int(freq)
       i, q = execute(server_commands, HOST, PORT)
       results.append(np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0])))
+
+
+.. code-block:: python
+
+  import matplotlib.pyplot as plt
 
   plt.plot(results)
 
@@ -488,18 +503,19 @@ Qibosoq
 
 As Qibosoq does not have a way of natively storing results of experiments, the numbers found for the last experiments are just explicitly written here.
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
       Qubit,
       OperationCode,
-      Config
+      Config,
+      Sweeper,
+      Parameter
   )
   from qibosoq.components.pulses import Rectangular
 
@@ -555,6 +571,10 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
   }
 
   i, q = execute(server_commands, HOST, PORT)
+
+.. code-block:: python
+
+  import matplotlib.pyplot as plt
 
   frequency = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
@@ -647,18 +667,19 @@ Qibosoq
 
 The experiment is similar to the ones before it, we just need to change a couple of parameters and specify as amplitude the parameter type of the sweeper.
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
       Qubit,
       OperationCode,
-      Config
+      Config,
+      Sweeper,
+      Parameter
   )
   from qibosoq.components.pulses import Rectangular, Gaussian
 
@@ -715,6 +736,11 @@ The experiment is similar to the ones before it, we just need to change a couple
   }
 
   i, q = execute(server_commands, HOST, PORT)
+
+
+.. code-block:: python
+
+  import matplotlib.pyplot as plt
 
   amplitudes = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
@@ -807,18 +833,19 @@ Qibosoq
 As we already saw, Qibosoq is a rather low level API, however it enables to focus on the experiments themselves.
 In this case, for example, we can see a new type of sweeper (the delay one) that has an identical implementation in respect to the others already seen, despite being internally treated differently.
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
       Qubit,
       OperationCode,
-      Config
+      Config,
+      Sweeper,
+      Parameter
   )
   from qibosoq.components.pulses import Rectangular, Gaussian
 
@@ -875,6 +902,10 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
   }
 
   i, q = execute(server_commands, HOST, PORT)
+
+.. code-block:: python
+
+  import matplotlib.pyplot as plt
 
   delays = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
   results = np.abs(np.array(i[0][0]) + 1j * np.array(q[0][0]))
@@ -960,12 +991,11 @@ Qibosoq
 
 For Qibosoq we just need to deactivate the averaging option in the Config object.
 
-.. code-block:: python
+.. testcode:: python
 
   import json
   import socket
   import numpy as np
-  import matplotlib.pyplot as plt
 
   from qibosoq.client import execute
   from qibosoq.components.base import (
@@ -1029,6 +1059,10 @@ For Qibosoq we just need to deactivate the averaging option in the Config object
   }
 
   i2, q2 = execute(server_commands, HOST, PORT)
+
+.. code-block:: python
+
+  import matplotlib.pyplot as plt
 
   plt.scatter(i1[0][0], q1[0][0])
   plt.scatter(i2[0][0], q2[0][0])

@@ -6,7 +6,31 @@ Note that, for these examples to be run, the Qibosoq server needs to be running 
 
 A standard program will be executed with something like:
 
-.. code-block:: python
+.. testsetup:: python
+
+   import numpy as np
+   import qibosoq.client as qiboclient
+
+   def pass_func(commands, host, port):
+      try:
+        if "sweepers" in commands:
+          return [[1, 2, 3]], [[6, 7, 8]]
+
+        measurements = [i for i in commands["sequence"] if i.type=="readout"]
+        if len(measurements) == 1:
+          return [[1]], [[2]]
+        if len(measurements) == 2:
+          if measurements[0].adc == measurements[1].adc:
+            return [[1, 5]], [[2, 9]]
+          else:
+            return [[1], [5]], [[2], [9]]
+      except:
+        return None, None
+
+   qiboclient.execute = pass_func
+   some_object = None
+
+.. testcode:: python
 
     import json
     import socket
@@ -16,7 +40,13 @@ A standard program will be executed with something like:
     HOST = "192.168.0.200"
     PORT = 6000
 
-    server_commands = {...}
+    server_commands = {
+        "operation_code": some_object,
+        "cfg": some_object,
+        "sequence": some_object,
+        "qubits": [some_object],
+    }
+
     i_values, q_values = execute(server_commands, HOST, PORT)
 
 Execution of a sequence of pulses
@@ -24,7 +54,7 @@ Execution of a sequence of pulses
 
 To send a simple pulse sequence, we just needed to define all the server_commands to be sent with the ``qibosoq_execute`` function:
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.client import execute
     from qibosoq.components.base import (
@@ -73,18 +103,19 @@ To send a simple pulse sequence, we just needed to define all the server_command
 
     print(f"{i} + 1j * {q}")
 
-    > [[...]] + 1j * [[...]]
+.. testoutput:: python
+
+    [[1]] + 1j * [[2]]
 
 For multiple readout pulses, on the same dac:
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
         Config,
-        Sweeper,
         Parameter
     )
     from qibosoq.components.pulses import Rectangular
@@ -128,18 +159,20 @@ For multiple readout pulses, on the same dac:
 
     print(f"{i} + 1j * {q}")
 
-    > [[...,...]] + 1j * [[...,...]]
+.. testoutput:: python
+
+    [[1, 5]] + 1j * [[2, 9]]
+
 
 While if the measurement is done on a different adc the result will be slightly different:
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
         Config,
-        Sweeper,
         Parameter
     )
     from qibosoq.components.pulses import Rectangular
@@ -183,20 +216,22 @@ While if the measurement is done on a different adc the result will be slightly 
 
     print(f"{i} + 1j * {q}")
 
-    > [[...],[...]] + 1j * [[...],[...]]
+.. testoutput:: python
+
+    [[1], [5]] + 1j * [[2], [9]]
 
 Execution of a sweeper experiment
 """""""""""""""""""""""""""""""""
 
 A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to maximize the speed.
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.client import execute
     from qibosoq.components.base import (
         Qubit,
         OperationCode,
-        Config
+        Config,
         Sweeper,
         Parameter
     )
@@ -250,7 +285,9 @@ A sweeper is a fast scan on a pulse parameter, executed on the FPGA logic to max
 
     print(f"{i} + 1j * {q}")
 
-    > [[...,...,...,...]] + 1j * [[...,...,...,...]]
+.. testoutput:: python
+
+    [[1, 2, 3]] + 1j * [[6, 7, 8]]
 
 
 Example of a qubit spectroscopy
@@ -260,10 +297,9 @@ As a real example, let's perform a qubit spectroscopy experiment.
 
 We first import all the needed ``qibosoq`` components and ``matplotlib`` for plotting:
 
-.. code-block:: python
+.. testcode:: python
 
     import numpy as np
-    import matplotlib.pyplot as plt
 
     from qibosoq.client import execute
     from qibosoq.components.base import (
@@ -277,7 +313,7 @@ We first import all the needed ``qibosoq`` components and ``matplotlib`` for plo
 
 In a qubit spectroscopy experiment we send two pulses: the first drives a qubit but has a variable frequency (we will use a sweeper) and the second is a fix readout pulse.
 
-.. code-block:: python
+.. testcode:: python
 
     pulse_1 = Rectangular(
                 frequency = 5400, #MHz
@@ -307,19 +343,21 @@ In a qubit spectroscopy experiment we send two pulses: the first drives a qubit 
 
 Next, we can define the sweeper:
 
-.. code-block:: python
+.. testcode:: python
 
-    sweeper = Sweeper(
-                parameters = [Parameter.FREQUENCY],
-                indexes = [0],
-                starts = [4154],
-                stops = [4185],
-                expts = 150
-    )
+   from qibosoq.components.base import Sweeper, Parameter
+
+   sweeper = Sweeper(
+               parameters = [Parameter.FREQUENCY],
+               indexes = [0],
+               starts = [4154],
+               stops = [4185],
+               expts = 150
+   )
 
 Now we can define the :class:`qibosoq.components.base.Config` object and our :class:`qibosoq.components.base.Qubit` object:
 
-.. code-block:: python
+.. testcode:: python
 
     config = Config(
         repetition_duration = 10,
@@ -332,7 +370,7 @@ Now we can define the :class:`qibosoq.components.base.Config` object and our :cl
 
 And we can execute and plot the results:
 
-.. code-block:: python
+.. testcode:: python
 
     server_commands = {
         "operation_code": OperationCode.EXECUTE_SWEEPS,
@@ -344,8 +382,14 @@ And we can execute and plot the results:
 
     i, q = execute(server_commands, HOST, PORT)
 
+And we can plot the final rsults with:
+
+.. code-block:: python
+
+    import matplotlib.pyplot as plt
+
     frequency = np.linspace(sweeper.starts[0], sweeper.stops[0], sweeper.expts)
-    results = np.array(i[0][0]) + 1j * np.array(q[0][0])
+    results = np.array((i[0][0]) + 1j * np.array(q[0][0]))
     plt.plot(frequency, np.abs(results))
 
 .. image:: qubit_spectroscopy.png

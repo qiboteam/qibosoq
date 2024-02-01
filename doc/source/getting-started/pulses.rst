@@ -12,7 +12,7 @@ Note that some care may be needed to fire continuous un-modulated pulses since t
 
 Biases are controlled via the :class:`qibosoq.components.base.Qubit` object:
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.components.base import Qubit
 
@@ -30,7 +30,7 @@ Pulses
 Differently from the biases, the pulses have a shape, a duration and are modulated.
 In ``Qibosoq`` there is a object :class:`qibosoq.components.pulses.Pulse`:
 
-.. code-block:: python
+.. testcode:: python
 
     from qibosoq.components.pulses import Pulse
 
@@ -94,7 +94,7 @@ Measurements
 
 From version ``0.1.1``, ``Qibosoq`` supports the execution of measurements decoupled from pulses. This allows to perform acquisition from an ADC without the need of genereting a pulse from a DAC.
 
-.. code-block:: python
+.. testcode:: python
 
    from qibosoq.components.pulses import Measurement
 
