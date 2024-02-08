@@ -11,6 +11,7 @@ for executing arbitrary pulses sequences on QPUs.
 
 ## Documentation
 [![docs](https://github.com/qiboteam/qibosoq/actions/workflows/publish.yml/badge.svg)](https://qibo.science/qibosoq/stable/)
+
 The complete documentation can be found at:
 
 * [qibo.science/qibosoq/stable](https://qibo.science/qibosoq/stable/)
