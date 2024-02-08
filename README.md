@@ -10,10 +10,11 @@ Qibosoq is a server for integrating [Qick](https://github.com/openquantumhardwar
 for executing arbitrary pulses sequences on QPUs.
 
 ## Documentation
-
 [![docs](https://github.com/qiboteam/qibosoq/actions/workflows/publish.yml/badge.svg)](https://qibo.science/qibosoq/stable/)
+The complete documentation can be found at:
 
-Qibosoq documentation is available [here](https://qibo.science/qibosoq/stable/).
+* [qibo.science/qibosoq/stable](https://qibo.science/qibosoq/stable/)
+* [qibo.science/qibosoq/latest](https://qibo.science/qibosoq/latest/)
 
 
 ## Installation
