@@ -47,7 +47,7 @@ sudo -E python -m qibosoq
 
 and the server can be closed with `Ctrl-C`.\
 Note that with this command the script will close as soon as the terminal where
-it's running it's closed. To run the server in detached mode you can use:
+it's running is closed. To run the server in detached mode you can use:
 
 ```
 nohup sudo -E python -m qibosoq &
