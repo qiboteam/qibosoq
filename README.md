@@ -1,14 +1,18 @@
 # Qibosoq
 
-![Tests](https://github.com/qiboteam/qibosoq/workflows/Tests/badge.svg)
 [![codecov](https://codecov.io/gh/qiboteam/qibosoq/branch/main/graph/badge.svg?token=1EKZKVEVX0)](https://codecov.io/gh/qiboteam/qibosoq)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8083285.svg)](https://doi.org/10.5281/zenodo.8083285)
+![PyPI - Version](https://img.shields.io/pypi/v/qibosoq)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qibosoq)
+
 
 Repository for developing server side of RFSoC fpga boards
 Qibosoq is a server for integrating [Qick](https://github.com/openquantumhardware/qick) in the [Qibolab](https://github.com/qiboteam/qibolab) ecosystem
 for executing arbitrary pulses sequences on QPUs.
 
-The complete documentation for can be found at:
+## Documentation
+[![docs](https://github.com/qiboteam/qibosoq/actions/workflows/publish.yml/badge.svg)](https://qibo.science/qibosoq/stable/)
+
+The complete documentation can be found at:
 
 * [qibo.science/qibosoq/stable](https://qibo.science/qibosoq/stable/)
 * [qibo.science/qibosoq/latest](https://qibo.science/qibosoq/latest/)
@@ -69,3 +73,11 @@ All these commands require sudo privileges.
 Contributions, issues and feature requests are welcome!
 Feel free to check
 <a href="https://github.com/qiboteam/qibosoq/issues"><img alt="GitHub issues" src="https://img.shields.io/github/issues-closed/qiboteam/qibosoq"/></a>
+
+## Citation policy
+[![arXiv](https://img.shields.io/badge/arXiv-2310.05851-b31b1b.svg)](https://arxiv.org/abs/2310.05851)
+[![DOI](https://zenodo.org/badge/567203263.svg)](https://zenodo.org/badge/latestdoi/567203263)
+
+
+
+If you use the package please refer to [the documentation](https://qibo.science/qibo/stable/appendix/citing-qibo.html#publications) for citation instructions
