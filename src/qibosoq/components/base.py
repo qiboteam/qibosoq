@@ -12,7 +12,7 @@ import numpy.typing as npt
 class Config:
     """General RFSoC Configuration."""
 
-    repetition_duration: int = 100
+    relaxation_time: int = 100
     """Time to wait between shots (us)."""
     adc_trig_offset: int = 200
     """Time to wait between readout pulse and acquisition (ADC clock ticks)."""

@@ -30,7 +30,7 @@ The dictionary has to contain the following elements:
         "cfg": {
             "soft_avgs": int,
             "reps": int,
-            "repetition_duration": int,
+            "relaxation_time": int,
             "adc_trig_offset": int,
             "average": bool,
         }

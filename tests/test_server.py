@@ -108,7 +108,7 @@ def test_execute_program(mocker, soc):
     commands = {
         "operation_code": 1,
         "cfg": {
-            "repetition_duration": 100,
+            "relaxation_time": 100,
             "adc_trig_offset": 200,
             "reps": 1000,
             "soft_avgs": 1,

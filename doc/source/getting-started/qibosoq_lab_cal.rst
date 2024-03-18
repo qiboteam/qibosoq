@@ -254,7 +254,7 @@ For Qibosoq, we need to define the pulses explicitly at the beginning of each ex
 
   sequence = [pulse]
   config = Config(
-            repetition_duration=50, # us
+            relaxation_time=50, # us
             adc_trig_offset=0,
             reps=1,
             soft_avgs=1000,
@@ -389,7 +389,7 @@ For Qibosoq, the experiment needs to be defined from scratch as per the time of 
 
   sequence = [pulse]
   config = Config(
-            repetition_duration=50,
+            relaxation_time=50,
             adc_trig_offset=200,
             reps=1000,
             average=True
@@ -557,7 +557,7 @@ As Qibosoq does not have a way of natively storing results of experiments, the n
   )
 
   config = Config(
-      repetition_duration = 50,
+      relaxation_time = 50,
       reps = 1000
   )
   qubit = Qubit()
@@ -722,7 +722,7 @@ The experiment is similar to the ones before it, we just need to change a couple
   )
 
   config = Config(
-      repetition_duration = 50,
+      relaxation_time = 50,
       reps = 1000
   )
   qubit = Qubit()
@@ -888,7 +888,7 @@ In this case, for example, we can see a new type of sweeper (the delay one) that
   )
 
   config = Config(
-      repetition_duration = 50,
+      relaxation_time = 50,
       reps = 1000
   )
   qubit = Qubit()
@@ -1036,7 +1036,7 @@ For Qibosoq we just need to deactivate the averaging option in the Config object
   sequence = [pulse_1, pulse_2]
 
   config = Config(
-      repetition_duration = 50,
+      relaxation_time = 50,
       reps = 10000,
       average = False
   )

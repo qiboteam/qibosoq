@@ -56,7 +56,7 @@ class BaseProgram(ABC, QickProgram):
             [elem for elem in self.sequence if elem.type == "readout"]
         )
 
-        self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
+        self.relax_delay = self.us2cycles(qpcfg.relaxation_time)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
