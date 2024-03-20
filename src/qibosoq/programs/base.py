@@ -274,7 +274,11 @@ class BaseProgram(ABC, QickProgram):
 
         for idx, adc_ch in enumerate(unique_adcs):
             count = adc_count[idx]
-            shape = (count, self.expts, self.reps) if self.expts else (count, self.reps)
+            try:
+                loop_dims = self.loop_dims[1:]
+                shape = (count, *loop_dims, self.reps)
+            except AttributeError:
+                shape = (count, self.reps)
             i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
             q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
 
