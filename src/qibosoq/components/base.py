@@ -14,7 +14,7 @@ class Config:
 
     relaxation_time: int = 100
     """Time to wait between shots (us)."""
-    adc_trig_offset: int = 200
+    ro_time_of_flight: int = 200
     """Time to wait between readout pulse and acquisition (ADC clock ticks)."""
     reps: int = 1000
     """Number of shots."""

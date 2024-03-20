@@ -33,7 +33,7 @@ class BaseProgram(ABC, QickProgram):
         """In this function we define the most important settings.
 
         In detail:
-            * max_gain, adc_trig_offset, max_sampling_rate, reps are imported from
+            * max_gain, ro_time_of_flight, max_sampling_rate, reps are imported from
               qpcfg (runcard settings)
             * relaxdelay (for each execution) is taken from qpcfg (runcard)
             * syncdelay (for each measurement) is defined explicitly
@@ -48,7 +48,7 @@ class BaseProgram(ABC, QickProgram):
         self.qubits = qubits
 
         # general settings
-        self.adc_trig_offset = qpcfg.adc_trig_offset
+        self.ro_time_of_flight = qpcfg.ro_time_of_flight
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
@@ -218,12 +218,12 @@ class BaseProgram(ABC, QickProgram):
             self.measure(
                 pulse_ch=elem.dac,
                 adcs=adcs,
-                adc_trig_offset=self.adc_trig_offset,
+                adc_trig_offset=self.ro_time_of_flight,
                 wait=False,
                 syncdelay=self.syncdelay,
             )
         elif isinstance(elem, Measurement):
-            self.trigger(adcs, adc_trig_offset=self.adc_trig_offset)
+            self.trigger(adcs, adc_trig_offset=self.ro_time_of_flight)
             if self.syncdelay is not None:
                 self.sync_all(self.syncdelay)
 

@@ -31,7 +31,7 @@ The dictionary has to contain the following elements:
             "soft_avgs": int,
             "reps": int,
             "relaxation_time": int,
-            "adc_trig_offset": int,
+            "ro_time_of_flight": int,
             "average": bool,
         }
         "sequence": list,

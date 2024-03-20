@@ -255,7 +255,7 @@ For Qibosoq, we need to define the pulses explicitly at the beginning of each ex
   sequence = [pulse]
   config = Config(
             relaxation_time=50, # us
-            adc_trig_offset=0,
+            ro_time_of_flight=0,
             reps=1,
             soft_avgs=1000,
             average=True
@@ -390,7 +390,7 @@ For Qibosoq, the experiment needs to be defined from scratch as per the time of 
   sequence = [pulse]
   config = Config(
             relaxation_time=50,
-            adc_trig_offset=200,
+            ro_time_of_flight=200,
             reps=1000,
             average=True
   )
