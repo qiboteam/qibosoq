@@ -1733,13 +1733,13 @@ cffi = {version = "*", markers = "implementation_name == \"pypy\""}
 
 [[package]]
 name = "qick"
-version = "0.2.238"
+version = "0.2.249"
 description = "Quantum Instrumentation Controller Kit software library"
 optional = false
 python-versions = ">=3.6, <4"
 files = [
-    {file = "qick-0.2.238-py3-none-any.whl", hash = "sha256:2f94f88031f2e9140cfbb5a7f0c500e02a1a8de1f06a720919151e5e33bea9ca"},
-    {file = "qick-0.2.238.tar.gz", hash = "sha256:9a2709c47d464ffc3c91dc2554a53932d4f678cef7eba18dc050fe2b49da463a"},
+    {file = "qick-0.2.249-py3-none-any.whl", hash = "sha256:d72b5661a2011bc9d8936af2c72387c9c09e7b44a7a94fd303901f841fdc4561"},
+    {file = "qick-0.2.249.tar.gz", hash = "sha256:fe6021e672ac543bcc8cf806cc04395b99f72d3d2414d177399573394739f02c"},
 ]
 
 [package.dependencies]
@@ -2346,4 +2346,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.12"
-content-hash = "86e43fa9ce096e3b7609d4496ce216133208bfc8a651a980d81dd326646e6c38"
+content-hash = "4fa0f360c271ce48055620095f494c26f2ff71e1d7d833d8265deb84bfb6a177"
