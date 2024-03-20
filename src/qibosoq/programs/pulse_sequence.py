@@ -13,6 +13,8 @@ logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 class ExecutePulseSequence(FluxProgram, AveragerProgram):
     """Class to execute arbitrary PulseSequences."""
 
+    expts = None
+
     def initialize(self):
         """Declre nyquist zones for all the DACs and all the readout frequencies.
 
