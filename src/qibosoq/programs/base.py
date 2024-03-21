@@ -272,6 +272,9 @@ class BaseProgram(ABC, QickProgram):
 
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
+        number_of_adcs = len(unique_adcs)
+        len_buf = len(self.di_buf[0])
+
         for idx, adc_ch in enumerate(unique_adcs):
             count = adc_count[idx]
             try:
@@ -279,8 +282,15 @@ class BaseProgram(ABC, QickProgram):
                 shape = (count, *loop_dims, self.reps)
             except AttributeError:
                 shape = (count, self.reps)
-            i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
+
+            i_val = (
+                self.di_buf[idx][: len_buf // number_of_adcs].reshape(shape)
+                / lengths[idx]
+            )
+            q_val = (
+                self.dq_buf[idx][: len_buf // number_of_adcs].reshape(shape)
+                / lengths[idx]
+            )
 
             tot_i.append(i_val.tolist())
             tot_q.append(q_val.tolist())
