@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from qick import QickProgram, QickSoc
@@ -276,10 +276,13 @@ class BaseProgram(ABC, QickProgram):
         len_buf = len(self.di_buf[0])
 
         for idx, adc_ch in enumerate(unique_adcs):
-            count = adc_count[idx]
+            count = int(adc_count[idx])
             try:
-                loop_dims = self.loop_dims[1:]
-                shape = (count, *loop_dims, self.reps)
+                shape = (
+                    count,
+                    int(np.prod(self.sweep_axes)),
+                    self.reps,
+                )  # type: Union[Tuple[int, int], Tuple[int, int, int]]
             except AttributeError:
                 shape = (count, self.reps)
 

@@ -357,7 +357,7 @@ def test_acquire(mocker, soc, avg):
     program.dq_buf = [np.zeros(1000)]
     program.perform_experiment(program.soc, average=avg)
 
-    program.loop_dims = (1024, 10)
+    program.sweep_axes = (10,)
     program.di_buf = [np.zeros(1000 * 10)]
     program.dq_buf = [np.zeros(1000 * 10)]
     program.perform_experiment(program.soc, average=avg)
