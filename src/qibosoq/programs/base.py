@@ -272,28 +272,26 @@ class BaseProgram(ABC, QickProgram):
 
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        number_of_adcs = len(unique_adcs)
-        len_buf = len(self.di_buf[0])
+        len_acq = len(self.di_buf[0]) // len(unique_adcs)
 
         for idx, adc_ch in enumerate(unique_adcs):
             count = int(adc_count[idx])
             try:
+                # if we are doing sweepers, the sweep_axes attribute is defined
+                # by the NDAveragerProgram and the shape returned by this function will be:
+                # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
                 shape = (
                     count,
                     int(np.prod(self.sweep_axes)),
                     self.reps,
                 )  # type: Union[Tuple[int, int], Tuple[int, int, int]]
             except AttributeError:
+                # else, if we are not doing sweepers, sweep_axes is not defined and we return:
+                # (adc_channels, number_of_readouts, number_of_shots)
                 shape = (count, self.reps)
 
-            i_val = (
-                self.di_buf[idx][: len_buf // number_of_adcs].reshape(shape)
-                / lengths[idx]
-            )
-            q_val = (
-                self.dq_buf[idx][: len_buf // number_of_adcs].reshape(shape)
-                / lengths[idx]
-            )
+            i_val = self.di_buf[idx][:len_acq].reshape(shape) / lengths[idx]
+            q_val = self.dq_buf[idx][:len_acq].reshape(shape) / lengths[idx]
 
             tot_i.append(i_val.tolist())
             tot_q.append(q_val.tolist())
