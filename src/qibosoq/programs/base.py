@@ -258,9 +258,6 @@ class BaseProgram(ABC, QickProgram):
 
     def collect_shots(self) -> Tuple[list, list]:
         """Read the internal buffers and returns single shots (i,q)."""
-        tot_i = []
-        tot_q = []
-
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
         for elem in (elem for elem in self.sequence if elem.type == "readout"):
@@ -273,29 +270,30 @@ class BaseProgram(ABC, QickProgram):
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
         len_acq = len(self.di_buf[0]) // len(unique_adcs)
+        stacked = (
+            np.stack((self.di_buf, self.dq_buf))[:, :, :len_acq]
+            / np.array(lengths)[:, np.newaxis]
+        )
+        tot = []
 
-        for idx, adc_ch in enumerate(unique_adcs):
-            count = int(adc_count[idx])
+        for idx, count in enumerate(adc_count.astype(int)):
             try:
-                # if we are doing sweepers, the sweep_axes attribute is defined
-                # by the NDAveragerProgram and the shape returned by this function will be:
+                # if we are doing sweepers
                 # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
                 shape = (
+                    2,
                     count,
                     int(np.prod(self.sweep_axes)),
                     self.reps,
-                )  # type: Union[Tuple[int, int], Tuple[int, int, int]]
+                )  # type: Union[Tuple[int, int, int], Tuple[int, int, int, int]]
             except AttributeError:
-                # else, if we are not doing sweepers, sweep_axes is not defined and we return:
+                # if we are not doing sweepers
                 # (adc_channels, number_of_readouts, number_of_shots)
-                shape = (count, self.reps)
+                shape = (2, count, self.reps)
 
-            i_val = self.di_buf[idx][:len_acq].reshape(shape) / lengths[idx]
-            q_val = self.dq_buf[idx][:len_acq].reshape(shape) / lengths[idx]
+            tot.append(stacked[:, idx].reshape(shape).tolist())
 
-            tot_i.append(i_val.tolist())
-            tot_q.append(q_val.tolist())
-        return tot_i, tot_q
+        return tuple(list(x) for x in zip(*tot))  # type: ignore
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout."""
