@@ -373,7 +373,7 @@ And we can execute and plot the results:
 .. testcode:: python
 
     server_commands = {
-        "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
+        "operation_code": OperationCode.EXECUTE_SWEEPS,
         "cfg": config,
         "sequence": sequence,
         "qubits": [qubit],

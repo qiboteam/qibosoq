@@ -49,7 +49,6 @@ class BaseProgram(ABC, QickProgram):
 
         # general settings
         self.adc_trig_offset = qpcfg.adc_trig_offset
-        self.reps = qpcfg.reps
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
@@ -241,7 +240,7 @@ class BaseProgram(ABC, QickProgram):
         # if there are no readouts, temporaray set 1 so that qick can execute properly
         reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
 
-        res = self.acquire(  # pylint: disable=E1123
+        res = self.acquire(  # pylint: disable=E1123,E1120
             soc,
             readouts_per_experiment=reads_per_rep,
         )

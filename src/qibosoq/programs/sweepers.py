@@ -39,6 +39,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         self.sweepers = reversed_sweepers(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
 
+        self.reps = qpcfg.reps  # must be done after NDAveragerProgram init
+        self.soft_avgs = qpcfg.soft_avgs
+
     def validate(self, sweeper: Sweeper):
         """Check if a sweeper is valid.
 

@@ -92,11 +92,10 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         )
 
     if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        results = program.acquire_decimated(
+        results = program.acquire_decimated(  # pylint: disable=E1120
             qick_soc,
             load_pulses=True,
             progress=False,
-            debug=False,
         )
         toti = [[results[0][0].tolist()]]
         totq = [[results[0][1].tolist()]]
