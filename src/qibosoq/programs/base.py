@@ -73,9 +73,6 @@ class BaseProgram(ABC, QickProgram):
         # pylint: disable-next=too-many-function-args
         super().__init__(soc, asdict(qpcfg))
 
-        self.reps = qpcfg.reps  # must be done after QickProgram init
-        self.soft_avgs = qpcfg.soft_avgs
-
     def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
         """Declare nqz zone (1-2) for a given PulseSequence.
 
