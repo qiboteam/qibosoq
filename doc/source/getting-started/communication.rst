@@ -30,8 +30,8 @@ The dictionary has to contain the following elements:
         "cfg": {
             "soft_avgs": int,
             "reps": int,
-            "repetition_duration": int,
-            "adc_trig_offset": int,
+            "relaxation_time": int,
+            "ro_time_of_flight": int,
             "average": bool,
         }
         "sequence": list,

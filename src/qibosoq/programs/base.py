@@ -3,7 +3,7 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import asdict
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from qick import QickProgram, QickSoc
@@ -33,7 +33,7 @@ class BaseProgram(ABC, QickProgram):
         """In this function we define the most important settings.
 
         In detail:
-            * max_gain, adc_trig_offset, max_sampling_rate, reps are imported from
+            * max_gain, ro_time_of_flight, max_sampling_rate, reps are imported from
               qpcfg (runcard settings)
             * relaxdelay (for each execution) is taken from qpcfg (runcard)
             * syncdelay (for each measurement) is defined explicitly
@@ -48,7 +48,7 @@ class BaseProgram(ABC, QickProgram):
         self.qubits = qubits
 
         # general settings
-        self.adc_trig_offset = qpcfg.adc_trig_offset
+        self.ro_time_of_flight = qpcfg.ro_time_of_flight
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
@@ -56,7 +56,7 @@ class BaseProgram(ABC, QickProgram):
             [elem for elem in self.sequence if elem.type == "readout"]
         )
 
-        self.relax_delay = self.us2cycles(qpcfg.repetition_duration)
+        self.relax_delay = self.us2cycles(qpcfg.relaxation_time)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
 
@@ -215,12 +215,12 @@ class BaseProgram(ABC, QickProgram):
             self.measure(
                 pulse_ch=elem.dac,
                 adcs=adcs,
-                adc_trig_offset=self.adc_trig_offset,
+                adc_trig_offset=self.ro_time_of_flight,
                 wait=False,
                 syncdelay=self.syncdelay,
             )
         elif isinstance(elem, Measurement):
-            self.trigger(adcs, adc_trig_offset=self.adc_trig_offset)
+            self.trigger(adcs, adc_trig_offset=self.ro_time_of_flight)
             if self.syncdelay is not None:
                 self.sync_all(self.syncdelay)
 
@@ -255,9 +255,6 @@ class BaseProgram(ABC, QickProgram):
 
     def collect_shots(self) -> Tuple[list, list]:
         """Read the internal buffers and returns single shots (i,q)."""
-        tot_i = []
-        tot_q = []
-
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
         for elem in (elem for elem in self.sequence if elem.type == "readout"):
@@ -269,15 +266,31 @@ class BaseProgram(ABC, QickProgram):
 
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        for idx, adc_ch in enumerate(unique_adcs):
-            count = adc_count[idx]
-            shape = (count, self.expts, self.reps) if self.expts else (count, self.reps)
-            i_val = self.di_buf[idx].reshape(shape) / lengths[idx]
-            q_val = self.dq_buf[idx].reshape(shape) / lengths[idx]
+        len_acq = len(self.di_buf[0]) // len(unique_adcs)
+        stacked = (
+            np.stack((self.di_buf, self.dq_buf))[:, :, :len_acq]
+            / np.array(lengths)[:, np.newaxis]
+        )
+        tot = []
 
-            tot_i.append(i_val.tolist())
-            tot_q.append(q_val.tolist())
-        return tot_i, tot_q
+        for idx, count in enumerate(adc_count.astype(int)):
+            try:
+                # if we are doing sweepers
+                # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
+                shape = (
+                    2,
+                    count,
+                    int(np.prod(self.sweep_axes)),
+                    self.reps,
+                )  # type: Union[Tuple[int, int, int], Tuple[int, int, int, int]]
+            except AttributeError:
+                # if we are not doing sweepers
+                # (adc_channels, number_of_readouts, number_of_shots)
+                shape = (2, count, self.reps)
+
+            tot.append(stacked[:, idx].reshape(shape).tolist())
+
+        return tuple(list(x) for x in zip(*tot))  # type: ignore
 
     def declare_gen_mux_ro(self):
         """Declare nqz zone for multiplexed readout."""

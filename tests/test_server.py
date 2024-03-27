@@ -103,13 +103,12 @@ def test_load_elements():
 def test_execute_program(mocker, soc):
     res_array = np.array([[0, 0, 0], [1, 1, 1]])
     res = res_array, res_array
-    mocker.patch("qibosoq.programs.base.BaseProgram.acquire", return_value=res)
 
     commands = {
         "operation_code": 1,
         "cfg": {
-            "repetition_duration": 100,
-            "adc_trig_offset": 200,
+            "relaxation_time": 100,
+            "ro_time_of_flight": 200,
             "reps": 1000,
             "soft_avgs": 1,
             "average": True,
@@ -152,7 +151,8 @@ def test_execute_program(mocker, soc):
 
     commands["operation_code"] = 2
     mocker.patch(
-        "qibosoq.programs.base.BaseProgram.acquire_decimated", return_value=res
+        "qick.averager_program.AveragerProgram.acquire_decimated",
+        return_value=res,
     )
     execute_program(commands, soc)
 

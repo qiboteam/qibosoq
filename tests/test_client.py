@@ -77,8 +77,8 @@ def targ_server_commands():
     targ = {
         "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
         "cfg": {
-            "repetition_duration": 100,
-            "adc_trig_offset": 200,
+            "relaxation_time": 100,
+            "ro_time_of_flight": 200,
             "reps": 1000,
             "soft_avgs": 1,
             "average": True,

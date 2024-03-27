@@ -360,7 +360,7 @@ Now we can define the :class:`qibosoq.components.base.Config` object and our :cl
 .. testcode:: python
 
     config = Config(
-        repetition_duration = 10,
+        relaxation_time = 10,
         reps = 2000
     )
     qubit = Qubit(
