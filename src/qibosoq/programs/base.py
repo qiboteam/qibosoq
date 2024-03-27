@@ -91,7 +91,10 @@ class BaseProgram(ABC, QickProgram):
                 ch_already_declared.append(gen_ch)
                 sampling_rate = self.soccfg["gens"][gen_ch]["fs"]
                 zone = 1 if freq < sampling_rate / 2 else 2
-                self.declare_gen(gen_ch, nqz=zone)
+                if pulse.mixer_frequency is not None:
+                    self.declare_gen(gen_ch, nqz=zone, mixer_freq=pulse.mixer_frequency)
+                else:
+                    self.declare_gen(gen_ch, nqz=zone)
 
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies."""

@@ -58,6 +58,9 @@ class Pulse(Element):
     type: str
     """Can be 'readout', 'drive', 'flux'."""
 
+    mixer_frequency: Optional[int] = None
+    """Mixer frequency for interpolated channels."""
+
 
 @dataclass
 class Rectangular(Pulse):
@@ -75,7 +78,7 @@ class Rectangular(Pulse):
 class Gaussian(Pulse):
     """Gaussian pulse."""
 
-    rel_sigma: float
+    rel_sigma: float = 2.0
     """Sigma of the gaussian as a fraction of duration."""
     shape: str = "gaussian"
 
@@ -89,9 +92,9 @@ class Gaussian(Pulse):
 class Drag(Pulse):
     """Drag pulse."""
 
-    rel_sigma: float
+    rel_sigma: float = 2.0
     """Sigma of the drag as a fraction of duration."""
-    beta: float
+    beta: float = 0.1
     """Beta parameter for drag pulse."""
     shape: str = "drag"
 
@@ -108,7 +111,7 @@ class Drag(Pulse):
 class FlatTop(Pulse):
     """FlatTop pulse."""
 
-    rel_sigma: float
+    rel_sigma: float = 2.0
     """Sigma of the FlatTop as a fraction of duration."""
     shape: str = "flattop"
 
@@ -129,9 +132,9 @@ class FlatTop(Pulse):
 class FluxExponential(Pulse):
     """Flux pulse with exponential rising edge to correct distortions."""
 
-    tau: float
-    upsilon: float
-    weight: float
+    tau: float = 0.1
+    upsilon: float = 0.1
+    weight: float = 0.1
     shape: str = "fluxexponential"
 
     def i_values(self, duration: int, max_gain: int):
@@ -148,8 +151,8 @@ class FluxExponential(Pulse):
 class Arbitrary(Pulse):
     """Custom pulse."""
 
-    i_values: List[float]
-    q_values: List[float]
+    i_values: List[float] = field(default_factory=list)
+    q_values: List[float] = field(default_factory=list)
     shape: str = "arbitrary"
 
     @property
