@@ -1,6 +1,7 @@
 """Collection of helper functions for qibosoq clients."""
 
 import json
+import re
 import socket
 from dataclasses import asdict
 from typing import Tuple
@@ -16,6 +17,14 @@ class QibosoqError(RuntimeError):
 
 class RuntimeLoopError(QibosoqError):
     """Exception raised when qibosoq server encounters a readout loop error.
+
+    Attributes:
+    message -- The error message received from the server (qibosoq)
+    """
+
+
+class BufferLengthError(QibosoqError):
+    """Exception raised when qibosoq server tries to allocate too large pulses.
 
     Attributes:
     message -- The error message received from the server (qibosoq)
@@ -43,6 +52,9 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
         if isinstance(results, str):
             if "exception in readout loop":
                 raise RuntimeLoopError(results)
+            buffer_overflow = r"buffer length must be \d+ samples or less"
+            if re.search(buffer_overflow, results) is not None:
+                raise BufferLengthError(results)
             raise QibosoqError(results)
         return results["i"], results["q"]
 
