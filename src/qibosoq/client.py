@@ -14,6 +14,14 @@ class QibosoqError(RuntimeError):
     """
 
 
+class RuntimeLoopError(QibosoqError):
+    """Exception raised when qibosoq server encounters a readout loop error.
+
+    Attributes:
+    message -- The error message received from the server (qibosoq)
+    """
+
+
 def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
     """Open a connection with the server and executes the commands."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -33,6 +41,8 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
             received.extend(tmp)
         results = json.loads(received.decode("utf-8"))
         if isinstance(results, str):
+            if "exception in readout loop":
+                raise RuntimeLoopError(results)
             raise QibosoqError(results)
         return results["i"], results["q"]
 
