@@ -50,7 +50,7 @@ def connect(server_commands: dict, host: str, port: int) -> Tuple[list, list]:
             received.extend(tmp)
         results = json.loads(received.decode("utf-8"))
         if isinstance(results, str):
-            if "exception in readout loop":
+            if "exception in readout loop" in results:
                 raise RuntimeLoopError(results)
             buffer_overflow = r"buffer length must be \d+ samples or less"
             if re.search(buffer_overflow, results) is not None:

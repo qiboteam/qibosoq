@@ -3,11 +3,19 @@ import json
 import numpy as np
 import pytest
 
-from qibosoq.client import connect, convert_commands, execute
+from qibosoq.client import (
+    BufferLengthError,
+    QibosoqError,
+    RuntimeLoopError,
+    connect,
+    convert_commands,
+    execute,
+)
 from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Rectangular
 
 return_active = True
+recv_result = None
 
 
 def mock_recv(obj, par):
@@ -18,9 +26,18 @@ def mock_recv(obj, par):
 
         return_active = False
         return res
-    else:
-        return_active = True
-        return False
+    return_active = True
+    return False
+
+
+def mock_recv_with_result(obj, par):
+    """Mock recv by providing a return string."""
+    global return_active
+    global recv_result
+    if return_active:
+        return_active = False
+        return json.dumps(recv_result).encode("utf-8")
+    return False
 
 
 def mock_connect(obj, pars):
@@ -163,3 +180,28 @@ def test_connect(mocker, server_commands):
 
     targ = ([[[1, 2, 3]]], [[[1, 2, 3]]])
     assert results == targ
+
+
+def test_exceptions(mocker, server_commands):
+    global recv_result
+    global return_active
+
+    mocker.patch("socket.socket.connect", new_callable=lambda: mock_connect)
+    mocker.patch("socket.socket.send", new_callable=lambda: mock_send)
+    mocker.patch("socket.socket.recv", new_callable=lambda: mock_recv_with_result)
+
+    converted = convert_commands(server_commands)
+
+    recv_result = "This is an example error containing an exception in readout loop. This are just words."
+    with pytest.raises(RuntimeLoopError):
+        _ = connect(converted, "0.0.0.0", 1000)
+
+    return_active = True
+    recv_result = "This is an example error containing buffer length must be 6553 samples or less. This are just words."
+    with pytest.raises(BufferLengthError):
+        _ = connect(converted, "0.0.0.0", 1000)
+
+    return_active = True
+    recv_result = "This is an example error"
+    with pytest.raises(QibosoqError):
+        _ = connect(converted, "0.0.0.0", 1000)
