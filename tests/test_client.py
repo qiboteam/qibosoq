@@ -37,6 +37,7 @@ def mock_recv_with_result(obj, par):
     if return_active:
         return_active = False
         return json.dumps(recv_result).encode("utf-8")
+    return_active = True
     return False
 
 
@@ -184,7 +185,6 @@ def test_connect(mocker, server_commands):
 
 def test_exceptions(mocker, server_commands):
     global recv_result
-    global return_active
 
     mocker.patch("socket.socket.connect", new_callable=lambda: mock_connect)
     mocker.patch("socket.socket.send", new_callable=lambda: mock_send)
@@ -196,12 +196,10 @@ def test_exceptions(mocker, server_commands):
     with pytest.raises(RuntimeLoopError):
         _ = connect(converted, "0.0.0.0", 1000)
 
-    return_active = True
     recv_result = "This is an example error containing buffer length must be 6553 samples or less. This are just words."
     with pytest.raises(BufferLengthError):
         _ = connect(converted, "0.0.0.0", 1000)
 
-    return_active = True
     recv_result = "This is an example error"
     with pytest.raises(QibosoqError):
         _ = connect(converted, "0.0.0.0", 1000)
