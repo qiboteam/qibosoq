@@ -9,7 +9,7 @@ repos:
       - id: check-yaml
       - id: debug-statements
   - repo: https://github.com/psf/black
-    rev: 24.4.0
+    rev: 24.4.2
     hooks:
       - id: black
   - repo: https://github.com/pycqa/isort
@@ -21,11 +21,6 @@ repos:
     rev: v3.15.2
     hooks:
       - id: pyupgrade
-  - repo: https://github.com/dhruvmanila/remove-print-statements
-    rev: v0.5.2
-    hooks:
-      - id: remove-print-statements
-        args: ['--verbose']
   - repo: https://github.com/hadialqattan/pycln
     rev: v2.4.0
     hooks:
