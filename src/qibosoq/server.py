@@ -105,7 +105,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             average=data["cfg"]["average"],
         )
 
-    return {"i": toti, "q": totq}
+    return {"i": (np.array(toti)+0.5).tolist(), "q": (np.array(totq)+0.5).tolist()}
 
 
 class ConnectionHandler(BaseRequestHandler):
