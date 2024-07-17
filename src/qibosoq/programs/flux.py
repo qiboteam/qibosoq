@@ -17,6 +17,7 @@ from qibosoq.components.pulses import (
     Rectangular,
 )
 from qibosoq.programs.base import BaseProgram
+from ..TIDAC80508 import TIDAC80508
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -25,10 +26,11 @@ class FluxProgram(BaseProgram):
     """Abstract class for flux-tunable qubits programs."""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
+        self, soc: QickSoc, tidac: TIDAC80508, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
     ):
         """Define an empty dictionary for bias sweepers and call super().__init__."""
         self.bias_sweep_registers: Dict[int, Tuple[QickRegister, QickRegister]] = {}
+        self.tidac = tidac
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def set_bias(self, mode: str = "sweetspot"):
@@ -38,46 +40,54 @@ class FluxProgram(BaseProgram):
         Args:
             mode (str): can be 'sweetspot' or 'zero'
         """
-        duration = 48  # minimum len
 
-        for qubit in self.qubits:
-            # if bias is zero, just skip the qubit
-            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
-                continue
+        # if mode == "sweetspot":
+        #     for qubit in self.qubits:
+        #         self.tidac.set_bias(qubit.dac, bias_value=qubit.bias)
+        # elif mode == "zero":
+        #     for qubit in self.qubits:
+        #         self.tidac.set_bias(qubit.dac, bias_value=0)
 
-            flux_ch = qubit.dac
-            max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
+        # duration = 48  # minimum len
+        # for qubit in self.qubits:
+            # # if bias is zero, just skip the qubit
+            # # continue
+            # if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
+            #     continue
 
-            if mode == "sweetspot":
-                value = max_gain
-            elif mode == "zero":
-                value = 0
-            else:
-                raise NotImplementedError(f"Mode {mode} not supported")
+            # flux_ch = qubit.dac
+            # max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
-            i_wf = np.full(duration, value)
-            q_wf = np.zeros(len(i_wf))
-            self.add_pulse(flux_ch, f"const_{value}_{flux_ch}", i_wf, q_wf)
-            self.set_pulse_registers(
-                ch=flux_ch,
-                waveform=f"const_{value}_{flux_ch}",
-                style="arb",
-                outsel="input",
-                stdysel="last",
-                freq=0,
-                phase=0,
-                gain=np.trunc(max_gain * qubit.bias).astype(int),
-            )
+            # if mode == "sweetspot":
+            #     value = max_gain
+            # elif mode == "zero":
+            #     value = 0
+            # else:
+            #     raise NotImplementedError(f"Mode {mode} not supported")
 
-            if flux_ch in self.bias_sweep_registers:
-                swept_reg, non_swept_reg = self.bias_sweep_registers[flux_ch]
-                if mode == "sweetspot":
-                    non_swept_reg.set_to(swept_reg)
-                elif mode == "zero":
-                    non_swept_reg.set_to(0)
+            # i_wf = np.full(duration, value)
+            # q_wf = np.zeros(len(i_wf))
+            # self.add_pulse(flux_ch, f"const_{value}_{flux_ch}", i_wf, q_wf)
+            # self.set_pulse_registers(
+            #     ch=flux_ch,
+            #     waveform=f"const_{value}_{flux_ch}",
+            #     style="arb",
+            #     outsel="input",
+            #     stdysel="last",
+            #     freq=0,
+            #     phase=0,
+            #     gain=np.trunc(max_gain * qubit.bias).astype(int),
+            # )
 
-            self.pulse(ch=flux_ch)
-        self.sync_all(50)  # wait all pulses are fired + 50 clks
+            # if flux_ch in self.bias_sweep_registers:
+            #     swept_reg, non_swept_reg = self.bias_sweep_registers[flux_ch]
+            #     if mode == "sweetspot":
+            #         non_swept_reg.set_to(swept_reg)
+            #     elif mode == "zero":
+            #         non_swept_reg.set_to(0)
+
+            # self.pulse(ch=flux_ch)
+        # self.sync_all(50)  # wait all pulses are fired + 50 clks
 
     def find_qubit_sweetspot(self, pulse: Pulse) -> float:
         """Return bias of a qubit from flux pulse."""
@@ -149,7 +159,7 @@ class FluxProgram(BaseProgram):
         muxed_pulses_executed = []
         muxed_ro_executed_indexes = []
 
-        self.set_bias("sweetspot")
+        # self.set_bias("sweetspot")
 
         for elem in self.sequence:
             # wait the needed wait time so that the start is timed correctly
@@ -172,7 +182,7 @@ class FluxProgram(BaseProgram):
                 self.execute_flux_pulse(elem)
 
         self.wait_all()
-        self.set_bias("zero")
+        # self.set_bias("zero")
         self.sync_all(self.relax_delay)
 
     def declare_zones_and_ro(self, sequence: List[Pulse]):

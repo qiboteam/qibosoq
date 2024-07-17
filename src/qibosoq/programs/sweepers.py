@@ -10,7 +10,7 @@ import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element
 from qibosoq.programs.flux import FluxProgram
-
+from ..TIDAC80508 import TIDAC80508
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
@@ -30,6 +30,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     def __init__(
         self,
         soc: QickSoc,
+        tidac: TIDAC80508,
         qpcfg: Config,
         sequence: List[Element],
         qubits: List[Qubit],
@@ -37,7 +38,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     ):
         """Init function, sets sweepers parameters before calling super.__init__."""
         self.sweepers = reversed_sweepers(sweepers)
-        super().__init__(soc, qpcfg, sequence, qubits)
+        super().__init__(soc, tidac, qpcfg, sequence, qubits)
 
         self.reps = qpcfg.reps  # must be done after NDAveragerProgram init
         self.soft_avgs = qpcfg.soft_avgs

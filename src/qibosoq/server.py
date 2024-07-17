@@ -20,6 +20,10 @@ from qibosoq.programs.sweepers import ExecuteSweeps
 logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
+# import sys
+# sys.path.append('/home/xilinx/jupyter_notebooks/qick/qick_demos/custom/drivers')
+from .TIDAC80508 import TIDAC80508
+
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
     """Convert a list of elements in dict form to a list of Pulse objects."""
@@ -49,7 +53,7 @@ def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
     return sweepers
 
 
-def execute_program(data: dict, qick_soc: QickSoc) -> dict:
+def execute_program(data: dict, qick_soc: QickSoc, tidac: TIDAC80508) -> dict:
     """Create and execute qick programs.
 
     Returns:
@@ -70,14 +74,18 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         raise NotImplementedError(
             f"Operation code {data['operation_code']} not supported"
         )
-
+    
     program = programcls(
         qick_soc,
+        tidac,
         Config(**data["cfg"]),
         load_elements(data["sequence"]),
         [Qubit(**qubit) for qubit in data["qubits"]],
         *args,
     )
+    # program.set_bias("sweetspot")
+    for qubit in program.qubits:
+        tidac.set_bias(qubit.dac, bias_value=qubit.bias)
 
     asm_prog = program.asm()
     qick_logger.handlers[0].doRollover()  # type: ignore
@@ -104,9 +112,12 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             qick_soc,
             average=data["cfg"]["average"],
         )
+    # program.set_bias("zero")
+    for qubit in program.qubits:
+        tidac.set_bias(qubit.dac, bias_value=0)
 
+    # return {"i": (np.array(toti)+0.5).tolist(), "q": (np.array(totq)+0.5).tolist()} # ZCU111?
     return {"i": toti, "q": totq}
-
 
 class ConnectionHandler(BaseRequestHandler):
     """Handle requests to the server."""
@@ -137,7 +148,9 @@ class ConnectionHandler(BaseRequestHandler):
 
         try:
             data = self.receive_command()
-            results = execute_program(data, self.server.qick_soc)
+
+            results = execute_program(data, self.server.qick_soc, self.server.tidac)
+
         except Exception:  # pylint: disable=W0612,W0718
             logger.exception("")
             logger.error("Faling command: %s", data)
@@ -160,5 +173,6 @@ def serve(host, port):
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
         server.qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
+        server.tidac = TIDAC80508()
         log_initial_info()
         server.serve_forever()

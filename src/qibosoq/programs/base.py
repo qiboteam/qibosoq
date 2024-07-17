@@ -58,7 +58,7 @@ class BaseProgram(ABC, QickProgram):
 
         self.relax_delay = self.us2cycles(qpcfg.relaxation_time)
         self.syncdelay = self.us2cycles(0)
-        self.wait_initialize = self.us2cycles(2.0)
+        self.wait_initialize = self.us2cycles(5.0)
 
         self.pulses_registered = False
         self.registered_waveforms: Dict[int, list] = {}
@@ -320,16 +320,16 @@ class BaseProgram(ABC, QickProgram):
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,
-            mixer_freq=0,
+            # mixer_freq=0,
             mux_freqs=mux_freqs,
             mux_gains=mux_gains,
-            ro_ch=adc_ch_added[0],
+            # ro_ch=adc_ch_added[0],
         )
 
     def add_muxed_readout_to_register(self, ro_pulses: List[Rectangular]):
         """Register multiplexed pulse before firing it."""
         # readout amplitude gets divided by len(mask), we are here fixing the values
-        mask = [0, 1, 2]
+        mask = [0, 1, 2, 3]
 
         pulse = ro_pulses[0]
         gen_ch = pulse.dac
