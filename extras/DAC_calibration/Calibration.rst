@@ -299,18 +299,18 @@ Final calculation
 
 .. code:: ipython3
 
-    def maximum_power(x, func=nrz):
-        return (to_db(func(x), 1.01e-10) + balun_ans(x) + att_ans(x)).real
+    def output_power(freq, func=nrz, amplitude=1):
+        return (to_db(func(freq)*amplitude, 1.01e-10) + balun_ans(freq) + att_ans(freq)).real
 
     freqs = np.array([i[0] for i in measured_nrz])*1e9
     data = [i[1] for i in measured_nrz]
     plt.plot(freqs, data, "o--", label="NRZ measured")
-    plt.plot(freqs, maximum_power(freqs, nrz), label="NRZ expected")
+    plt.plot(freqs, output_power(freqs, nrz), label="NRZ expected")
 
     freqs = np.array([i[0] for i in measured_mix])*1e9
     data = [i[1] for i in measured_mix]
     plt.plot(freqs, data, "o--", label="MIX measured")
-    plt.plot(freqs, maximum_power(freqs, mix), label="MIX expected")
+    plt.plot(freqs, output_power(freqs, mix), label="MIX expected")
 
     plt.xlabel("Frequency [Hz]")
     plt.ylabel("Measured maximum amplitude [dBm]")
