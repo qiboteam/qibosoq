@@ -91,13 +91,6 @@ case a RFSoC4x2 was used.
 
 
 
-.. parsed-literal::
-
-    <matplotlib.legend.Legend at 0x7d3e0c042c10>
-
-
-
-
 .. image:: output_3_1.png
 
 
@@ -147,14 +140,6 @@ We here consider just the two RW used in QICK.
 
 
 
-
-.. parsed-literal::
-
-    (-60.0, 5.0)
-
-
-
-
 .. image:: output_6_1.png
 
 
@@ -199,14 +184,6 @@ it to obtain an analytical function.
 
 
 
-
-.. parsed-literal::
-
-    <matplotlib.legend.Legend at 0x7d3e03f2b310>
-
-
-
-
 .. image:: output_8_1.png
 
 
@@ -241,13 +218,6 @@ expected (DDS + balun) answer and the measured one.
 
 
 
-.. parsed-literal::
-
-    <matplotlib.legend.Legend at 0x7d3e03f05950>
-
-
-
-
 .. image:: output_11_1.png
 
 
@@ -272,13 +242,6 @@ and obtain an analytical form:
 
 
 
-.. parsed-literal::
-
-    <matplotlib.legend.Legend at 0x7d3e03fed950>
-
-
-
-
 .. image:: output_13_1.png
 
 
@@ -296,13 +259,6 @@ and obtain an analytical form:
     plt.xlabel("Frequency [Hz]")
     plt.ylabel("Attenuation [dB]")
     plt.legend()
-
-
-
-
-.. parsed-literal::
-
-    <matplotlib.legend.Legend at 0x7d3e01c57e10>
 
 
 
@@ -359,14 +315,6 @@ Final calculation
     plt.xlabel("Frequency [Hz]")
     plt.ylabel("Measured maximum amplitude [dBm]")
     plt.legend()
-
-
-
-
-.. parsed-literal::
-
-    <matplotlib.legend.Legend at 0x7d3e15d5fcd0>
-
 
 
 
