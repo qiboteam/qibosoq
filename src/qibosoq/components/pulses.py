@@ -153,37 +153,7 @@ class Hann(Pulse):
     def i_values(self, duration: int, max_gain: int):
         """Compute the waveform i values."""
         amp = int(self.amplitude * max_gain)
-        time = np.arange(duration)
-
-        i_vals = np.array([np.sin(np.pi * x / duration) ** 2 for x in time])
-        return amp * i_vals
-
-
-@dataclass
-class Nuttal(Pulse):
-    """Nuttal function."""
-
-    shape: str = "hann"
-
-    def i_values(self, duration: int, max_gain: int):
-        """Compute the waveform i values."""
-        amp = int(self.amplitude * max_gain)
-        time = np.arange(duration)
-
-        a0 = 0.355768
-        a1 = 0.487396
-        a2 = 0.144232
-        a3 = 0.012604
-
-        i_vals = np.array(
-            [
-                a0
-                - a1 * np.cos(2 * (np.pi * x / duration))
-                + a2 * np.cos(4 * (np.pi * x / duration))
-                - a3 * np.cos(6 * (np.pi * x / duration))
-                for x in time
-            ]
-        )
+        i_vals = np.sin(np.pi * np.arange(0, 1, 1 / duration)) ** 2
         return amp * i_vals
 
 
@@ -207,6 +177,7 @@ class Shape(Enum):
     RECTANGULAR = Rectangular
     GAUSSIAN = Gaussian
     DRAG = Drag
+    HANN = Hann
     FLUXEXPONENTIAL = FluxExponential
     FLATTOP = FlatTop
     ARBITRARY = Arbitrary

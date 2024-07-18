@@ -18,7 +18,6 @@ from qibosoq.components.pulses import (
     Gaussian,
     Hann,
     Measurement,
-    Nuttal,
     Pulse,
     Rectangular,
 )
@@ -153,7 +152,7 @@ class BaseProgram(ABC, QickProgram):
                     length=soc_length,
                 )
 
-            elif isinstance(pulse, (Nuttal, Hann)):
+            elif isinstance(pulse, Hann):
                 self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_gain))
             elif isinstance(pulse, Arbitrary):
                 self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
