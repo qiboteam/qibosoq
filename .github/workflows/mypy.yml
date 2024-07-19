@@ -23,4 +23,4 @@ jobs:
           # and the task runner
           pipx inject poetry poethepoet --include-apps
       - name: Check
-        run: mypy src/
+        run: poetry run mypy src/
