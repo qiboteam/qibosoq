@@ -28,6 +28,10 @@
         devenv.shells.default = {
           packages = with pkgs; [poethepoet pre-commit stdenv.cc.cc.lib];
 
+          env = {
+            PYTHONBREAKPOINT = "pudb.set_trace";
+          };
+
           languages = {
             python = {
               enable = true;
