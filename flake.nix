@@ -36,7 +36,7 @@
                 install = {
                   enable = true;
                   allExtras = true;
-                  groups = ["dev" "tests"];
+                  groups = ["dev" "analysis" "tests"];
                 };
               };
             };
