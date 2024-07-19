@@ -145,6 +145,19 @@ class FluxExponential(Pulse):
 
 
 @dataclass
+class Hann(Pulse):
+    """Hann function."""
+
+    shape: str = "hann"
+
+    def i_values(self, duration: int, max_gain: int):
+        """Compute the waveform i values."""
+        amp = int(self.amplitude * max_gain)
+        i_vals = np.sin(np.pi * np.arange(0, 1, 1 / duration)) ** 2
+        return amp * i_vals
+
+
+@dataclass
 class Arbitrary(Pulse):
     """Custom pulse."""
 
@@ -164,6 +177,7 @@ class Shape(Enum):
     RECTANGULAR = Rectangular
     GAUSSIAN = Gaussian
     DRAG = Drag
+    HANN = Hann
     FLUXEXPONENTIAL = FluxExponential
     FLATTOP = FlatTop
     ARBITRARY = Arbitrary
