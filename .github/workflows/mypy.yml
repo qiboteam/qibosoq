@@ -22,5 +22,7 @@ jobs:
           pipx install poetry
           # and the task runner
           pipx inject poetry poethepoet --include-apps
+      - name: Install dependencies
+        run: poetry install --with analysis
       - name: Check
         run: poe mypy
