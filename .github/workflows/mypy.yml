@@ -8,14 +8,21 @@ jobs:
   mypy:
     strategy:
       matrix:
-        python-version: [3.8, 3.9, "3.10", "3.11"]
+        python-version: [3.9, "3.10", "3.11", "3.12"]
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
       - name: Setup python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: python/mypy@master
-        with:
-          paths: "src/"
+      - name: Install poetry
+        run: |
+          pipx install poetry
+          # and the task runner
+          pipx inject poetry poethepoet --include-apps
+      - name: Install dependencies
+        run: poetry install --with analysis
+      - name: Check
+        run: poe mypy

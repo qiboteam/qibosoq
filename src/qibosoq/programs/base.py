@@ -16,6 +16,7 @@ from qibosoq.components.pulses import (
     Element,
     FlatTop,
     Gaussian,
+    Hann,
     Measurement,
     Pulse,
     Rectangular,
@@ -151,6 +152,8 @@ class BaseProgram(ABC, QickProgram):
                     length=soc_length,
                 )
 
+            elif isinstance(pulse, Hann):
+                self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_gain))
             elif isinstance(pulse, Arbitrary):
                 self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
             self.registered_waveforms[gen_ch].append(name)

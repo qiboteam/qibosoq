@@ -138,3 +138,6 @@ dmypy.json
 # Visual Studio Code
 .vscode
 *.DS_Store
+
+# Nix
+.devenv/

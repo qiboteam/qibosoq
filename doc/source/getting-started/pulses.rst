@@ -63,7 +63,7 @@ The shape objects inherits from :class:`qibosoq.components.pulses.Pulse` and sha
 
 .. code-block:: python
 
-    from qibosoq.components.pulses import Rectangular, Gaussian, Drag, Arbitrary, FlatTop
+    from qibosoq.components.pulses import Rectangular, Gaussian, Drag, Arbitrary, FlatTop, Hann
 
     pulse = Rectangular(...)
 
@@ -88,6 +88,8 @@ The shape objects inherits from :class:`qibosoq.components.pulses.Pulse` and sha
         i_values = [...],  # list of floats
         q_values = [...],      # list of floats
     )
+
+    pulse = Hann(...)
 
 Measurements
 """"""""""""
