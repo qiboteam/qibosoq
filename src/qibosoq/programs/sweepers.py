@@ -73,6 +73,36 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                         "Sweepers on flux pulses are not implemented."
                     )
 
+    def add_sweep_info_bias(self, sweeper: Sweeper) -> List[Sweeper]:
+        """Generate RfsocSweep objects for biases.
+
+        Args:
+            sweeper: single qibolab sweeper object to register
+        """
+        sweep_list = []
+        for idx, jdx in enumerate(sweeper.indexes):
+            gen_ch = self.qubits[jdx].dac
+            if gen_ch is None:
+                raise ValueError("Qubit dac (flux bias) not provided.")
+            sweep_type = "gain"
+            std_register = self.get_gen_reg(gen_ch, sweep_type)
+            swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
+            self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
+
+            max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+            starts = (sweeper.starts * max_gain).astype(int)
+            stops = (sweeper.stops * max_gain).astype(int)
+
+            new_sweep = QickSweep(
+                self,
+                swept_register,  # sweeper_register
+                starts[idx],  # start
+                stops[idx],  # stop
+                sweeper.expts,  # number of points
+            )
+            sweep_list.append(new_sweep)
+        return sweep_list
+
     def add_sweep_info(self, sweeper: Sweeper):
         """Register RfsocSweep objects.
 
@@ -80,34 +110,15 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
             sweeper: single qibolab sweeper object to register
         """
         self.validate(sweeper)
-        sweep_list = []
 
         if sweeper.parameters[0] is Parameter.BIAS:
-            for idx, jdx in enumerate(sweeper.indexes):
-                gen_ch = self.qubits[jdx].dac
-                if gen_ch is None:
-                    raise ValueError("Qubit dac (flux bias) not provided.")
-                sweep_type = "gain"
-                std_register = self.get_gen_reg(gen_ch, sweep_type)
-                swept_register = self.new_gen_reg(gen_ch, name=f"sweep_bias_{gen_ch}")
-                self.bias_sweep_registers[gen_ch] = (swept_register, std_register)
-
-                max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-                starts = (sweeper.starts * max_gain).astype(int)
-                stops = (sweeper.stops * max_gain).astype(int)
-
-                new_sweep = QickSweep(
-                    self,
-                    swept_register,  # sweeper_register
-                    starts[idx],  # start
-                    stops[idx],  # stop
-                    sweeper.expts,  # number of points
-                )
-                sweep_list.append(new_sweep)
-
-            self.add_sweep(merge_sweeps(sweep_list))
+            sweep_list = self.add_sweep_info_bias(sweeper)
+            merged = merge_sweeps(sweep_list)
+            self.tot_sweeper_points *= len(merged.get_sweep_pts())
+            self.add_sweep(merged)
             return
 
+        sweep_list = []
         for idx, jdx in enumerate(sweeper.indexes):
             pulse = self.sequence[jdx]
             gen_ch = pulse.dac
@@ -136,7 +147,9 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
             )
             sweep_list.append(new_sweep)
 
-        self.add_sweep(merge_sweeps(sweep_list))
+        merged = merge_sweeps(sweep_list)
+        self.tot_sweeper_points *= len(merged.get_sweep_pts())
+        self.add_sweep(merged)
 
     def initialize(self):
         """Declre nyquist zones for all the DACs and all the readout frequencies.

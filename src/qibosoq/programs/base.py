@@ -44,6 +44,7 @@ class BaseProgram(ABC, QickProgram):
         self.soc = soc
         self.soccfg = soc  # this is used by qick
 
+        self.tot_sweeper_points = qpcfg.reps
         self.sequence = sequence
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
@@ -269,9 +270,8 @@ class BaseProgram(ABC, QickProgram):
 
         unique_adcs, adc_count = np.unique(adcs, return_counts=True)
 
-        len_acq = len(self.di_buf[0]) // len(unique_adcs)
         stacked = (
-            np.stack((self.di_buf, self.dq_buf))[:, :, :len_acq]
+            np.stack((self.di_buf, self.dq_buf))[:, :, : self.tot_sweeper_points]
             / np.array(lengths)[:, np.newaxis]
         )
         tot = []
