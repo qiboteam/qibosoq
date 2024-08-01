@@ -290,7 +290,7 @@ class BaseProgram(ABC, QickProgram):
                 / np.array(lengths)[:, np.newaxis]
             )
 
-            tot.append(stacked[:, idx].reshape(shape).tolist())
+            tot.append(stacked.reshape(shape).tolist())
 
         return tuple(list(x) for x in zip(*tot))  # type: ignore
 
