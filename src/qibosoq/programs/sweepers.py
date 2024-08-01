@@ -114,7 +114,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         if sweeper.parameters[0] is Parameter.BIAS:
             sweep_list = self.add_sweep_info_bias(sweeper)
             merged = merge_sweeps(sweep_list)
-            self.tot_sweeper_points *= len(merged.get_sweep_pts())
             self.add_sweep(merged)
             return
 
@@ -148,7 +147,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
             sweep_list.append(new_sweep)
 
         merged = merge_sweeps(sweep_list)
-        self.tot_sweeper_points *= len(merged.get_sweep_pts())
         self.add_sweep(merged)
 
     def initialize(self):

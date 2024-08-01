@@ -44,7 +44,6 @@ class BaseProgram(ABC, QickProgram):
         self.soc = soc
         self.soccfg = soc  # this is used by qick
 
-        self.tot_sweeper_points = qpcfg.reps
         self.sequence = sequence
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
@@ -268,12 +267,7 @@ class BaseProgram(ABC, QickProgram):
                 lengths.append(self.soc.us2cycles(elem.duration, gen_ch=ro_ch))
             adcs.append(adc_ch)
 
-        unique_adcs, adc_count = np.unique(adcs, return_counts=True)
-
-        stacked = (
-            np.stack((self.di_buf, self.dq_buf))[:, :, : self.tot_sweeper_points]
-            / np.array(lengths)[:, np.newaxis]
-        )
+        _, adc_count = np.unique(adcs, return_counts=True)
         tot = []
 
         for idx, count in enumerate(adc_count.astype(int)):
@@ -290,6 +284,11 @@ class BaseProgram(ABC, QickProgram):
                 # if we are not doing sweepers
                 # (adc_channels, number_of_readouts, number_of_shots)
                 shape = (2, count, self.reps)
+
+            stacked = (
+                np.stack((self.di_buf[idx], self.dq_buf[idx]))[:, : np.prod(shape[1:])]
+                / np.array(lengths)[:, np.newaxis]
+            )
 
             tot.append(stacked[:, idx].reshape(shape).tolist())
 
