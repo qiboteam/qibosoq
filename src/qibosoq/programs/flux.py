@@ -17,7 +17,7 @@ from qibosoq.components.pulses import (
     Rectangular,
 )
 from qibosoq.programs.base import BaseProgram
-from ..TIDAC80508 import TIDAC80508
+from ..drivers.TI_DAC80508 import DAC80508
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -26,11 +26,11 @@ class FluxProgram(BaseProgram):
     """Abstract class for flux-tunable qubits programs."""
 
     def __init__(
-        self, soc: QickSoc, tidac: TIDAC80508, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
+        self, soc: QickSoc, ti_dac: DAC80508, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
     ):
         """Define an empty dictionary for bias sweepers and call super().__init__."""
         self.bias_sweep_registers: Dict[int, Tuple[QickRegister, QickRegister]] = {}
-        self.tidac = tidac
+        self.ti_dac = ti_dac
         super().__init__(soc, qpcfg, sequence, qubits)
 
     def set_bias(self, mode: str = "sweetspot"):
@@ -41,12 +41,12 @@ class FluxProgram(BaseProgram):
             mode (str): can be 'sweetspot' or 'zero'
         """
 
-        # if mode == "sweetspot":
-        #     for qubit in self.qubits:
-        #         self.tidac.set_bias(qubit.dac, bias_value=qubit.bias)
-        # elif mode == "zero":
-        #     for qubit in self.qubits:
-        #         self.tidac.set_bias(qubit.dac, bias_value=0)
+        if mode == "sweetspot":
+            for qubit in self.qubits:
+                self.ti_dac.set_bias(qubit.dac, bias=qubit.bias)
+        elif mode == "zero":
+            for qubit in self.qubits:
+                self.ti_dac.set_bias(qubit.dac, bias=0)
 
         # duration = 48  # minimum len
         # for qubit in self.qubits:
@@ -97,11 +97,11 @@ class FluxProgram(BaseProgram):
         return 0.0
 
     def execute_flux_pulse(self, pulse: Pulse):
-        """Fire a fast flux pulse the starts and ends in sweetspot."""
+        """Fire a fast flux pulse."""
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-        bias = self.find_qubit_sweetspot(pulse)
-        sweetspot = np.trunc(bias * max_gain).astype(int)
+        # bias = self.find_qubit_sweetspot(pulse)
+        # sweetspot = np.trunc(bias * max_gain).astype(int)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
@@ -120,8 +120,8 @@ class FluxProgram(BaseProgram):
                 "Only Rectangular, FluxExponential and Arbitrary are supported for flux pulses"
             )
 
-        # add a clock cycle of sweetspot values
-        i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
+        # # add a clock cycle of sweetspot values
+        # i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
         q_vals = np.zeros(len(i_vals))
 
         if (abs(i_vals) > max_gain).any():
@@ -133,7 +133,7 @@ class FluxProgram(BaseProgram):
             waveform=pulse.name,
             style="arb",
             outsel="input",
-            stdysel="last",
+            stdysel="zero",
             freq=0,
             phase=0,
             gain=max_gain,

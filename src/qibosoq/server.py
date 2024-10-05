@@ -22,7 +22,8 @@ qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 
 # import sys
 # sys.path.append('/home/xilinx/jupyter_notebooks/qick/qick_demos/custom/drivers')
-from .TIDAC80508 import TIDAC80508
+from .drivers.TI_DAC80508 import DAC80508
+from .drivers.AD_HMC7044 import HMC7044
 
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
@@ -53,7 +54,7 @@ def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
     return sweepers
 
 
-def execute_program(data: dict, qick_soc: QickSoc, tidac: TIDAC80508) -> dict:
+def execute_program(data: dict, qick_soc: QickSoc, ti_dac: DAC80508) -> dict:
     """Create and execute qick programs.
 
     Returns:
@@ -77,15 +78,15 @@ def execute_program(data: dict, qick_soc: QickSoc, tidac: TIDAC80508) -> dict:
     
     program = programcls(
         qick_soc,
-        tidac,
+        ti_dac,
         Config(**data["cfg"]),
         load_elements(data["sequence"]),
         [Qubit(**qubit) for qubit in data["qubits"]],
         *args,
     )
-    # program.set_bias("sweetspot")
-    for qubit in program.qubits:
-        tidac.set_bias(qubit.dac, bias_value=qubit.bias)
+    program.set_bias("sweetspot")
+    # for qubit in program.qubits:
+    #     ti_dac.set_bias(qubit.dac, bias_value=qubit.bias)
 
     asm_prog = program.asm()
     qick_logger.handlers[0].doRollover()  # type: ignore
@@ -112,9 +113,9 @@ def execute_program(data: dict, qick_soc: QickSoc, tidac: TIDAC80508) -> dict:
             qick_soc,
             average=data["cfg"]["average"],
         )
-    # program.set_bias("zero")
-    for qubit in program.qubits:
-        tidac.set_bias(qubit.dac, bias_value=0)
+    program.set_bias("zero")
+    # for qubit in program.qubits:
+    #     ti_dac.set_bias(qubit.dac, bias_value=0)
 
     # return {"i": (np.array(toti)+0.5).tolist(), "q": (np.array(totq)+0.5).tolist()} # ZCU111?
     return {"i": toti, "q": totq}
@@ -148,8 +149,7 @@ class ConnectionHandler(BaseRequestHandler):
 
         try:
             data = self.receive_command()
-
-            results = execute_program(data, self.server.qick_soc, self.server.tidac)
+            results = execute_program(data, self.server.qick_soc, self.server.ti_dac)
 
         except Exception:  # pylint: disable=W0612,W0718
             logger.exception("")
@@ -172,7 +172,28 @@ def serve(host, port):
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
-        server.qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
-        server.tidac = TIDAC80508()
+        server.ad_clock = HMC7044()
+        server.ti_dac = DAC80508()
+        qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
+
+        ### SET POWER FOR DACs ###
+
+        dac_2280 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[0]
+        dac_2290 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[0]
+        dac_2300 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[0]
+        dac_2280.SetDACVOP(20000) # POWER FOR RF FLUX DAC (muA)
+        dac_2290.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        dac_2300.SetDACVOP(30000) # HIGH POWER FOR READOUT DAC (muA)
+
+        ### ENABLE MULTI TILE SYNCHRONIZATION ###
+
+        qick_soc.usp_rf_data_converter_0.mts_dac_config.RefTile = 2
+        qick_soc.usp_rf_data_converter_0.mts_dac_config.Tiles = 0b0011
+        qick_soc.usp_rf_data_converter_0.mts_dac_config.SysRef_Enable = 1
+        qick_soc.usp_rf_data_converter_0.mts_dac_config.Target_Latency = -1
+        qick_soc.usp_rf_data_converter_0.mts_dac()
+
+        server.qick_soc = qick_soc
+
         log_initial_info()
         server.serve_forever()

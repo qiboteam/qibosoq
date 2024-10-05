@@ -10,7 +10,7 @@ import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element
 from qibosoq.programs.flux import FluxProgram
-from ..TIDAC80508 import TIDAC80508
+from ..drivers.TI_DAC80508 import DAC80508
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
@@ -30,7 +30,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
     def __init__(
         self,
         soc: QickSoc,
-        tidac: TIDAC80508,
+        tidac: DAC80508,
         qpcfg: Config,
         sequence: List[Element],
         qubits: List[Qubit],
