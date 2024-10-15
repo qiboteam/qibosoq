@@ -53,6 +53,13 @@ def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
         sweepers.append(converted_sweep)
     return sweepers
 
+def set_bias(ti_dac: DAC80508, dac_bias: dict[int: float]):
+    """Set qubits flux lines bias.
+    """
+
+    for dac, bias in dac_bias.items():
+        ti_dac.set_bias(dac, bias)
+
 
 def execute_program(data: dict, qick_soc: QickSoc, ti_dac: DAC80508) -> dict:
     """Create and execute qick programs.
@@ -71,6 +78,9 @@ def execute_program(data: dict, qick_soc: QickSoc, ti_dac: DAC80508) -> dict:
     elif opcode is OperationCode.EXECUTE_SWEEPS:
         programcls = ExecuteSweeps
         args = load_sweeps(data["sweepers"])
+    elif opcode is OperationCode.SET_BIAS:
+        set_bias(ti_dac=ti_dac, dac_bias=data["dac_bias"])
+        return {"i": None, "q": None} 
     else:
         raise NotImplementedError(
             f"Operation code {data['operation_code']} not supported"
@@ -84,9 +94,9 @@ def execute_program(data: dict, qick_soc: QickSoc, ti_dac: DAC80508) -> dict:
         [Qubit(**qubit) for qubit in data["qubits"]],
         *args,
     )
-    program.set_bias("sweetspot")
+    # program.set_bias("sweetspot")
     # for qubit in program.qubits:
-    #     ti_dac.set_bias(qubit.dac, bias_value=qubit.bias)
+    #     ti_dac.set_bias(qubit.dc_dac, bias_value=qubit.bias)
 
     asm_prog = program.asm()
     qick_logger.handlers[0].doRollover()  # type: ignore
@@ -113,9 +123,9 @@ def execute_program(data: dict, qick_soc: QickSoc, ti_dac: DAC80508) -> dict:
             qick_soc,
             average=data["cfg"]["average"],
         )
-    program.set_bias("zero")
+    # program.set_bias("zero")
     # for qubit in program.qubits:
-    #     ti_dac.set_bias(qubit.dac, bias_value=0)
+    #     ti_dac.set_bias(qubit.dc_dac, bias_value=0)
 
     # return {"i": (np.array(toti)+0.5).tolist(), "q": (np.array(totq)+0.5).tolist()} # ZCU111?
     return {"i": toti, "q": totq}
@@ -179,11 +189,19 @@ def serve(host, port):
         ### SET POWER FOR DACs ###
 
         dac_2280 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[0]
+        dac_2281 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[1]
         dac_2290 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[0]
+        dac_2291 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[1]
+        dac_2292 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[2]
+        dac_2293 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[3]
         dac_2300 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[0]
-        dac_2280.SetDACVOP(20000) # POWER FOR RF FLUX DAC (muA)
+        dac_2280.SetDACVOP(40000) # POWER FOR RF FLUX DAC (muA)
+        dac_2281.SetDACVOP(40000) # POWER FOR RF FLUX DAC (muA)
         dac_2290.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
-        dac_2300.SetDACVOP(30000) # HIGH POWER FOR READOUT DAC (muA)
+        dac_2291.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        dac_2292.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        dac_2293.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        dac_2300.SetDACVOP(2250) # HIGH POWER FOR READOUT DAC (muA) # 2250 uA to 40500 uA
 
         ### ENABLE MULTI TILE SYNCHRONIZATION ###
 

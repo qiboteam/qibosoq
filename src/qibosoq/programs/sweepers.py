@@ -64,7 +64,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
                         "Sweepers on bias cannot be swept at the same time with other sweepers."
                     )
                 qubit = self.qubits[sweeper.indexes[idx]]
-                if qubit.dac is None or qubit.bias is None:
+                if qubit.dc_dac is None or qubit.bias is None:
                     raise ValueError(f"Bias swept qubit had incomplete values: {qubit}")
             elif par is Parameter.DURATION:
                 raise NotImplementedError("Sweepers on duration are not implemented.")
@@ -82,7 +82,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         """
         sweep_list = []
         for idx, jdx in enumerate(sweeper.indexes):
-            gen_ch = self.qubits[jdx].dac
+            gen_ch = self.qubits[jdx].dc_dac
             if gen_ch is None:
                 raise ValueError("Qubit dac (flux bias) not provided.")
             sweep_type = "gain"

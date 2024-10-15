@@ -33,68 +33,6 @@ class FluxProgram(BaseProgram):
         self.ti_dac = ti_dac
         super().__init__(soc, qpcfg, sequence, qubits)
 
-    def set_bias(self, mode: str = "sweetspot"):
-        """Set qubits flux lines to a bias level.
-
-        Note that this fuction acts only on the qubits used in self.sequence.
-        Args:
-            mode (str): can be 'sweetspot' or 'zero'
-        """
-
-        if mode == "sweetspot":
-            for qubit in self.qubits:
-                self.ti_dac.set_bias(qubit.dac, bias=qubit.bias)
-        elif mode == "zero":
-            for qubit in self.qubits:
-                self.ti_dac.set_bias(qubit.dac, bias=0)
-
-        # duration = 48  # minimum len
-        # for qubit in self.qubits:
-            # # if bias is zero, just skip the qubit
-            # # continue
-            # if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
-            #     continue
-
-            # flux_ch = qubit.dac
-            # max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
-
-            # if mode == "sweetspot":
-            #     value = max_gain
-            # elif mode == "zero":
-            #     value = 0
-            # else:
-            #     raise NotImplementedError(f"Mode {mode} not supported")
-
-            # i_wf = np.full(duration, value)
-            # q_wf = np.zeros(len(i_wf))
-            # self.add_pulse(flux_ch, f"const_{value}_{flux_ch}", i_wf, q_wf)
-            # self.set_pulse_registers(
-            #     ch=flux_ch,
-            #     waveform=f"const_{value}_{flux_ch}",
-            #     style="arb",
-            #     outsel="input",
-            #     stdysel="last",
-            #     freq=0,
-            #     phase=0,
-            #     gain=np.trunc(max_gain * qubit.bias).astype(int),
-            # )
-
-            # if flux_ch in self.bias_sweep_registers:
-            #     swept_reg, non_swept_reg = self.bias_sweep_registers[flux_ch]
-            #     if mode == "sweetspot":
-            #         non_swept_reg.set_to(swept_reg)
-            #     elif mode == "zero":
-            #         non_swept_reg.set_to(0)
-
-            # self.pulse(ch=flux_ch)
-        # self.sync_all(50)  # wait all pulses are fired + 50 clks
-
-    def find_qubit_sweetspot(self, pulse: Pulse) -> float:
-        """Return bias of a qubit from flux pulse."""
-        for qubit in self.qubits:
-            if pulse.dac == qubit.dac:
-                return qubit.bias if qubit.bias else 0
-        return 0.0
 
     def execute_flux_pulse(self, pulse: Pulse):
         """Fire a fast flux pulse."""
@@ -103,15 +41,29 @@ class FluxProgram(BaseProgram):
         # bias = self.find_qubit_sweetspot(pulse)
         # sweetspot = np.trunc(bias * max_gain).astype(int)
 
-        duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
+        num_samples = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
-        duration *= samples_per_clk  # the duration here is expressed in samples
+        num_samples *= samples_per_clk  # the duration here is expressed in samples
 
         if isinstance(pulse, Rectangular):
             amp = np.trunc(pulse.amplitude * max_gain).astype(int)
-            i_vals = np.full(duration, amp)
+            # amp = np.trunc(pulse.amplitude * max_gain).astype(int)
+            # i_vals = np.full(num_samples, amp) # add predistortion!
+
+            # time_j  = np.arange(0, self.cfg["q2_flux_pulse_length"], self.cfg["q2_flux_pulse_length"]/q2_flux_pulse_length)
+            # flux_j0 = np.ones(q2_flux_pulse_length)
+            # flux_j1 = np.exp(-8.5* time_j)        
+            # flux_j2 = 1 + 2.5*time_j - 25 * time_j**2
+            # flux_i  = flux_j0*flux_j2/flux_j1
+
+            x  = np.arange(0, num_samples) * pulse.duration/num_samples
+            square_waveform = np.ones(num_samples)
+            predistortion_1 = np.exp(8.5* x)        
+            predistortion_2 = 1 + 2.5*x - 25 * x**2
+            i_vals  = 0.4 * amp * square_waveform * predistortion_2 * predistortion_1
+
         elif isinstance(pulse, FluxExponential):
-            i_vals = pulse.i_values(duration, max_gain)
+            i_vals = pulse.i_values(num_samples, max_gain)
         elif isinstance(pulse, Arbitrary):
             i_vals = np.array(pulse.i_values)
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
@@ -143,8 +95,8 @@ class FluxProgram(BaseProgram):
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel."""
         for qubit in self.qubits:
-            if qubit.dac is not None:
-                flux_ch = qubit.dac
+            if qubit.rf_dac is not None:
+                flux_ch = qubit.rf_dac
                 self.declare_gen(flux_ch, nqz=1)
 
     def body(self):

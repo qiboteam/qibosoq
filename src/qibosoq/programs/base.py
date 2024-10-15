@@ -99,7 +99,8 @@ class BaseProgram(ABC, QickProgram):
             ro_ch = readout.dac
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout.duration, gen_ch=ro_ch)
+                length = self.soc.us2cycles(readout.duration, ro_ch=adc_ch)
+                # length = self.soc.us2cycles(readout.duration + 10, ro_ch=adc_ch)
 
                 freq = readout.frequency
 
@@ -215,12 +216,14 @@ class BaseProgram(ABC, QickProgram):
             adcs = [elem.adc]
 
         if isinstance(elem, Pulse):  #
+            lag = self.soc.us2cycles(88/1000) # 88 ns
             self.measure(
                 pulse_ch=elem.dac,
                 adcs=adcs,
                 adc_trig_offset=self.ro_time_of_flight,
                 wait=False,
                 syncdelay=self.syncdelay,
+                t=lag
             )
         elif isinstance(elem, Measurement):
             self.trigger(adcs, adc_trig_offset=self.ro_time_of_flight)
@@ -260,11 +263,13 @@ class BaseProgram(ABC, QickProgram):
         """Read the internal buffers and returns single shots (i,q)."""
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
+        # This assumes that if there are two readouts on the same qubit they are both of the same length, why?
+        # if different lenghts are an issue, then it should be raised as an error.
         for elem in (elem for elem in self.sequence if elem.type == "readout"):
             adc_ch = elem.adc
             ro_ch = elem.dac
             if adc_ch not in adcs:
-                lengths.append(self.soc.us2cycles(elem.duration, gen_ch=ro_ch))
+                lengths.append(self.soc.us2cycles(elem.duration, ro_ch=adc_ch))
             adcs.append(adc_ch)
 
         _, adc_count = np.unique(adcs, return_counts=True)
@@ -286,8 +291,8 @@ class BaseProgram(ABC, QickProgram):
                 shape = (2, count, self.reps)
 
             stacked = (
-                np.stack((self.di_buf[idx], self.dq_buf[idx]))[:, : np.prod(shape[1:])]
-                / np.array(lengths)[:, np.newaxis]
+                np.stack((self.di_buf[idx], self.dq_buf[idx]))[:, : np.prod(shape[1:])] # this has dimensions (2, number_of_shots), it used to be (2, #adcs, number_of_readouts*number_of_shots)
+                / np.array([lengths[idx]])[:, np.newaxis] # this has dimensions (4, 1)
             )
 
             tot.append(stacked.reshape(shape).tolist())

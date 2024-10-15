@@ -20,6 +20,7 @@ class DAC80508:
             self.spi.xfer(to_send)
 
     def set_bias(self, dac:int, bias: float):
+        dac = int(dac)
         if not dac in DACS:
             raise ValueError(f"dac should be any of {DACS}")
         if abs(bias) > MAX_VOLTAGE:

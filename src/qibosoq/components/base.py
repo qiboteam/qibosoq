@@ -30,6 +30,7 @@ class OperationCode(IntEnum):
     EXECUTE_PULSE_SEQUENCE = auto()
     EXECUTE_PULSE_SEQUENCE_RAW = auto()
     EXECUTE_SWEEPS = auto()
+    SET_BIAS = auto()
 
 
 @dataclass
@@ -38,8 +39,10 @@ class Qubit:
 
     bias: Optional[float] = None
     """Amplitude factor, for sweetspot."""
-    dac: Optional[int] = None
-    """DAC responsible for flux control."""
+    dc_dac: Optional[int] = None
+    """DAC responsible for flux control biasing."""
+    rf_dac: Optional[int] = None
+    """DAC responsible for flux control fast rf pulses."""
 
 
 class Parameter(str, Enum):
