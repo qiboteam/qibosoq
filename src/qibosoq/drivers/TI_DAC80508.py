@@ -26,6 +26,7 @@ class DAC80508:
         if abs(bias) > MAX_VOLTAGE:
           raise ValueError(f"Bias values should be between -{MAX_VOLTAGE} and {MAX_VOLTAGE} V")
         
+        print(dac, bias)
         register_value = int(bias * (0xffff - 0x8000) / 2.5000) + 0x8000     
         high_byte = (register_value & 0xff00) >> 8
         low_byte  = (register_value & 0x00ff)
