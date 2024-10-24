@@ -47,20 +47,14 @@ class FluxProgram(BaseProgram):
 
         if isinstance(pulse, Rectangular):
             amp = np.trunc(pulse.amplitude * max_gain).astype(int)
-            # amp = np.trunc(pulse.amplitude * max_gain).astype(int)
-            # i_vals = np.full(num_samples, amp) # add predistortion!
+            # i_vals = np.full(num_samples, amp) # no predistortion!
 
-            # time_j  = np.arange(0, self.cfg["q2_flux_pulse_length"], self.cfg["q2_flux_pulse_length"]/q2_flux_pulse_length)
-            # flux_j0 = np.ones(q2_flux_pulse_length)
-            # flux_j1 = np.exp(-8.5* time_j)        
-            # flux_j2 = 1 + 2.5*time_j - 25 * time_j**2
-            # flux_i  = flux_j0*flux_j2/flux_j1
-
+            # PREDISTORTION
             x  = np.arange(0, num_samples) * pulse.duration/num_samples
             square_waveform = np.ones(num_samples)
-            predistortion_1 = np.exp(8.5* x)        
-            predistortion_2 = 1 + 2.5*x - 25 * x**2
-            i_vals  = 0.4 * amp * square_waveform * predistortion_2 * predistortion_1
+            predistortion_1 = np.exp(0.155* x) # (compensate DC filtering)
+            predistortion_2 = 0.05 * np.exp(-100 * x) # (compensate RF filtering)
+            i_vals  = np.clip(0.9 * amp * (0.5 * (square_waveform + predistortion_1) + predistortion_2), -max_gain, max_gain)
 
         elif isinstance(pulse, FluxExponential):
             i_vals = pulse.i_values(num_samples, max_gain)
