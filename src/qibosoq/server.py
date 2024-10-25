@@ -184,32 +184,45 @@ def serve(host, port):
     with TCPServer((host, port), ConnectionHandler) as server:
         server.ad_clock = HMC7044()
         server.ti_dac = DAC80508()
+        print(cfg.QICKSOC_LOCATION)
         qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
 
-        ### SET POWER FOR DACs ###
+        # ### SET POWER FOR DACs ###
 
-        dac_2280 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[0]
-        dac_2281 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[1]
-        dac_2290 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[0]
-        dac_2291 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[1]
-        dac_2292 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[2]
-        dac_2293 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[3]
+        # dac_2280 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[0]
+        # dac_2281 = qick_soc.usp_rf_data_converter_0.dac_tiles[0].blocks[1]
+        # dac_2290 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[0]
+        # dac_2291 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[1]
+        # dac_2292 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[2]
+        # dac_2293 = qick_soc.usp_rf_data_converter_0.dac_tiles[1].blocks[3]
+        # dac_2300 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[0]
+        # dac_2280.SetDACVOP(40000) # POWER FOR RF FLUX DAC (muA)
+        # dac_2281.SetDACVOP(40000) # POWER FOR RF FLUX DAC (muA)
+        # dac_2290.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        # dac_2291.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        # dac_2292.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        # dac_2293.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
+        # dac_2300.SetDACVOP(2250) # HIGH POWER FOR READOUT DAC (muA) # 2250 uA to 40500 uA
+
+        # ### ENABLE MULTI TILE SYNCHRONIZATION ###
+
+        # qick_soc.usp_rf_data_converter_0.mts_dac_config.RefTile = 2
+        # qick_soc.usp_rf_data_converter_0.mts_dac_config.Tiles = 0b0011
+        # qick_soc.usp_rf_data_converter_0.mts_dac_config.SysRef_Enable = 1
+        # qick_soc.usp_rf_data_converter_0.mts_dac_config.Target_Latency = -1
+        # qick_soc.usp_rf_data_converter_0.mts_dac()
+
         dac_2300 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[0]
-        dac_2280.SetDACVOP(40000) # POWER FOR RF FLUX DAC (muA)
-        dac_2281.SetDACVOP(40000) # POWER FOR RF FLUX DAC (muA)
-        dac_2290.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
-        dac_2291.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
-        dac_2292.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
-        dac_2293.SetDACVOP(40000) # POWER FOR DRIVE DAC (muA)
-        dac_2300.SetDACVOP(2250) # HIGH POWER FOR READOUT DAC (muA) # 2250 uA to 40500 uA
+        dac_2300.SetDACVOP(3000) # LOW POWER FOR READOUT DAC (muA)
 
-        ### ENABLE MULTI TILE SYNCHRONIZATION ###
+        dac_2301 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[1]
+        dac_2301.SetDACVOP(20000) # LOW POWER FOR READOUT DAC (muA)
 
-        qick_soc.usp_rf_data_converter_0.mts_dac_config.RefTile = 2
-        qick_soc.usp_rf_data_converter_0.mts_dac_config.Tiles = 0b0011
-        qick_soc.usp_rf_data_converter_0.mts_dac_config.SysRef_Enable = 1
-        qick_soc.usp_rf_data_converter_0.mts_dac_config.Target_Latency = -1
-        qick_soc.usp_rf_data_converter_0.mts_dac()
+        dac_2302 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[2]
+        dac_2302.SetDACVOP(20000) # LOW POWER FOR READOUT DAC (muA)
+
+        dac_2303 = qick_soc.usp_rf_data_converter_0.dac_tiles[2].blocks[3]
+        dac_2303.SetDACVOP(20000) # LOW POWER FOR READOUT DAC (muA)
 
         server.qick_soc = qick_soc
 
