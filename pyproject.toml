@@ -67,6 +67,7 @@ mypy = "mypy src/"
 docs = "make -C doc html"
 docs-clean = "make -C doc clean"
 test-docs = "make -C doc doctest"
+types = "true"
 
 [tool.pytest.ini_options]
 testpaths = ['tests/']
