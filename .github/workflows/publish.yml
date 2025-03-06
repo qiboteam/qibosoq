@@ -24,4 +24,4 @@ jobs:
       python-version: "3.9"
       trigger-label: "${{needs.version.outputs.version}}"
       project: qibosoq
-      poetry-extras: --with docs --all-extras
+      poetry-extras: --with docs
