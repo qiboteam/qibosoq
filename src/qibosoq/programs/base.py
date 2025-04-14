@@ -99,7 +99,7 @@ class BaseProgram(ABC, QickProgram):
             ro_ch = readout.dac
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
-                length = self.soc.us2cycles(readout.duration, gen_ch=ro_ch)
+                length = self.soc.us2cycles(readout.duration, ro_ch=adc_ch)
 
                 freq = readout.frequency
 
