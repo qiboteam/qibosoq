@@ -31,5 +31,8 @@ QICKSOC_LOCATION = from_env(
 )
 """Path of the qick bitstream to load."""
 
+EXT_CLK = from_env("EXT_CLK", "False") == "True"
+"""Whether the external clock is used as a reference or not."""
+
 IS_MULTIPLEXED = from_env("IS_MULTIPLEXED", "True") == "True"
 """Whether the readout is multiplexed or not."""

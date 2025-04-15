@@ -159,6 +159,8 @@ def serve(host, port):
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
     with TCPServer((host, port), ConnectionHandler) as server:
-        server.qick_soc = QickSoc(bitfile=cfg.QICKSOC_LOCATION)
+        server.qick_soc = QickSoc(
+            bitfile=cfg.QICKSOC_LOCATION, external_clk=cfg.EXT_CLK
+        )
         log_initial_info()
         server.serve_forever()
