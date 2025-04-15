@@ -57,6 +57,7 @@ class BaseProgram(ABC, QickProgram):
             [elem for elem in self.sequence if elem.type == "readout"]
         )
 
+        # Convert delays into generic clock cycles
         self.relax_delay = self.us2cycles(qpcfg.relaxation_time)
         self.syncdelay = self.us2cycles(0)
         self.wait_initialize = self.us2cycles(2.0)
@@ -99,6 +100,7 @@ class BaseProgram(ABC, QickProgram):
             ro_ch = readout.dac
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
+                # Convert acquisition length into ADC clock cycles
                 length = self.soc.us2cycles(readout.duration, ro_ch=adc_ch)
 
                 freq = readout.frequency
@@ -124,6 +126,7 @@ class BaseProgram(ABC, QickProgram):
 
         # pulse length converted with DAC CLK
         us_length = pulse.duration
+        # Convert pulse length into DAC clock cycles
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
 
         name = pulse.waveform_name
@@ -264,7 +267,8 @@ class BaseProgram(ABC, QickProgram):
             adc_ch = elem.adc
             ro_ch = elem.dac
             if adc_ch not in adcs:
-                lengths.append(self.soc.us2cycles(elem.duration, gen_ch=ro_ch))
+                # Convert acquisition length into ADC clock cycles
+                lengths.append(self.soc.us2cycles(elem.duration, ro_ch=adc_ch))
             adcs.append(adc_ch)
 
         _, adc_count = np.unique(adcs, return_counts=True)
@@ -335,6 +339,7 @@ class BaseProgram(ABC, QickProgram):
 
         pulse = ro_pulses[0]
         gen_ch = pulse.dac
+        # Convert pulse length into DAC clock cycles
         length = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
 
         if pulse.shape != "rectangular":
