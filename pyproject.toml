@@ -18,16 +18,16 @@ classifiers = [
 packages = [{ include = "qibosoq", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.10, <3.14"
+python = ">=3.8, <3.14"
 qick = ">=0.2.211, <=0.2.249"
-numpy = "^1.26"
+numpy = "^1.24"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
-ipython = "^8.34.0"
+ipython = "^8.0.0"
 pudb = "^2024.1.1"
 
 [tool.poetry.group.analysis]
@@ -41,8 +41,7 @@ mypy = "^1.10.1"
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-ipython = "^8.34.0"
-sphinx = "^7.4.6"
+sphinx = "^7.0.0"
 furo = "^2023.3.27"
 recommonmark = "^0.7.1"
 sphinxcontrib-bibtex = "^2.5.0"
