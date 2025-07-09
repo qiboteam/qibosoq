@@ -30,7 +30,7 @@ class ExecutePulseSequence(FluxProgram, AveragerProgram):
         self.soft_avgs = qpcfg.soft_avgs
 
     def initialize(self):
-        """Declre nyquist zones for all the DACs and all the readout frequencies.
+        """Declare nyquist zones for all the DACs and all the readout frequencies.
 
         Function called by AveragerProgram.__init__.
         """
