@@ -92,6 +92,11 @@ class Sweeper:
         if isinstance(self.stops, list):
             self.stops = np.array(self.stops, dtype=np.float64)
 
+        for idx, par in enumerate(self.parameters):
+            if par == Parameter.AMPLITUDE:
+                if self.stops[idx] > 1:
+                    raise ValueError("Amplitude sweep cannot exceed 1.")
+
     @property
     def serialized(self) -> dict:
         """Convert a Sweeper object into a dictionary.
