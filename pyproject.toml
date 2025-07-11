@@ -4,7 +4,7 @@ version = "0.1.4"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = [
   { name = "Rodolfo Carobene", email = "rodolfo.carobene@gmail.com" },
-  { name = "Javier Serrano", email = "javier.serrano@tii.ae" }
+  { name = "The Qibo Team"}
 ]
 license = { text = "Apache License 2.0" }
 readme = "README.md"
