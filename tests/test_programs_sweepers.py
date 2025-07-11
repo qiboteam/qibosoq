@@ -69,7 +69,7 @@ def execute_sweeps(soc):
             expts=1000,
             parameters=[Parameter.AMPLITUDE],
             starts=np.array([0]),
-            stops=np.array([100]),
+            stops=np.array([1]),
             indexes=[0],
         ),
         Sweeper(
@@ -159,7 +159,7 @@ def test_reversed_sweepers(execute_sweeps):
             expts=1000,
             parameters=[Parameter.AMPLITUDE],
             starts=np.array([0]),
-            stops=np.array([100]),
+            stops=np.array([1]),
             indexes=[0],
         ),
         Sweeper(

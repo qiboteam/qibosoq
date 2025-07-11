@@ -128,6 +128,7 @@ class FluxProgram(BaseProgram):
             phase=0,
             gain=max_gain,
         )
+
         self.pulse(ch=gen_ch)
 
     def declare_nqz_flux(self):
