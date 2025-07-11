@@ -21,7 +21,6 @@ packages = [{ include = "qibosoq", from = "src" }]
 python = ">=3.8, <3.14"
 qick = ">=0.2.211, <=0.2.249"
 numpy = "^1.24"
-tomli = "^2.2.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -37,6 +36,8 @@ optional = true
 [tool.poetry.group.analysis.dependencies]
 pylint = ">=2.16.0"
 mypy = "^1.10.1"
+tomli = "^2.2.1"
+dill = ">=0.3.6"
 
 [tool.poetry.group.docs]
 optional = true
@@ -58,6 +59,7 @@ optional = true
 pytest = ">=7.2.2"
 pytest-cov = "^4.0.0"
 pytest-mock = ">=3.10.0"
+tomli = "^2.2.1"
 
 [tool.poe.tasks]
 test = "pytest"
