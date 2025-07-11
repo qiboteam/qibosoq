@@ -1,26 +1,27 @@
-[tool.poetry]
+[project]
 name = "qibosoq"
 version = "0.1.4"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = [
-  "Rodolfo Carobene <rodolfo.carobene@gmail.com>",
-  "Javier Serrano <javier.serrano@tii.ae>",
+  { name = "Rodolfo Carobene", email = "rodolfo.carobene@gmail.com" },
+  { name = "Javier Serrano", email = "javier.serrano@tii.ae" }
 ]
-license = "Apache License 2.0"
+license = { text = "Apache License 2.0" }
 readme = "README.md"
-repository = "https://github.com/qiboteam/qibosoq/"
-documentation = "https://qibo.science/qibosoq/stable/"
 keywords = []
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Physics"
 ]
-packages = [{ include = "qibosoq", from = "src" }]
+requires-python = ">=3.8,<3.14"
+dependencies = [
+  "qick>=0.2.211,<=0.2.249",
+  "numpy>=1.24,<2"
+]
 
-[tool.poetry.dependencies]
-python = ">=3.8, <3.14"
-qick = ">=0.2.211, <=0.2.249"
-numpy = "^1.24"
+[project.urls]
+Repository = "https://github.com/qiboteam/qibosoq/"
+Documentation = "https://qibo.science/qibosoq/stable/"
 
 [build-system]
 requires = ["poetry-core"]
@@ -73,8 +74,8 @@ test-docs = "make -C doc doctest"
 types = "true"
 
 [tool.pytest.ini_options]
-testpaths = ['tests/']
-addopts = ['--cov=qibosoq', '--cov-report=xml', '--cov-report=html']
+testpaths = ["tests/"]
+addopts = ["--cov=qibosoq", "--cov-report=xml", "--cov-report=html"]
 
 [[tool.mypy.overrides]]
 module = "qick.*"
