@@ -682,7 +682,6 @@ description = "Backport of PEP 654 (exception groups)"
 optional = false
 python-versions = ">=3.7"
 groups = ["tests"]
-markers = "python_version < \"3.11\""
 files = [
     {file = "exceptiongroup-1.3.0-py3-none-any.whl", hash = "sha256:4d111e6e0c13d0644cad6ddaa7ed0261a0b36971f6d23e7ec9b4b9097da78a10"},
     {file = "exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88"},
@@ -3744,12 +3743,12 @@ version = "4.14.1"
 description = "Backported and Experimental Type Hints for Python 3.9+"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "analysis", "dev", "docs"]
+groups = ["main", "analysis", "dev", "docs", "tests"]
 files = [
     {file = "typing_extensions-4.14.1-py3-none-any.whl", hash = "sha256:d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76"},
     {file = "typing_extensions-4.14.1.tar.gz", hash = "sha256:38b39f4aeeab64884ce9f74c94263ef78f3c22467c8724005483154c26648d36"},
 ]
-markers = {main = "python_version >= \"3.11\" and (platform_machine == \"aarch64\" or platform_machine == \"armv7l\")", analysis = "python_version >= \"3.11\"", dev = "python_version == \"3.11\"", docs = "python_version >= \"3.11\""}
+markers = {main = "python_version >= \"3.11\" and (platform_machine == \"aarch64\" or platform_machine == \"armv7l\")", analysis = "python_version >= \"3.11\"", dev = "python_version == \"3.11\"", docs = "python_version >= \"3.11\"", tests = "python_version == \"3.12\" or python_version == \"3.11\""}
 
 [[package]]
 name = "typing-inspection"
@@ -3923,4 +3922,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.8, <3.14"
-content-hash = "e03ada3c67111cb08938c95ddf24d54750522b4e78fc258eebed9706eba92c80"
+content-hash = "972faad2dd111f4189e93254523853d8c4207ecc1ceb65e3c4343f579c1c742a"
