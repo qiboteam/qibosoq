@@ -37,8 +37,8 @@ optional = true
 [tool.poetry.group.analysis.dependencies]
 pylint = ">=2.16.0"
 mypy = "^1.10.1"
-tomli = "^2.2.1"
-dill = ">=0.3.6"
+tomli = { version = "^2.2.1", python = "<3.11" }
+dill = { version = ">=0.3.6", python = "<3.11" }
 
 [tool.poetry.group.docs]
 optional = true
@@ -60,8 +60,8 @@ optional = true
 pytest = ">=7.2.2"
 pytest-cov = "^4.0.0"
 pytest-mock = ">=3.10.0"
-tomli = "^2.2.1"
-exceptiongroup = ">=1.0.0rc8"
+tomli = { version = "^2.2.1", python = "<3.11" }
+exceptiongroup = { version = ">=1.0.0rc8", python = "<3.13" }
 
 [tool.poe.tasks]
 test = "pytest"
