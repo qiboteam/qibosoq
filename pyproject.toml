@@ -1,33 +1,34 @@
-[tool.poetry]
+[project]
 name = "qibosoq"
 version = "0.1.4"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = [
-  "Rodolfo Carobene <rodolfo.carobene@gmail.com>",
-  "Javier Serrano <javier.serrano@tii.ae>",
+  { name = "Rodolfo Carobene", email = "rodolfo.carobene@gmail.com" },
+  { name = "The Qibo Team"}
 ]
-license = "Apache License 2.0"
+license = { text = "Apache License 2.0" }
 readme = "README.md"
-repository = "https://github.com/qiboteam/qibosoq/"
-documentation = "https://qibo.science/qibosoq/stable/"
 keywords = []
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Topic :: Scientific/Engineering :: Physics",
+  "Topic :: Scientific/Engineering :: Physics"
 ]
-packages = [{ include = "qibosoq", from = "src" }]
+requires-python = ">=3.8,<3.14"
+dependencies = [
+  "qick>=0.2.211,<=0.2.249",
+  "numpy>=1.24,<2"
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10, <3.14"
-qick = ">=0.2.211, <=0.2.249"
-numpy = "^1.26"
+[project.urls]
+Repository = "https://github.com/qiboteam/qibosoq/"
+Documentation = "https://qibo.science/qibosoq/stable/"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
-ipython = "^8.34.0"
+ipython = "^8.0.0"
 pudb = "^2024.1.1"
 
 [tool.poetry.group.analysis]
@@ -36,13 +37,14 @@ optional = true
 [tool.poetry.group.analysis.dependencies]
 pylint = ">=2.16.0"
 mypy = "^1.10.1"
+tomli = { version = "^2.2.1", python = "<3.11" }
+dill = { version = ">=0.3.6", python = "<3.11" }
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-ipython = "^8.34.0"
-sphinx = "^7.4.6"
+sphinx = "^7.0.0"
 furo = "^2023.3.27"
 recommonmark = "^0.7.1"
 sphinxcontrib-bibtex = "^2.5.0"
@@ -58,6 +60,8 @@ optional = true
 pytest = ">=7.2.2"
 pytest-cov = "^4.0.0"
 pytest-mock = ">=3.10.0"
+tomli = { version = "^2.2.1", python = "<3.11" }
+exceptiongroup = { version = ">=1.0.0rc8", python = "<3.13" }
 
 [tool.poe.tasks]
 test = "pytest"
@@ -70,8 +74,8 @@ test-docs = "make -C doc doctest"
 types = "true"
 
 [tool.pytest.ini_options]
-testpaths = ['tests/']
-addopts = ['--cov=qibosoq', '--cov-report=xml', '--cov-report=html']
+testpaths = ["tests/"]
+addopts = ["--cov=qibosoq", "--cov-report=xml", "--cov-report=html"]
 
 [[tool.mypy.overrides]]
 module = "qick.*"
