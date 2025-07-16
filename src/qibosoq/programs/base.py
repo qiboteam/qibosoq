@@ -357,7 +357,7 @@ class BaseProgram(ABC, QickProgram):
         """
         mux_list: List[List[Element]] = []
 
-        group = []
+        group: List[Element] = []
         for pulse in self.sequence:
             if pulse.type == "readout":
                 if pulse.start_delay != 0:
