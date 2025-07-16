@@ -159,6 +159,43 @@ def test_convert_commands(server_commands, targ_server_commands):
     converted = convert_commands(server_commands)
     assert targ_server_commands == converted
 
+    pulse_1 = Rectangular(
+        frequency=5400,  # MHz
+        amplitude=0.05,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.04,
+        name="drive_pulse",
+        type="drive",
+        dac=0,
+        adc=None,
+    )
+    pulse_2 = Rectangular(
+        frequency=5400,  # MHz
+        amplitude=0.05,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.04,
+        name="drive_pulse",
+        type="drive",
+        dac=0,
+        adc=None,
+    )
+    pulse_3 = Rectangular(
+        frequency=6400,  # MHz
+        amplitude=0.05,
+        relative_phase=0,
+        start_delay=0.04,
+        duration=2,
+        name="readout_pulse",
+        type="readout",
+        dac=1,
+        adc=0,
+    )
+    server_commands["sequence"] = [pulse_1, pulse_2, pulse_3]
+    with pytest.raises(RuntimeError):
+        converted = convert_commands(server_commands)
+
 
 def test_execute(mocker, server_commands):
     mocker.patch("socket.socket.connect", new_callable=lambda: mock_connect)

@@ -281,3 +281,12 @@ def test_check_validity_sweep(soc):
     ]
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence, qubits_flux, *sweepers)
+
+    with pytest.raises(ValueError):
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.AMPLITUDE],
+            starts=[0],
+            stops=[2],
+            indexes=[0],
+        )
