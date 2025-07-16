@@ -6,6 +6,8 @@ import socket
 from dataclasses import asdict
 from typing import Tuple
 
+from qibosoq.components.base import Parameter
+
 
 class QibosoqError(RuntimeError):
     """Exception raised when qibosoq server encounters an error.
@@ -71,6 +73,17 @@ def convert_commands(obj_dictionary: dict) -> dict:
         dict_dictionary["sweepers"] = [
             sweep.serialized for sweep in obj_dictionary["sweepers"]
         ]
+
+        # In sweepers all the pulses are registered in initialitialization (before loop)
+        # this means that if the same DAC has multiple values (pulses) they get overwritten
+        # Here we check for such cases
+        for sweeper in obj_dictionary["sweepers"]:
+            pars = [par for par in sweeper.parameters if par is not Parameter.DELAY]
+            if len(pars) > 0:
+                idxs = [pulse.dac for pulse in obj_dictionary["sequence"]]
+                if len(idxs) > len(set(idxs)):
+                    raise RuntimeError("In sweepers, DAC must be uniquely used.")
+
     return dict_dictionary
 
 
