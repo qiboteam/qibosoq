@@ -356,28 +356,31 @@ class BaseProgram(ABC, QickProgram):
         Readout pulses are considered to be correctly organized.
         """
         mux_list: List[List[Element]] = []
-
         group: List[Element] = []
+
         for pulse in self.sequence:
-            if pulse.type == "readout":
-                if pulse.start_delay != 0:
-                    if len(group) != 0:
-                        mux_list.append(group)
-                        group = []
-                    group = [pulse]
-                else:
-                    group.append(pulse)
-        if len(group) != 0:
+            if pulse.type != "readout":
+                if group:
+                    mux_list.append(group)
+                    group = []
+                continue
+
+            if pulse.start_delay != 0:
+                if group:
+                    mux_list.append(group)
+                    group = []
+            group.append(pulse)
+
+        if group:
             mux_list.append(group)
 
         # check that all the readout pulses share the same duration
         for group in mux_list:
-            length = group[0].duration
-            for pulse in group[1:]:
-                if not length == pulse.duration:
-                    raise RuntimeError(
-                        f"Muxed readout pulses must share same duration.: {mux_list}"
-                    )
+            durations = {pulse.duration for pulse in group}
+            if len(durations) > 1:
+                raise RuntimeError(
+                    f"Muxed readout pulses must share same duration.: {mux_list}"
+                )
         return mux_list
 
     @abstractmethod
