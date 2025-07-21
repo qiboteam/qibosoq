@@ -361,14 +361,14 @@ class BaseProgram(ABC, QickProgram):
         for pulse in self.sequence:
             readout = pulse.type != "readout"
             if readout or pulse.start_delay != 0:
-                if group:
+                if len(group) > 0:
                     mux_list.append(group)
                     group = []
 
-            if !readout:
+            if not readout:
                 group.append(pulse)
 
-        if group:
+        if len(group) > 0:
             mux_list.append(group)
 
         # check that all the readout pulses share the same duration
