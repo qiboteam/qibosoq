@@ -1,6 +1,6 @@
 [project]
 name = "qibosoq"
-version = "0.1.4"
+version = "0.1.5"
 description = "QIBO Server On Qick (qibosoq) is the server component of qibolab to be run on RFSoC boards"
 authors = [
   { name = "Rodolfo Carobene", email = "rodolfo.carobene@gmail.com" },
