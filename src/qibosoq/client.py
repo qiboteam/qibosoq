@@ -73,8 +73,7 @@ def convert_commands(obj_dictionary: dict) -> dict:
         dict_dictionary["sweepers"] = [
             sweep.serialized for sweep in obj_dictionary["sweepers"]
         ]
-
-    check_valid_swept_seq(obj_dictionary["sweepers"], obj_dictionary["sequence"])
+        check_valid_swept_seq(obj_dictionary["sweepers"], obj_dictionary["sequence"])
 
     return dict_dictionary
 
