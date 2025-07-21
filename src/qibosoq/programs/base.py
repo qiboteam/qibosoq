@@ -359,17 +359,14 @@ class BaseProgram(ABC, QickProgram):
         group: List[Element] = []
 
         for pulse in self.sequence:
-            if pulse.type != "readout":
+            readout = pulse.type != "readout"
+            if readout or pulse.start_delay != 0:
                 if group:
                     mux_list.append(group)
                     group = []
-                continue
 
-            if pulse.start_delay != 0:
-                if group:
-                    mux_list.append(group)
-                    group = []
-            group.append(pulse)
+            if !readout:
+                group.append(pulse)
 
         if group:
             mux_list.append(group)
