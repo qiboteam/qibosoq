@@ -4,7 +4,7 @@ import json
 import re
 import socket
 from dataclasses import asdict
-from typing import Tuple
+from typing import List, Tuple
 
 from qibosoq.components.base import Parameter
 
@@ -74,17 +74,23 @@ def convert_commands(obj_dictionary: dict) -> dict:
             sweep.serialized for sweep in obj_dictionary["sweepers"]
         ]
 
-        # In sweepers all the pulses are registered in initialization (before loop)
-        # this means that if the same DAC has multiple values (pulses) they get overwritten
-        # Here we check for such cases
-        for sweeper in obj_dictionary["sweepers"]:
-            pars = [par for par in sweeper.parameters if par is not Parameter.DELAY]
-            if len(pars) > 0:
-                idxs = [pulse.dac for pulse in obj_dictionary["sequence"]]
-                if len(idxs) > len(set(idxs)):
-                    raise RuntimeError("In sweepers, DAC must be uniquely used.")
+    check_valid_swept_seq(obj_dictionary["sweepers"], obj_dictionary["sequence"])
 
     return dict_dictionary
+
+
+def check_valid_swept_seq(sweepers: List, sequence: List):
+    """Check if the swept sequence is swept.
+
+    In sweepers all the pulses are registered in initialization (before loop)
+    this means that if the same DAC has multiple values (pulses) they get overwritten
+    """
+    for sweeper in sweepers:
+        pars = [par for par in sweeper.parameters if par is not Parameter.DELAY]
+        if len(pars) > 0:
+            idxs = [pulse.dac for pulse in sequence]
+            if len(idxs) > len(set(idxs)):
+                raise RuntimeError("In sweepers, DAC must be uniquely used.")
 
 
 def execute(obj_dictionary: dict, host: str, port: int) -> Tuple[list, list]:
