@@ -74,7 +74,7 @@ def convert_commands(obj_dictionary: dict) -> dict:
             sweep.serialized for sweep in obj_dictionary["sweepers"]
         ]
 
-        # In sweepers all the pulses are registered in initialitialization (before loop)
+        # In sweepers all the pulses are registered in initialization (before loop)
         # this means that if the same DAC has multiple values (pulses) they get overwritten
         # Here we check for such cases
         for sweeper in obj_dictionary["sweepers"]:
