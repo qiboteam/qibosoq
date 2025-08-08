@@ -26,6 +26,10 @@ A list of the configurable variables (with values set to the default ones) is th
    # is an external clock used as a reference?
    export QIBOSOQ_EXT_CLK=False
 
+.. note::
+
+    Boolean values in the configuration should be written in string form: True/False.
+
 Running the server
 """"""""""""""""""
 
