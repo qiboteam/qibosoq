@@ -136,7 +136,9 @@ class FluxProgram(BaseProgram):
         for qubit in self.qubits:
             if qubit.dac is not None:
                 flux_ch = qubit.dac
-                self.declare_gen(flux_ch, nqz=1)
+                is_ch_mux = "n_tones" in self.soccfg["gens"][flux_ch]
+                if not is_ch_mux:
+                    self.declare_gen(flux_ch, nqz=1)
 
     def body(self):
         """Execute sequence of pulses.

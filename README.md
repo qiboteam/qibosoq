@@ -61,11 +61,12 @@ QICK is an evolving project, and as such, Qibosoq frequently adapts to its
 changes to ensure ongoing support. The table below provides a brief overview of
 the supported QICK versions corresponding to specific Qibosoq releases.
 
-| Qibosoq version | Supported QICK version |
-| --------------- | ---------------------- |
-| 0.1.0           | 0.2.135                |
-| 0.1.1           | >=0.2.165, <=0.2.181   |
-| 0.1.2           | >=0.2.211, <=0.2.249   |
+| Qibosoq version  | Supported QICK version |
+| ---------------- | ---------------------- |
+| 0.1.0            | 0.2.135                |
+| 0.1.1            | >=0.2.165, <=0.2.181   |
+| >=0.1.2, <=0.1.4 | >=0.2.211, <=0.2.249   |
+| 0.1.5            | 0.2.291                |
 
 ### TII boards
 
