@@ -69,7 +69,7 @@ def execute_sweeps(soc):
             expts=1000,
             parameters=[Parameter.AMPLITUDE],
             starts=np.array([0]),
-            stops=np.array([100]),
+            stops=np.array([1]),
             indexes=[0],
         ),
         Sweeper(
@@ -159,7 +159,7 @@ def test_reversed_sweepers(execute_sweeps):
             expts=1000,
             parameters=[Parameter.AMPLITUDE],
             starts=np.array([0]),
-            stops=np.array([100]),
+            stops=np.array([1]),
             indexes=[0],
         ),
         Sweeper(
@@ -281,3 +281,12 @@ def test_check_validity_sweep(soc):
     ]
     with pytest.raises(NotImplementedError):
         program = ExecuteSweeps(soc, config, sequence, qubits_flux, *sweepers)
+
+    with pytest.raises(ValueError):
+        Sweeper(
+            expts=1000,
+            parameters=[Parameter.AMPLITUDE],
+            starts=[0],
+            stops=[2],
+            indexes=[0],
+        )
