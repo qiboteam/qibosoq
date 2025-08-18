@@ -188,6 +188,7 @@ class BaseProgram(ABC, QickProgram):
         ):
             self.add_pulse_to_register(pulse)
             last_pulse_registered[pulse.dac] = pulse
+
         self.pulse(ch=pulse.dac, t=0)
 
     def execute_readout_pulse(
