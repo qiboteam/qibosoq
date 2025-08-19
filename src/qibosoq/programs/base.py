@@ -353,18 +353,32 @@ class BaseProgram(ABC, QickProgram):
 
         Example of list:
         [[pulse1, pulse2], [pulse3]]
+
+        Readout pulses are considered to be correctly organized.
         """
         mux_list: List[List[Element]] = []
-        len_last_readout = 0.0
-        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
-            if pulse.start_delay <= len_last_readout and len(mux_list) > 0:
-                # add the pulse to the last multiplexed readout
-                mux_list[-1].append(pulse)
-            else:
-                # add a new multiplexed readout
-                mux_list.append([pulse])
-            len_last_readout = pulse.duration
+        group: List[Element] = []
 
+        for pulse in self.sequence:
+            readout = pulse.type == "readout"
+            if (not readout) or pulse.start_delay != 0:
+                if len(group) > 0:
+                    mux_list.append(group)
+                    group = []
+
+            if readout:
+                group.append(pulse)
+
+        if len(group) > 0:
+            mux_list.append(group)
+
+        # check that all the readout pulses share the same duration
+        for group in mux_list:
+            durations = {pulse.duration for pulse in group}
+            if len(durations) > 1:
+                raise RuntimeError(
+                    f"Muxed readout pulses must share same duration.: {mux_list}"
+                )
         return mux_list
 
     @abstractmethod

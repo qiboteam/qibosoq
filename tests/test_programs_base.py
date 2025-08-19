@@ -66,7 +66,7 @@ def execute_pulse_sequence(soc):
             type="readout",
             frequency=100,
             start_delay=0,
-            duration=0.03,
+            duration=0.04,
             adc=0,
             dac=6,
         ),
@@ -105,7 +105,7 @@ def test_declare_nqz_zones(execute_pulse_sequence):
             type="readout",
             frequency=100,
             start_delay=0,
-            duration=0.03,
+            duration=0.04,
             adc=0,
             dac=6,
         ),
@@ -279,8 +279,8 @@ def test_execute_readout_pulse(soc):
             frequency=100,
             amplitude=0.1,
             relative_phase=0,
-            start_delay=0.5,
-            duration=0.04,
+            start_delay=0,
+            duration=1,
             name="pulse2",
             type="readout",
             dac=6,
@@ -331,6 +331,11 @@ def test_execute_readout_pulse(soc):
     if program.is_mux:
         assert len(muxed_pulse_executed) == 4
         assert muxed_ro_executed_indexes == [0, 1]
+
+    if program.is_mux:
+        sequence[-1].duration = 0.03
+        with pytest.raises(RuntimeError):
+            program = ExecutePulseSequence(soc, config, sequence, qubits)
 
 
 @pytest.mark.parametrize("avg", [True, False])
