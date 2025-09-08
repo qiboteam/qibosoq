@@ -1,75 +1,112 @@
 {
-    "board": "ZCU111",
-    "sw_version": "0.2.249",
+    "board": "ZCU216",
+    "sw_version": "0.2.291",
+    "extra_description": [],
     "dacs": {
-        "00": {
-            "fs": 6144.0,
+        "20": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                0
+            ]
         },
-        "01": {
-            "fs": 6144.0,
+        "21": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                1
+            ]
         },
-        "02": {
-            "fs": 6144.0,
+        "22": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                2
+            ]
         },
-        "10": {
-            "fs": 6144.0,
+        "23": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                3
+            ]
         },
-        "11": {
-            "fs": 6144.0,
+        "30": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                3,
+                0
+            ]
         },
-        "12": {
-            "fs": 6144.0,
+        "31": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                3,
+                1
+            ]
         },
-        "13": {
-            "fs": 6144.0,
+        "32": {
+            "fs": 6881.280000000001,
             "fs_div": 2,
-            "fs_mult": 60,
-            "f_fabric": 384.0,
-            "interpolation": 1
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                3,
+                2
+            ]
         }
     },
     "adcs": {
-        "00": {
-            "fs": 4096.0,
-            "fs_div": 3,
-            "fs_mult": 60,
-            "f_fabric": 512.0,
-            "decimation": 1
+        "20": {
+            "fs": 2457.6,
+            "fs_div": 4,
+            "fs_mult": 40,
+            "f_fabric": 307.2,
+            "decimation": 1,
+            "index": [
+                2,
+                0
+            ]
         },
-        "01": {
-            "fs": 4096.0,
-            "fs_div": 3,
-            "fs_mult": 60,
-            "f_fabric": 512.0,
-            "decimation": 1
+        "22": {
+            "fs": 2457.6,
+            "fs_div": 4,
+            "fs_mult": 40,
+            "f_fabric": 307.2,
+            "decimation": 1,
+            "index": [
+                2,
+                2
+            ]
         }
     },
-    "refclk_freq": 204.8,
-    "fw_timestamp": "Wed Aug 16 13:39:03 2023",
+    "refclk_freq": 245.76,
+    "fw_timestamp": "Mon Aug 21 11:09:34 2023",
     "mr_buf": {
         "type": "mr_buffer_et",
         "fullpath": "mr_buffer_et_0",
@@ -79,40 +116,45 @@
             "axis_avg_buffer_0",
             "axis_avg_buffer_1"
         ],
-        "trigger_bit": 9,
+        "revision": 3,
+        "trigger_type": "output",
         "trigger_port": 0,
-        "trigger_type": "output"
+        "trigger_bit": 12
     },
     "ddr4_buf": {
         "type": "axis_buffer_ddr_v1",
         "fullpath": "axis_buffer_ddr_v1_0",
-        "burst_len": 256,
         "readouts": [
             "axis_avg_buffer_0",
             "axis_avg_buffer_1"
         ],
-        "junk_len": 801,
+        "burst_len": 128,
+        "junk_len": 401,
         "junk_nt": 4,
+        "revision": 3,
         "maxlen": 1073741824,
-        "trigger_bit": 8,
+        "trigger_type": "output",
         "trigger_port": 0,
-        "trigger_type": "output"
+        "trigger_bit": 13
     },
     "gens": [
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_0",
+            "revision": 4,
             "tproc_ch": 1,
-            "dac": "00",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "20",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 0,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -121,17 +163,20 @@
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_1",
+            "revision": 4,
             "tproc_ch": 2,
-            "dac": "01",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "21",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 1,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -140,17 +185,20 @@
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_2",
+            "revision": 4,
             "tproc_ch": 3,
-            "dac": "02",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "22",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 2,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -159,17 +207,20 @@
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_3",
+            "revision": 4,
             "tproc_ch": 4,
-            "dac": "10",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "23",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 3,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -178,17 +229,20 @@
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_4",
+            "revision": 4,
             "tproc_ch": 5,
-            "dac": "11",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "30",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 4,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -197,17 +251,20 @@
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_5",
+            "revision": 4,
             "tproc_ch": 6,
-            "dac": "12",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "31",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 5,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -216,17 +273,20 @@
         {
             "type": "axis_signal_gen_v6",
             "fullpath": "axis_signal_gen_v6_6",
+            "revision": 4,
             "tproc_ch": 7,
-            "dac": "13",
-            "fs": 6144.0,
-            "fs_mult": 60,
+            "dac": "32",
+            "has_mixer": false,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
             "fs_div": 2,
             "interpolation": 1,
-            "f_fabric": 384.0,
-            "f_dds": 6144.0,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
             "fdds_div": 2,
             "maxlen": 65536,
             "b_dds": 32,
+            "b_phase": 32,
             "switch_ch": 6,
             "samps_per_clk": 16,
             "maxv": 32766,
@@ -238,44 +298,56 @@
         {
             "avg_maxlen": 16384,
             "buf_maxlen": 1024,
-            "trigger_bit": 14,
-            "trigger_port": 0,
             "trigger_type": "output",
+            "trigger_port": 0,
+            "trigger_bit": 14,
             "tproc_ch": 0,
-            "adc": "00",
-            "b_dds": 32,
-            "fs": 4096.0,
-            "fs_mult": 60,
-            "fs_div": 3,
+            "adc": "20",
+            "b_phase": 32,
+            "fs": 2457.6,
+            "fs_mult": 40,
+            "fs_div": 4,
             "decimation": 1,
-            "f_fabric": 512.0,
-            "f_dds": 4096.0,
-            "fdds_div": 3,
+            "f_fabric": 307.2,
+            "f_dds": 2457.6,
+            "fdds_div": 4,
+            "f_output": 307.2,
+            "b_dds": 32,
+            "iq_offset": 0.0,
+            "has_outsel": true,
             "avgbuf_fullpath": "axis_avg_buffer_0",
             "ro_fullpath": "axis_readout_v2_0",
             "avgbuf_type": "axis_avg_buffer",
-            "ro_type": "axis_readout_v2"
+            "ro_type": "axis_readout_v2",
+            "avgbuf_revision": 6,
+            "ro_revision": 8
         },
         {
             "avg_maxlen": 16384,
             "buf_maxlen": 1024,
-            "trigger_bit": 15,
-            "trigger_port": 0,
             "trigger_type": "output",
+            "trigger_port": 0,
+            "trigger_bit": 15,
             "tproc_ch": 1,
-            "adc": "01",
-            "b_dds": 32,
-            "fs": 4096.0,
-            "fs_mult": 60,
-            "fs_div": 3,
+            "adc": "22",
+            "b_phase": 32,
+            "fs": 2457.6,
+            "fs_mult": 40,
+            "fs_div": 4,
             "decimation": 1,
-            "f_fabric": 512.0,
-            "f_dds": 4096.0,
-            "fdds_div": 3,
+            "f_fabric": 307.2,
+            "f_dds": 2457.6,
+            "fdds_div": 4,
+            "f_output": 307.2,
+            "b_dds": 32,
+            "iq_offset": 0.0,
+            "has_outsel": true,
             "avgbuf_fullpath": "axis_avg_buffer_1",
             "ro_fullpath": "axis_readout_v2_1",
             "avgbuf_type": "axis_avg_buffer",
-            "ro_type": "axis_readout_v2"
+            "ro_type": "axis_readout_v2",
+            "avgbuf_revision": 6,
+            "ro_revision": 8
         }
     ],
     "tprocs": [
@@ -284,6 +356,7 @@
             "fullpath": "axis_tproc64x32_x8_0",
             "dmem_size": 4096,
             "pmem_size": 8192,
+            "revision": 4,
             "output_pins": [
                 [
                     "output",
@@ -335,7 +408,7 @@
                 ]
             ],
             "start_pin": "PMOD1_0_LS",
-            "f_time": 384.0
+            "f_time": 430.08
         }
     ]
 }

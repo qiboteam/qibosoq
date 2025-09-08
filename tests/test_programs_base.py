@@ -110,7 +110,11 @@ def test_declare_nqz_zones(execute_pulse_sequence):
             dac=6,
         ),
     ]
-    execute_pulse_sequence.declare_nqz_zones(sequence)
+    if execute_pulse_sequence.is_mux:
+        execute_pulse_sequence.declare_nqz_zones([sequence[0]])  # drives
+        execute_pulse_sequence.declare_gen_mux_ro()
+    else:
+        execute_pulse_sequence.declare_nqz_zones(sequence)
 
 
 def test_declare_readout_freq(execute_pulse_sequence):

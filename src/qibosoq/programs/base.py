@@ -1,7 +1,7 @@
 """Base program used by qibosoq to execute sequences and sweeps."""
 
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import asdict
 from typing import Dict, List, Tuple, Union
 
@@ -25,7 +25,7 @@ from qibosoq.components.pulses import (
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
-class BaseProgram(ABC, QickProgram):
+class BaseProgram(QickProgram):
     """Abstract class for QickPrograms."""
 
     def __init__(
@@ -189,7 +189,7 @@ class BaseProgram(ABC, QickProgram):
             self.add_pulse_to_register(pulse)
             last_pulse_registered[pulse.dac] = pulse
 
-        self.pulse(ch=pulse.dac, t=0)
+        self.pulse(ch=pulse.dac, t="auto")
 
     def execute_readout_pulse(
         self,
