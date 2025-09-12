@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 find_deps=$(
 	cat <<'EOF'
 		/^\]/ { if (s) e=1 }
