@@ -14,13 +14,6 @@ awk "$find_deps" pyproject.toml >qibosoq-requirements.txt
 sudo -E $PYTHON -m pip install -r qibosoq-requirements.txt
 rm qibosoq-requirements.txt
 
-find_path=$(
-        cat <<-'EOF'
-                import sys
-
-                print([x for x in sys.path if "site-packages" in x][-1])
-        EOF
-)
 env_path=$($PYTHON -c "import site; print(site.getsitepackages()[0])")
 project_dir=$(dirname "$0")
 package_path=$(realpath "$project_dir")/src

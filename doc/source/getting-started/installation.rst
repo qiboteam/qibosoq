@@ -49,3 +49,9 @@ legacy installation script via sudo:
 .. code-block:: bash
 
     sudo <path_to_qibosoq>/qibosoq/dev-install.bash
+
+And to uninstall it:
+
+.. code-block:: bash
+
+    sudo <path_to_qibosoq>/qibosoq/dev-uninstall.bash
