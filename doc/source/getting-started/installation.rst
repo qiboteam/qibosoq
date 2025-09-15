@@ -41,3 +41,11 @@ Now the installation can be done in normal mode or in developer mode (using ``po
 
     sudo -E python -m pip install <path_to_qibosoq>  # normal mode
     sudo -E python -m poetry install <path_to_qibosoq> # developer mode
+
+Finally, on boards running with ``Python 3.8`` the standard installation method for developer mode does not work,
+since it requires a version of Poetry not supported. In this case, it is mandatory to pass through the provided
+legacy installation script via sudo:
+
+.. code-block:: bash
+
+    sudo <path_to_qibosoq>/qibosoq/dev-install.bash
