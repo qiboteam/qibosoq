@@ -237,7 +237,7 @@ class BaseProgram(QickProgram):
         self,
         soc: QickSoc,
         average: bool = False,
-    ) -> Tuple[list, list]:
+    ) -> list[list]:
         """Call the acquire function, executing the experiment.
 
         The acquire function is coded in `qick.AveragerProgram` or `qick.NDAveragerProgram`
@@ -266,7 +266,7 @@ class BaseProgram(QickProgram):
             return [list(x) for x in zip(*avg)]
 
         # super().acquire function fill buffers used in collect_shots
-        return self.collect_shots()[-2:]
+        return list(self.collect_shots()[-2:])
 
     def collect_shots(self) -> Tuple[list, list]:
         """Read the internal buffers and returns single shots (i,q)."""
