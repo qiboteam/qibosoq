@@ -228,7 +228,9 @@ class BaseProgram(QickProgram):
             )
         elif isinstance(elem, Measurement):
             self.trigger(adcs, adc_trig_offset=self.ro_time_of_flight)
-            if self.syncdelay is not None and self.syncdelay > 0:
+            if self.syncdelay is not None:
+                if self.syncdelay == 0:
+                    return
                 self.sync_all(self.syncdelay)
 
     def perform_experiment(
@@ -243,20 +245,26 @@ class BaseProgram(QickProgram):
         Args:
             average (bool): if true return averaged res, otherwise single shots
         """
-        readouts_per_experiment = self.readouts_per_experiment
-        # if there are no readouts, temporaray set 1 so that qick can execute properly
-        reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
+        if self.readouts_per_experiment == 0:
+            raise RuntimeError("At least an acquisition is required.")
+
+        reads = self.readouts_per_experiment if self.is_mux else None
 
         res = self.acquire(  # pylint: disable=E1123,E1120
             soc,
-            readouts_per_experiment=reads_per_rep,
+            progress=False,
+            readouts_per_experiment=reads,
         )
-        # if there are no actual readouts, return empty lists
-        if readouts_per_experiment == 0:
-            return [], []
         if average:
-            # for sweeps res has 3 parameters, the first is not used
-            return np.array(res[-2]).tolist(), np.array(res[-1]).tolist()
+            rounds_buf = self.rounds_buf
+            avg = [
+                np.moveaxis(
+                    np.mean([round_d[i] for round_d in rounds_buf], axis=0), -1, 0
+                ).tolist()
+                for i in range(len(self.ro_chs))
+            ]
+            return [list(x) for x in zip(*avg)]
+
         # super().acquire function fill buffers used in collect_shots
         return self.collect_shots()[-2:]
 
@@ -289,12 +297,7 @@ class BaseProgram(QickProgram):
                 # if we are not doing sweepers
                 # (adc_channels, number_of_readouts, number_of_shots)
                 shape = (2, count, self.reps)
-
-            stacked = (
-                np.stack((self.di_buf[idx], self.dq_buf[idx]))[:, : np.prod(shape[1:])]
-                / np.array(lengths)[:, np.newaxis]
-            )
-
+            stacked = np.swapaxes(self.acc_buf[idx], 0, 2) / lengths[idx]
             tot.append(stacked.reshape(shape).tolist())
 
         return tuple(list(x) for x in zip(*tot))  # type: ignore
