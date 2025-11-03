@@ -228,7 +228,7 @@ class BaseProgram(QickProgram):
             )
         elif isinstance(elem, Measurement):
             self.trigger(adcs, adc_trig_offset=self.ro_time_of_flight)
-            if self.syncdelay is not None:
+            if self.syncdelay is not None and self.syncdelay > 0:
                 self.sync_all(self.syncdelay)
 
     def perform_experiment(
