@@ -140,11 +140,11 @@ class BaseProgram(QickProgram):
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
             elif isinstance(pulse, Drag):
-                delta = (
-                    -self.soccfg["gens"][gen_ch]["samps_per_clk"]
-                    * self.soccfg["gens"][gen_ch]["f_fabric"]
-                    / 2
-                )
+                try:
+                    samps_per_clk = self.soccfg["gens"][gen_ch]["samps_per_clk"]
+                except:
+                    samps_per_clk = 16
+                delta = -samps_per_clk * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_DRAG(
                     ch=gen_ch,
