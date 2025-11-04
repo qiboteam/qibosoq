@@ -36,4 +36,4 @@ repos:
     rev: 0.8.1
     hooks:
       - id: nbstripout
-        args: ["--keep-output", "--drop-metadata"]
+        args: ["--keep-output"]
