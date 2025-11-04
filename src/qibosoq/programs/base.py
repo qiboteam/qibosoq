@@ -250,7 +250,7 @@ class BaseProgram(QickProgram):
 
         reads = self.readouts_per_experiment if self.is_mux else None
 
-        res = self.acquire(  # pylint: disable=E1123,E1120
+        _ = self.acquire(  # pylint: disable=E1123,E1120
             soc,
             progress=False,
             readouts_per_experiment=reads,
@@ -284,8 +284,9 @@ class BaseProgram(QickProgram):
         tot = []
 
         for idx, count in enumerate(adc_count.astype(int)):
-            try:
-                # if we are doing sweepers
+            stacked = np.swapaxes(self.acc_buf[idx], 0, 2) / lengths[idx]
+            if hasattr(self, "sweep_axes"):
+                stacked = np.moveaxis(stacked, -1, 0)
                 # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
                 shape = (
                     2,
@@ -293,11 +294,10 @@ class BaseProgram(QickProgram):
                     int(np.prod(self.sweep_axes)),
                     self.reps,
                 )  # type: Union[Tuple[int, int, int], Tuple[int, int, int, int]]
-            except AttributeError:
+            else:
                 # if we are not doing sweepers
                 # (adc_channels, number_of_readouts, number_of_shots)
                 shape = (2, count, self.reps)
-            stacked = np.swapaxes(self.acc_buf[idx], 0, 2) / lengths[idx]
             tot.append(stacked.reshape(shape).tolist())
 
         return tuple(list(x) for x in zip(*tot))  # type: ignore
