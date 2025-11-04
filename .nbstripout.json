@@ -1,0 +1,9 @@
+{
+  "keep_output": true,
+  "drop_metadata": true,
+  "extra_keys": [
+    "metadata.kernelspec",
+    "metadata.language_info",
+    "metadata.widgets"
+  ]
+}
