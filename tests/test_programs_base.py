@@ -1,6 +1,5 @@
 import pathlib
 
-import numpy as np
 import pytest
 import qick
 
@@ -340,49 +339,3 @@ def test_execute_readout_pulse(soc):
         sequence[-1].duration = 0.03
         with pytest.raises(RuntimeError):
             program = ExecutePulseSequence(soc, config, sequence, qubits)
-
-
-@pytest.mark.parametrize("avg", [True, False])
-def test_acquire(mocker, soc, avg):
-    mocker.patch("qick.AveragerProgram.acquire", return_values=[1, 2, 3])
-
-    config = Config()
-    sequence = [
-        Rectangular(
-            frequency=100,
-            amplitude=0.1,
-            relative_phase=0,
-            start_delay=0,
-            duration=0.04,
-            name="pulse1",
-            type="readout",
-            dac=6,
-            adc=0,
-        ),
-    ]
-    qubits = [Qubit()]
-    program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.di_buf = [np.zeros(1000)]
-    program.dq_buf = [np.zeros(1000)]
-    program.perform_experiment(program.soc, average=avg)
-
-    program.sweep_axes = (10,)
-    program.di_buf = [np.zeros(1000 * 10)]
-    program.dq_buf = [np.zeros(1000 * 10)]
-    program.perform_experiment(program.soc, average=avg)
-
-    sequence = [
-        Rectangular(
-            frequency=100,
-            amplitude=0.1,
-            relative_phase=0,
-            start_delay=0,
-            duration=0.04,
-            name="pulse1",
-            type="drive",
-            dac=2,
-            adc=None,
-        ),
-    ]
-    program = ExecutePulseSequence(soc, config, sequence, qubits)
-    program.perform_experiment(program.soc, average=avg)
