@@ -63,7 +63,7 @@ class BaseProgram(QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
-        self.registered_waveforms: Dict[int, list] = {}
+        self.registered_waveforms: Dict[int, List] = {}
         for pulse in self.pulse_sequence:
             if pulse.dac not in self.registered_waveforms:
                 self.registered_waveforms[pulse.dac] = []
@@ -237,7 +237,7 @@ class BaseProgram(QickProgram):
         self,
         soc: QickSoc,
         average: bool = False,
-    ) -> list[list]:
+    ) -> List[List]:
         """Call the acquire function, executing the experiment.
 
         The acquire function is coded in `qick.AveragerProgram` or `qick.NDAveragerProgram`
@@ -268,7 +268,7 @@ class BaseProgram(QickProgram):
         # super().acquire function fill buffers used in collect_shots
         return list(self.collect_shots()[-2:])
 
-    def collect_shots(self) -> Tuple[list, list]:
+    def collect_shots(self) -> Tuple[List, List]:
         """Read the internal buffers and returns single shots (i,q)."""
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
