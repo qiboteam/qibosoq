@@ -141,8 +141,10 @@ class BaseProgram(QickProgram):
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
             elif isinstance(pulse, Drag):
                 try:
+                    # For the standard distributed QICK firmware the parameter is in cfg
                     samps_per_clk = self.soccfg["gens"][gen_ch]["samps_per_clk"]
                 except:
+                    # Otherwise consider full speed DAC, therefore 16 samples
                     samps_per_clk = 16
                 delta = -samps_per_clk * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
