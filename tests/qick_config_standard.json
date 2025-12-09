@@ -1,362 +1,244 @@
 {
     "board": "ZCU216",
-    "sw_version": "0.2.291",
+    "sw_version": "0.2.370",
     "extra_description": [],
-    "dacs": {
-        "20": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                2,
-                0
-            ]
+    "fw_timestamp": "Mon Aug 21 11:09:34 2023",
+    "rf": {
+        "type": "usp_rf_data_converter",
+        "fullpath": "usp_rf_data_converter_0",
+        "ip_type": 2,
+        "hs_adc": false,
+        "tiles": {
+            "dac": {
+                "2": {
+                    "coupling": "AC",
+                    "fabric_div": 16,
+                    "out_div": 1,
+                    "blocks": [
+                        "20",
+                        "21",
+                        "22",
+                        "23"
+                    ],
+                    "f_ref": 245.76,
+                    "ref_div": 1,
+                    "fs_mult": 56,
+                    "fs_div": 2,
+                    "fs": 6881.28,
+                    "f_fabric": 430.08,
+                    "f_out": 430.08
+                },
+                "3": {
+                    "coupling": "AC",
+                    "fabric_div": 16,
+                    "out_div": 1,
+                    "blocks": [
+                        "30",
+                        "31",
+                        "32"
+                    ],
+                    "f_ref": 245.76,
+                    "ref_div": 1,
+                    "fs_mult": 56,
+                    "fs_div": 2,
+                    "fs": 6881.28,
+                    "f_fabric": 430.08,
+                    "f_out": 430.08
+                }
+            },
+            "adc": {
+                "2": {
+                    "coupling": "AC",
+                    "fabric_div": 8,
+                    "out_div": 1,
+                    "blocks": [
+                        "20",
+                        "22"
+                    ],
+                    "f_ref": 245.76,
+                    "ref_div": 1,
+                    "fs_mult": 40,
+                    "fs_div": 4,
+                    "fs": 2457.6,
+                    "f_fabric": 307.2,
+                    "f_out": 307.2
+                }
+            }
         },
-        "21": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                2,
-                1
-            ]
+        "dacs": {
+            "20": {
+                "index": [
+                    2,
+                    0
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            },
+            "21": {
+                "index": [
+                    2,
+                    1
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            },
+            "22": {
+                "index": [
+                    2,
+                    2
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            },
+            "23": {
+                "index": [
+                    2,
+                    3
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            },
+            "30": {
+                "index": [
+                    3,
+                    0
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            },
+            "31": {
+                "index": [
+                    3,
+                    1
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            },
+            "32": {
+                "index": [
+                    3,
+                    2
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 56,
+                "fs_div": 2,
+                "fs": 6881.28,
+                "f_fabric": 430.08,
+                "interpolation": 1,
+                "datapath": 4
+            }
         },
-        "22": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                2,
-                2
-            ]
+        "adcs": {
+            "20": {
+                "index": [
+                    2,
+                    0
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 40,
+                "fs_div": 4,
+                "fs": 2457.6,
+                "f_fabric": 307.2,
+                "decimation": 1
+            },
+            "22": {
+                "index": [
+                    2,
+                    2
+                ],
+                "coupling": "AC",
+                "f_ref": 245.76,
+                "fs_mult": 40,
+                "fs_div": 4,
+                "fs": 2457.6,
+                "f_fabric": 307.2,
+                "decimation": 1
+            }
         },
-        "23": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                2,
-                3
+        "clk_groups": [
+            [
+                [
+                    "axis_tproc64x32_x8_0",
+                    "clock"
+                ],
+                [
+                    "dac",
+                    2
+                ]
+            ],
+            [
+                [
+                    "dac",
+                    3
+                ]
+            ],
+            [
+                [
+                    "adc",
+                    2
+                ]
             ]
-        },
-        "30": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                3,
-                0
-            ]
-        },
-        "31": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                3,
-                1
-            ]
-        },
-        "32": {
-            "fs": 6881.280000000001,
-            "fs_div": 2,
-            "fs_mult": 56,
-            "f_fabric": 430.08,
-            "interpolation": 1,
-            "index": [
-                3,
-                2
-            ]
-        }
-    },
-    "adcs": {
-        "20": {
-            "fs": 2457.6,
-            "fs_div": 4,
-            "fs_mult": 40,
-            "f_fabric": 307.2,
-            "decimation": 1,
-            "index": [
-                2,
-                0
-            ]
-        },
-        "22": {
-            "fs": 2457.6,
-            "fs_div": 4,
-            "fs_mult": 40,
-            "f_fabric": 307.2,
-            "decimation": 1,
-            "index": [
-                2,
-                2
-            ]
-        }
+        ],
+        "revision": 2,
+        "version": "2.6"
     },
     "refclk_freq": 245.76,
-    "fw_timestamp": "Mon Aug 21 11:09:34 2023",
-    "mr_buf": {
-        "type": "mr_buffer_et",
-        "fullpath": "mr_buffer_et_0",
-        "maxlen": 8192,
-        "junk_len": 8,
-        "readouts": [
-            "axis_avg_buffer_0",
-            "axis_avg_buffer_1"
-        ],
-        "revision": 3,
-        "trigger_type": "output",
-        "trigger_port": 0,
-        "trigger_bit": 12
-    },
-    "ddr4_buf": {
-        "type": "axis_buffer_ddr_v1",
-        "fullpath": "axis_buffer_ddr_v1_0",
-        "readouts": [
-            "axis_avg_buffer_0",
-            "axis_avg_buffer_1"
-        ],
-        "burst_len": 128,
-        "junk_len": 401,
-        "junk_nt": 4,
-        "revision": 3,
-        "maxlen": 1073741824,
-        "trigger_type": "output",
-        "trigger_port": 0,
-        "trigger_bit": 13
-    },
-    "gens": [
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_0",
-            "revision": 4,
-            "tproc_ch": 1,
-            "dac": "20",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 0,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        },
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_1",
-            "revision": 4,
-            "tproc_ch": 2,
-            "dac": "21",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 1,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        },
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_2",
-            "revision": 4,
-            "tproc_ch": 3,
-            "dac": "22",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 2,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        },
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_3",
-            "revision": 4,
-            "tproc_ch": 4,
-            "dac": "23",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 3,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        },
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_4",
-            "revision": 4,
-            "tproc_ch": 5,
-            "dac": "30",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 4,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        },
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_5",
-            "revision": 4,
-            "tproc_ch": 6,
-            "dac": "31",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 5,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        },
-        {
-            "type": "axis_signal_gen_v6",
-            "fullpath": "axis_signal_gen_v6_6",
-            "revision": 4,
-            "tproc_ch": 7,
-            "dac": "32",
-            "has_mixer": false,
-            "fs": 6881.280000000001,
-            "fs_mult": 56,
-            "fs_div": 2,
-            "interpolation": 1,
-            "f_fabric": 430.08,
-            "f_dds": 6881.280000000001,
-            "fdds_div": 2,
-            "maxlen": 65536,
-            "b_dds": 32,
-            "b_phase": 32,
-            "switch_ch": 6,
-            "samps_per_clk": 16,
-            "maxv": 32766,
-            "maxv_scale": 1.0
-        }
-    ],
-    "iqs": [],
-    "readouts": [
-        {
-            "avg_maxlen": 16384,
-            "buf_maxlen": 1024,
-            "trigger_type": "output",
-            "trigger_port": 0,
-            "trigger_bit": 14,
-            "tproc_ch": 0,
-            "adc": "20",
-            "b_phase": 32,
-            "fs": 2457.6,
-            "fs_mult": 40,
-            "fs_div": 4,
-            "decimation": 1,
-            "f_fabric": 307.2,
-            "f_dds": 2457.6,
-            "fdds_div": 4,
-            "f_output": 307.2,
-            "b_dds": 32,
-            "iq_offset": 0.0,
-            "has_outsel": true,
-            "avgbuf_fullpath": "axis_avg_buffer_0",
-            "ro_fullpath": "axis_readout_v2_0",
-            "avgbuf_type": "axis_avg_buffer",
-            "ro_type": "axis_readout_v2",
-            "avgbuf_revision": 6,
-            "ro_revision": 8
-        },
-        {
-            "avg_maxlen": 16384,
-            "buf_maxlen": 1024,
-            "trigger_type": "output",
-            "trigger_port": 0,
-            "trigger_bit": 15,
-            "tproc_ch": 1,
-            "adc": "22",
-            "b_phase": 32,
-            "fs": 2457.6,
-            "fs_mult": 40,
-            "fs_div": 4,
-            "decimation": 1,
-            "f_fabric": 307.2,
-            "f_dds": 2457.6,
-            "fdds_div": 4,
-            "f_output": 307.2,
-            "b_dds": 32,
-            "iq_offset": 0.0,
-            "has_outsel": true,
-            "avgbuf_fullpath": "axis_avg_buffer_1",
-            "ro_fullpath": "axis_readout_v2_1",
-            "avgbuf_type": "axis_avg_buffer",
-            "ro_type": "axis_readout_v2",
-            "avgbuf_revision": 6,
-            "ro_revision": 8
-        }
-    ],
     "tprocs": [
         {
             "type": "axis_tproc64x32_x8",
             "fullpath": "axis_tproc64x32_x8_0",
             "dmem_size": 4096,
-            "pmem_size": 8192,
+            "clk_srcs": {
+                "clock": {
+                    "source": [
+                        "dac",
+                        2
+                    ],
+                    "f_clk": 430.08,
+                    "src_range": null
+                }
+            },
             "revision": 4,
+            "version": "1.0",
+            "f_time": 430.08,
             "output_pins": [
                 [
                     "output",
@@ -408,7 +290,275 @@
                 ]
             ],
             "start_pin": "PMOD1_0_LS",
-            "f_time": 430.08
+            "pmem_size": 8192
+        }
+    ],
+    "mr_buf": {
+        "type": "mr_buffer_et",
+        "fullpath": "mr_buffer_et_0",
+        "maxlen": 8192,
+        "junk_len": 8,
+        "readouts": [
+            "axis_avg_buffer_0",
+            "axis_avg_buffer_1"
+        ],
+        "revision": 3,
+        "version": "1.0",
+        "trigger_type": "output",
+        "trigger_port": 0,
+        "trigger_bit": 12
+    },
+    "ddr4_buf": {
+        "type": "axis_buffer_ddr_v1",
+        "fullpath": "axis_buffer_ddr_v1_0",
+        "burst_len": 128,
+        "junk_len": 401,
+        "junk_nt": 4,
+        "readouts": [
+            "axis_avg_buffer_0",
+            "axis_avg_buffer_1"
+        ],
+        "revision": 3,
+        "version": "1.0",
+        "maxlen": 1073741824,
+        "trigger_type": "output",
+        "trigger_port": 0,
+        "trigger_bit": 13
+    },
+    "gens": [
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_0",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "20",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 1
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_1",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "21",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 2
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_2",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "22",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 3
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_3",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "23",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 4
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_4",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "30",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 5
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_5",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "31",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 6
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_6",
+            "maxlen": 65536,
+            "complex_env": true,
+            "samps_per_clk": 16,
+            "maxv_scale": 1.0,
+            "has_dds": true,
+            "b_dds": 32,
+            "b_phase": 32,
+            "maxv": 32766,
+            "has_mixer": false,
+            "revision": 4,
+            "version": "1.0",
+            "dac": "32",
+            "fs": 6881.28,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.28,
+            "fdds_div": 2,
+            "tproc_ch": 7
+        }
+    ],
+    "iqs": [],
+    "time_taggers": [],
+    "readouts": [
+        {
+            "avg_maxlen": 16384,
+            "buf_maxlen": 1024,
+            "has_edge_counter": false,
+            "has_weights": false,
+            "trigger_type": "output",
+            "trigger_port": 0,
+            "trigger_bit": 14,
+            "tproc_ch": 0,
+            "adc": "20",
+            "b_phase": 32,
+            "fs": 2457.6,
+            "fs_mult": 40,
+            "fs_div": 4,
+            "decimation": 1,
+            "f_fabric": 307.2,
+            "f_dds": 2457.6,
+            "fdds_div": 4,
+            "f_output": 307.2,
+            "b_dds": 32,
+            "iq_offset": 0.0,
+            "has_outsel": true,
+            "avgbuf_fullpath": "axis_avg_buffer_0",
+            "ro_fullpath": "axis_readout_v2_0",
+            "avgbuf_version": "1.0",
+            "ro_version": "1.0",
+            "avgbuf_type": "axis_avg_buffer",
+            "ro_type": "axis_readout_v2",
+            "avgbuf_revision": 6,
+            "ro_revision": 8
+        },
+        {
+            "avg_maxlen": 16384,
+            "buf_maxlen": 1024,
+            "has_edge_counter": false,
+            "has_weights": false,
+            "trigger_type": "output",
+            "trigger_port": 0,
+            "trigger_bit": 15,
+            "tproc_ch": 1,
+            "adc": "22",
+            "b_phase": 32,
+            "fs": 2457.6,
+            "fs_mult": 40,
+            "fs_div": 4,
+            "decimation": 1,
+            "f_fabric": 307.2,
+            "f_dds": 2457.6,
+            "fdds_div": 4,
+            "f_output": 307.2,
+            "b_dds": 32,
+            "iq_offset": 0.0,
+            "has_outsel": true,
+            "avgbuf_fullpath": "axis_avg_buffer_1",
+            "ro_fullpath": "axis_readout_v2_1",
+            "avgbuf_version": "1.0",
+            "ro_version": "1.0",
+            "avgbuf_type": "axis_avg_buffer",
+            "ro_type": "axis_readout_v2",
+            "avgbuf_revision": 6,
+            "ro_revision": 8
         }
     ]
 }

@@ -63,7 +63,7 @@ class BaseProgram(QickProgram):
         self.wait_initialize = self.us2cycles(2.0)
 
         self.pulses_registered = False
-        self.registered_waveforms: Dict[int, list] = {}
+        self.registered_waveforms: Dict[int, List] = {}
         for pulse in self.pulse_sequence:
             if pulse.dac not in self.registered_waveforms:
                 self.registered_waveforms[pulse.dac] = []
@@ -140,11 +140,13 @@ class BaseProgram(QickProgram):
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=soc_length)
             elif isinstance(pulse, Drag):
-                delta = (
-                    -self.soccfg["gens"][gen_ch]["samps_per_clk"]
-                    * self.soccfg["gens"][gen_ch]["f_fabric"]
-                    / 2
-                )
+                try:
+                    # For the standard distributed QICK firmware the parameter is in cfg
+                    samps_per_clk = self.soccfg["gens"][gen_ch]["samps_per_clk"]
+                except:
+                    # Otherwise consider full speed DAC, therefore 16 samples
+                    samps_per_clk = 16
+                delta = -samps_per_clk * self.soccfg["gens"][gen_ch]["f_fabric"] / 2
                 sigma = (soc_length / pulse.rel_sigma) * np.sqrt(2)
                 self.add_DRAG(
                     ch=gen_ch,
@@ -229,13 +231,15 @@ class BaseProgram(QickProgram):
         elif isinstance(elem, Measurement):
             self.trigger(adcs, adc_trig_offset=self.ro_time_of_flight)
             if self.syncdelay is not None:
+                if self.syncdelay == 0:
+                    return
                 self.sync_all(self.syncdelay)
 
     def perform_experiment(
         self,
         soc: QickSoc,
         average: bool = False,
-    ) -> Tuple[list, list]:
+    ) -> List[List]:
         """Call the acquire function, executing the experiment.
 
         The acquire function is coded in `qick.AveragerProgram` or `qick.NDAveragerProgram`
@@ -243,24 +247,30 @@ class BaseProgram(QickProgram):
         Args:
             average (bool): if true return averaged res, otherwise single shots
         """
-        readouts_per_experiment = self.readouts_per_experiment
-        # if there are no readouts, temporaray set 1 so that qick can execute properly
-        reads_per_rep = 1 if readouts_per_experiment == 0 else readouts_per_experiment
+        if self.readouts_per_experiment == 0:
+            raise RuntimeError("At least an acquisition is required.")
 
-        res = self.acquire(  # pylint: disable=E1123,E1120
+        reads = self.readouts_per_experiment if self.is_mux else None
+
+        _ = self.acquire(  # pylint: disable=E1123,E1120
             soc,
-            readouts_per_experiment=reads_per_rep,
+            progress=False,
+            readouts_per_experiment=reads,
         )
-        # if there are no actual readouts, return empty lists
-        if readouts_per_experiment == 0:
-            return [], []
         if average:
-            # for sweeps res has 3 parameters, the first is not used
-            return np.array(res[-2]).tolist(), np.array(res[-1]).tolist()
-        # super().acquire function fill buffers used in collect_shots
-        return self.collect_shots()[-2:]
+            rounds_buf = self.rounds_buf
+            avg = [
+                np.moveaxis(
+                    np.mean([round_d[i] for round_d in rounds_buf], axis=0), -1, 0
+                ).tolist()
+                for i in range(len(self.ro_chs))
+            ]
+            return [list(x) for x in zip(*avg)]
 
-    def collect_shots(self) -> Tuple[list, list]:
+        # super().acquire function fill buffers used in collect_shots
+        return list(self.collect_shots()[-2:])
+
+    def collect_shots(self) -> Tuple[List, List]:
         """Read the internal buffers and returns single shots (i,q)."""
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
@@ -276,8 +286,9 @@ class BaseProgram(QickProgram):
         tot = []
 
         for idx, count in enumerate(adc_count.astype(int)):
-            try:
-                # if we are doing sweepers
+            stacked = np.swapaxes(self.acc_buf[idx], 0, 2) / lengths[idx]
+            if hasattr(self, "sweep_axes"):
+                stacked = np.moveaxis(stacked, -1, 0)
                 # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
                 shape = (
                     2,
@@ -285,16 +296,10 @@ class BaseProgram(QickProgram):
                     int(np.prod(self.sweep_axes)),
                     self.reps,
                 )  # type: Union[Tuple[int, int, int], Tuple[int, int, int, int]]
-            except AttributeError:
+            else:
                 # if we are not doing sweepers
                 # (adc_channels, number_of_readouts, number_of_shots)
                 shape = (2, count, self.reps)
-
-            stacked = (
-                np.stack((self.di_buf[idx], self.dq_buf[idx]))[:, : np.prod(shape[1:])]
-                / np.array(lengths)[:, np.newaxis]
-            )
-
             tot.append(stacked.reshape(shape).tolist())
 
         return tuple(list(x) for x in zip(*tot))  # type: ignore
