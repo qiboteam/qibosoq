@@ -169,5 +169,5 @@ def test_execute_program(mocker, soc):
     execute_program(commands, soc)
 
     soc["tprocs"][0]["pmem_size"] = 10
-    with pytest.raises(MemoryError):
+    with pytest.raises(RuntimeError):
         execute_program(commands, soc)

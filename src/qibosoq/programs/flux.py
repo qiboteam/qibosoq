@@ -94,7 +94,12 @@ class FluxProgram(BaseProgram):
         sweetspot = np.trunc(bias * max_gain).astype(int)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
-        samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
+        try:
+            # For the standard distributed QICK firmware the parameter is in cfg
+            samples_per_clk = self._gen_mgrs[gen_ch].samps_per_clk
+        except:
+            # Otherwise consider full speed DAC, therefore 16 samples
+            samples_per_clk = 16
         duration *= samples_per_clk  # the duration here is expressed in samples
 
         if isinstance(pulse, Rectangular):

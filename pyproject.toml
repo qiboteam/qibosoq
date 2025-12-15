@@ -15,9 +15,10 @@ classifiers = [
 ]
 requires-python = ">=3.8,<3.14"
 dependencies = [
-  "qick==0.2.291",
-  "numpy>=1.24,<2; python_version < '3.9'",
-  "numpy>=2.0.0; python_version >= '3.9'"
+  "numpy>=1.24,<2.0; (platform_machine == 'aarch64' or platform_machine == 'armv7l' or python_version < '3.9')",
+  "numpy>=2.0.0; (platform_machine != 'aarch64' and platform_machine != 'armv7l' and python_version >= '3.9')",
+  "qick==0.2.370",
+  "pynq>=2.6.0,<=3.0.1; (platform_machine == 'aarch64' or platform_machine == 'armv7l')"
 ]
 
 [project.urls]
