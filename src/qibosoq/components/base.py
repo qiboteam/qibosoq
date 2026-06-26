@@ -23,6 +23,21 @@ class Config:
     average: bool = True
     """Returns integrated results if true."""
 
+@dataclass
+class ConfigV2:
+    """General RFSoC Configuration for ASM_V2. refer to AveragerProgramV2 in QICK for more details"""
+
+    reps: int = 1000
+    """Number of shots."""
+    final_delay: float = 100
+    """Time to wait between shots (us)."""
+    final_wait: float = 0
+    """Amount of time (in us) to pause tProc execution at the end of each shot, after the end of the last readout."""
+    initial_delay: float = 1
+    """Amount of time (in us) to add to the timeline before starting to run the loops."""
+    reps_innermost: bool = False
+    """If false, reps will be outermost (sweep N times and take 1 shot at each step).
+       Time-varying fluctuations will tend to be averaged out. Similar to average=True in V1"""
 
 class OperationCode(IntEnum):
     """Available operations."""

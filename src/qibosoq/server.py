@@ -12,14 +12,14 @@ import numpy as np
 from qick import QickSoc
 
 import qibosoq.configuration as cfg
-from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
+from qibosoq.components.base import Config, ConfigV2, OperationCode, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element, Measurement, Shape
-from qibosoq.programs.pulse_sequence import ExecutePulseSequence
-from qibosoq.programs.sweepers import ExecuteSweeps
+from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
+from qibosoq.programs.sweepers import ExecuteSweeps, ExecuteSweepsV2
 
 logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
-
+TPROC_VERSION = 0  # set 0 first, to ensure that version is set in serve()
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
     """Convert a list of elements in dict form to a list of Pulse objects."""
@@ -57,53 +57,92 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """
     opcode = OperationCode(data["operation_code"])
     args = []
-    if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
-        programcls = ExecutePulseSequence
-    elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        programcls = ExecutePulseSequence
-        data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
-        data["cfg"]["reps"] = 1
-    elif opcode is OperationCode.EXECUTE_SWEEPS:
-        programcls = ExecuteSweeps
-        args = load_sweeps(data["sweepers"])
-    else:
-        raise NotImplementedError(
-            f"Operation code {data['operation_code']} not supported"
-        )
 
-    program = programcls(
-        qick_soc,
-        Config(**data["cfg"]),
-        load_elements(data["sequence"]),
-        [Qubit(**qubit) for qubit in data["qubits"]],
-        *args,
-    )
-
-    asm_prog = program.asm()
-    qick_logger.handlers[0].doRollover()  # type: ignore
-    qick_logger.info(asm_prog)
-
-    num_instructions = len(program.prog_list)
-    max_mem = qick_soc["tprocs"][0]["pmem_size"]
-    if num_instructions > max_mem:
-        raise MemoryError(
-            f"The tproc has a max memory size of {max_mem}, "
-            f"but the program had {num_instructions} instructions"
-        )
-
-    if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        results = program.acquire_decimated(  # pylint: disable=E1120
+    # 1. Program Instantiation based on TPROC_VERSION
+    if TPROC_VERSION == 1:
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
+            programcls = ExecutePulseSequence
+        elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            programcls = ExecutePulseSequence
+            data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
+            data["cfg"]["reps"] = 1
+        elif opcode is OperationCode.EXECUTE_SWEEPS:
+            programcls = ExecuteSweeps
+            args = load_sweeps(data["sweepers"])
+        else:
+            raise NotImplementedError(
+                f"Operation code {data['operation_code']} not supported"
+            )
+        
+        program = programcls(
             qick_soc,
-            load_pulses=True,
-            progress=False,
+            Config(**data["cfg"]),
+            load_elements(data["sequence"]),
+            [Qubit(**qubit) for qubit in data["qubits"]],
+            *args,
         )
-        toti = [[results[0][0].tolist()]]
-        totq = [[results[0][1].tolist()]]
-    else:
-        toti, totq = program.perform_experiment(
+
+
+        asm_prog = program.asm()
+        qick_logger.handlers[0].doRollover()  # type: ignore
+        qick_logger.info(asm_prog)
+
+        num_instructions = len(program.prog_list)
+        max_mem = qick_soc["tprocs"][0]["pmem_size"]
+        if num_instructions > max_mem:
+            raise MemoryError(
+                f"The tproc has a max memory size of {max_mem}, "
+                f"but the program had {num_instructions} instructions"
+            )
+
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            results = program.acquire_decimated(  # pylint: disable=E1120
+                qick_soc,
+                load_pulses=True,
+                progress=False,
+            )
+            toti = [[results[0][0].tolist()]]
+            totq = [[results[0][1].tolist()]]
+        else:
+            # Note: Ensure perform_experiment is implemented in your BaseProgramV2
+            toti, totq = program.perform_experiment(
+                qick_soc,
+                average=data["cfg"]["average"],
+            )
+
+    elif TPROC_VERSION == 2:
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
+            programcls = ExecutePulseSequenceV2
+        elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            programcls = ExecutePulseSequenceV2
+            data["cfg"]["reps_innermost"] = True
+        elif opcode is OperationCode.EXECUTE_SWEEPS:
+            programcls = ExecuteSweepsV2
+            args = load_sweeps(data["sweepers"])
+        else:
+            raise NotImplementedError(
+                f"Operation code {data['operation_code']} not supported"
+            )
+        program = programcls(
             qick_soc,
-            average=data["cfg"]["average"],
+            ConfigV2(**data["cfg"]),
+            load_elements(data["sequence"]),
+            [Qubit(**qubit) for qubit in data["qubits"]],
+            *args,
         )
+
+        asm_prog = program.asm()
+        qick_logger.handlers[0].doRollover()  # type: ignore
+        qick_logger.info(asm_prog)
+
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            results = program.acquire_decimated(qick_soc, progress=False)
+            toti = [[results[0][..., 0].tolist()]]
+            totq = [[results[0][..., 1].tolist()]]
+        else:
+            toti, totq = program.perform_experiment(qick_soc)
+    else:
+        raise RuntimeError(f"Unknown TPROC_VERSION {TPROC_VERSION}")
 
     return {"i": toti, "q": totq}
 
@@ -158,9 +197,19 @@ def serve(host, port):
     """Open the TCPServer and wait forever for connections."""
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
+    global TPROC_VERSION # to access global variable
     with TCPServer((host, port), ConnectionHandler) as server:
         server.qick_soc = QickSoc(
             bitfile=cfg.QICKSOC_LOCATION, external_clk=cfg.EXT_CLK
         )
+        # Using this to detect which TPROC_VERISON is loaded in bitstream
+        if 'axis_tproc64x32_x8_0' in server.qick_soc.ip_dict:
+            TPROC_VERSION = 1
+        elif 'qick_processor_0' in server.qick_soc.ip_dict:
+            TPROC_VERSION = 2
+        else:
+            raise RuntimeError('No tProcessor found')
+        print(f"Set TPROC_VERSION = {TPROC_VERSION}")
+        print(server.qick_soc)
         log_initial_info()
         server.serve_forever()

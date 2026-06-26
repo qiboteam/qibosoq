@@ -3,13 +3,15 @@
 import logging
 from typing import Iterable, List, Union
 
+import numpy as np
 from qick import NDAveragerProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
+from qick.asm_v2 import AveragerProgramV2, QickSweep1D
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
+from qibosoq.components.base import Config, ConfigV2, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element
-from qibosoq.programs.flux import FluxProgram
+from qibosoq.programs.flux import FluxProgram, FluxProgramV2
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -171,3 +173,123 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
             non_swept_reg.set_to(swept_reg)
 
         self.sync_all(self.wait_initialize)
+
+class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
+    """Class to execute PulseSequences with parameter sweeps on tProc v2.
+
+    Each Sweeper maps to one loop level via add_loop.  Swept pulse parameters
+    (freq, gain, phase, delay) are passed as QickSweep1D objects to add_pulse /
+    pulse(), which QICK v2 resolves into hardware loop instructions.
+    """
+
+    def __init__(
+        self,
+        soc: QickSoc,
+        qpcfg: ConfigV2,
+        sequence: List[Element],
+        qubits: List[Qubit],
+        *sweepers: Sweeper,
+    ):
+        self.sweepers = list(sweepers)
+        super().__init__(soc, qpcfg, sequence, qubits)
+
+    def validate(self, sweeper: Sweeper):
+        """Raise if the sweeper requests an unsupported combination."""
+        for idx, par in enumerate(sweeper.parameters):
+            if par is Parameter.BIAS:
+                if any(pulse.type == "flux" for pulse in self.sequence):
+                    raise NotImplementedError(
+                        "Sweepers on bias are not compatible with flux pulses."
+                    )
+                if any(p is not Parameter.BIAS for p in sweeper.parameters):
+                    raise NotImplementedError(
+                        "Sweepers on bias cannot be combined with other sweepers."
+                    )
+                qubit = self.qubits[sweeper.indexes[idx]]
+                if qubit.dac is None or qubit.bias is None:
+                    raise ValueError(f"Bias swept qubit had incomplete values: {qubit}")
+            elif par is Parameter.DURATION:
+                raise NotImplementedError("Sweepers on duration are not implemented.")
+            else:
+                if self.sequence[sweeper.indexes[idx]].type == "flux":
+                    raise NotImplementedError(
+                        "Sweepers on flux pulses are not implemented."
+                    )
+
+    def _initialize(self, cfg):
+        """Declare channels, add sweep loops, and pre-register all pulses."""
+        self.declare_gen_and_ro(self.pulse_sequence)
+
+        for sweeper in self.sweepers:
+            self.validate(sweeper)
+
+        # One named loop per sweeper; index 0 becomes the outermost loop.
+        for i, sweeper in enumerate(self.sweepers):
+            self.add_loop(f"sweep_{i}", count=sweeper.expts)
+
+        # Build sweep lookup tables.
+        # pulse_sweeps: {seq_idx: {Parameter: QickSweep1D}}
+        # bias_sweeps:  {qubit_idx: QickSweep1D}
+        pulse_sweeps = {}
+        bias_sweeps = {}
+        for i, sweeper in enumerate(self.sweepers):
+            loop = f"sweep_{i}"
+            for idx, (par, jdx) in enumerate(zip(sweeper.parameters, sweeper.indexes)):
+                start = float(sweeper.starts[idx])
+                stop = float(sweeper.stops[idx])
+                swept = QickSweep1D(loop, start, stop)
+                if par is Parameter.BIAS:
+                    bias_sweeps[jdx] = swept
+                elif par is Parameter.DELAY:
+                    # Set start_delay directly; _body will pass it as t=
+                    self.sequence[jdx].start_delay = swept
+                else:
+                    pulse_sweeps.setdefault(jdx, {})[par] = swept
+
+        # Register bias pulses (swept gain if bias is swept, static otherwise)
+        for qi, qubit in enumerate(self.qubits):
+            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
+                continue
+            flux_ch = qubit.dac
+            sweetspot_gain = bias_sweeps.get(qi, float(qubit.bias))
+            self.add_pulse(ch=flux_ch, name=f"bias_sweetspot_{flux_ch}",
+                           style="const", freq=0, phase=0,
+                           gain=sweetspot_gain, length=0.1)
+            self.add_pulse(ch=flux_ch, name=f"bias_zero_{flux_ch}",
+                           style="const", freq=0, phase=0, gain=0.0, length=0.1)
+
+        # Register each pulse, substituting QickSweep1D for swept parameters
+        for seq_idx, pulse in enumerate(self.sequence):
+            if pulse.type == "flux":
+                self._register_flux_pulse(pulse)
+            elif pulse.type == "drive":
+                swept = pulse_sweeps.get(seq_idx, {})
+                self.add_pulse_to_register(
+                    pulse,
+                    freq=swept.get(Parameter.FREQUENCY),
+                    gain=swept.get(Parameter.AMPLITUDE),
+                    phase=swept.get(Parameter.RELATIVE_PHASE),
+                )
+            elif pulse.type == "readout" and pulse.adc is not None:
+                self.add_ro_pulse_to_register(pulse)
+
+    def _body(self, cfg):
+        """Executed inside all sweep loops. Identical to ExecutePulseSequenceV2."""
+        self.set_bias("sweetspot")
+
+        for pulse in self.sequence:
+            t = pulse.start_delay  # may be QickSweep1D for a DELAY sweep
+            name = pulse.name
+
+            if pulse.type == "readout":
+                adc_ch = pulse.adc
+                self.send_readoutconfig(ch=adc_ch, name=name + "_ro", t=t)
+                self.pulse(ch=pulse.dac, name=name, t=t)
+            elif pulse.type == "drive":
+                self.pulse(ch=pulse.dac, name=name, t=t)
+            elif pulse.type == "flux":
+                self.execute_flux_pulse(pulse)
+            else:
+                raise ValueError(f"Unsupported pulse type: {pulse.type!r}")
+
+        self.set_bias("zero")
