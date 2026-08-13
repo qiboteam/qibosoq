@@ -102,14 +102,33 @@ class Sweeper:
 
     def __post_init__(self):
         """Convert starts and stops in np.arrays if needed."""
+        if self.expts <= 0:
+            raise ValueError("Number of experiments must be positive.")
+
         if isinstance(self.starts, list):
             self.starts = np.array(self.starts, dtype=np.float64)
         if isinstance(self.stops, list):
             self.stops = np.array(self.stops, dtype=np.float64)
 
+        if self.starts.ndim != 1 or self.stops.ndim != 1:
+            raise ValueError("Sweeper starts/stops must be one-dimensional arrays.")
+
+        n_parameters = len(self.parameters)
+        if n_parameters == 0:
+            raise ValueError("Sweeper requires at least one parameter.")
+
+        if len(self.indexes) != n_parameters:
+            raise ValueError("Sweeper indexes and parameters must have the same length.")
+        if len(self.starts) != n_parameters or len(self.stops) != n_parameters:
+            raise ValueError("Sweeper starts/stops and parameters must have the same length.")
+
+        for idx in self.indexes:
+            if not isinstance(idx, (int, np.integer)) or idx < 0:
+                raise ValueError("Sweeper indexes must be non-negative integers.")
+
         for idx, par in enumerate(self.parameters):
             if par == Parameter.AMPLITUDE:
-                if self.stops[idx] > 1:
+                if self.starts[idx] > 1 or self.stops[idx] > 1:
                     raise ValueError("Amplitude sweep cannot exceed 1.")
 
     @property

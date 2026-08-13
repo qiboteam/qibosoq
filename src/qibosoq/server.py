@@ -49,6 +49,51 @@ def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
     return sweepers
 
 
+def validate_sweeps_payload(data: dict) -> List[Dict]:
+    """Validate and return sweeper payload for EXECUTE_SWEEPS."""
+    if "sweepers" not in data:
+        raise ValueError("Missing 'sweepers' payload for EXECUTE_SWEEPS.")
+
+    sweepers = data["sweepers"]
+    if not isinstance(sweepers, list) or len(sweepers) == 0:
+        raise ValueError("'sweepers' must be a non-empty list for EXECUTE_SWEEPS.")
+
+    required = {"expts", "parameters", "starts", "stops", "indexes"}
+    for idx, sweep in enumerate(sweepers):
+        if not isinstance(sweep, dict):
+            raise ValueError(f"Sweeper at index {idx} must be a dictionary.")
+
+        missing = required - set(sweep)
+        if missing:
+            missing_str = ", ".join(sorted(missing))
+            raise ValueError(f"Sweeper at index {idx} is missing keys: {missing_str}.")
+
+        if not isinstance(sweep["expts"], int) or sweep["expts"] <= 0:
+            raise ValueError(f"Sweeper at index {idx} has invalid 'expts'.")
+
+        for field in ("parameters", "starts", "stops", "indexes"):
+            if not isinstance(sweep[field], list):
+                raise ValueError(
+                    f"Sweeper at index {idx} field '{field}' must be a list."
+                )
+
+        lengths = {
+            "parameters": len(sweep["parameters"]),
+            "starts": len(sweep["starts"]),
+            "stops": len(sweep["stops"]),
+            "indexes": len(sweep["indexes"]),
+        }
+        if any(length == 0 for length in lengths.values()):
+            raise ValueError(f"Sweeper at index {idx} cannot have empty fields.")
+
+        if len(set(lengths.values())) != 1:
+            raise ValueError(
+                f"Sweeper at index {idx} has inconsistent field lengths: {lengths}."
+            )
+
+    return sweepers
+
+
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
@@ -68,7 +113,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             data["cfg"]["reps"] = 1
         elif opcode is OperationCode.EXECUTE_SWEEPS:
             programcls = ExecuteSweeps
-            args = load_sweeps(data["sweepers"])
+            args = load_sweeps(validate_sweeps_payload(data))
         else:
             raise NotImplementedError(
                 f"Operation code {data['operation_code']} not supported"
@@ -118,7 +163,7 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             data["cfg"]["reps_innermost"] = True
         elif opcode is OperationCode.EXECUTE_SWEEPS:
             programcls = ExecuteSweepsV2
-            args = load_sweeps(data["sweepers"])
+            args = load_sweeps(validate_sweeps_payload(data))
         else:
             raise NotImplementedError(
                 f"Operation code {data['operation_code']} not supported"
@@ -137,8 +182,13 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
 
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
             results = program.acquire_decimated(qick_soc, progress=False)
-            toti = [[results[0][..., 0].tolist()]]
-            totq = [[results[0][..., 1].tolist()]]
+            if results:
+                toti = [[results[0][..., 0].tolist()]]
+                totq = [[results[0][..., 1].tolist()]]
+            else:
+                print("INFO: results is empty, most likely there is no Readout")
+                toti = None
+                totq = None
         else:
             toti, totq = program.perform_experiment(qick_soc)
     else:

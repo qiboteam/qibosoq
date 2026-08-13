@@ -10,7 +10,7 @@ from qick.asm_v2 import AveragerProgramV2, QickSweep1D
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, ConfigV2, Parameter, Qubit, Sweeper
-from qibosoq.components.pulses import Element
+from qibosoq.components.pulses import Element, Pulse
 from qibosoq.programs.flux import FluxProgram, FluxProgramV2
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
@@ -270,23 +270,33 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                     gain=swept.get(Parameter.AMPLITUDE),
                     phase=swept.get(Parameter.RELATIVE_PHASE),
                 )
-            elif pulse.type == "readout" and pulse.adc is not None:
-                self.add_ro_pulse_to_register(pulse)
+            elif pulse.type == "readout" and isinstance(pulse, Pulse) and pulse.adc is not None:
+                if not self.is_mux:
+                    self.add_ro_pulse_to_register(pulse)
+        if self.is_mux:
+            self.register_mux_readout_groups()
 
     def _body(self, cfg):
         """Executed inside all sweep loops. Identical to ExecutePulseSequenceV2."""
         self.set_bias("sweetspot")
+        muxed_readouts_executed = []
 
         for pulse in self.sequence:
             t = pulse.start_delay  # may be QickSweep1D for a DELAY sweep
-            name = pulse.name
 
             if pulse.type == "readout":
-                adc_ch = pulse.adc
-                self.send_readoutconfig(ch=adc_ch, name=name + "_ro", t=t)
-                self.pulse(ch=pulse.dac, name=name, t=t)
+                if self.is_mux and isinstance(pulse, Pulse):
+                    if pulse in muxed_readouts_executed:
+                        continue
+                    mux_group = next(
+                        group for group in self.multi_ro_pulses if pulse in group
+                    )
+                    self.execute_mux_readout_group(mux_group)
+                    muxed_readouts_executed.extend(mux_group)
+                else:
+                    self.execute_readout(pulse)
             elif pulse.type == "drive":
-                self.pulse(ch=pulse.dac, name=name, t=t)
+                self.pulse(ch=pulse.dac, name=pulse.name, t=t)
             elif pulse.type == "flux":
                 self.execute_flux_pulse(pulse)
             else:

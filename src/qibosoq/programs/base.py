@@ -415,6 +415,8 @@ class BaseProgramV2(QickProgramV2):
         if self.is_mux:
             self.multi_ro_pulses = self.group_mux_ro()
             self.readouts_per_experiment = len(self.multi_ro_pulses)
+            self.mux_adc_order: List[int] = []
+            self.mux_group_pulses: Dict[Tuple[int, ...], Tuple[int, str]] = {}
 
         # Pass remaining arguments to AveragerProgramV2
         super().__init__(
@@ -425,6 +427,14 @@ class BaseProgramV2(QickProgramV2):
             initial_delay=qpcfg.initial_delay,
             reps_innermost=qpcfg.reps_innermost
         )
+
+    def readout_config_name(self, readout: Element) -> str:
+        """Return the readout-config name for an ADC channel.
+
+        Readout configs are currently declared once per ADC channel, so the name
+        must not depend on Pulse-only attributes such as ``name``.
+        """
+        return f"readout_{readout.adc}_ro"
 
     def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
         """Declare nqz zone (1-2) for a given PulseSequence.
@@ -471,14 +481,98 @@ class BaseProgramV2(QickProgramV2):
         adc_ch_already_declared = []
         for readout in (elem for elem in self.sequence if elem.type == "readout"):
             adc_ch = readout.adc
-            name = readout.name + "_ro"
+            name = self.readout_config_name(readout)
             if adc_ch not in adc_ch_already_declared:
                 adc_ch_already_declared.append(adc_ch)
 
                 # tProc v2 ONLY wants ch and length(in us) for dynamic readouts.
                 # Frequency and generator linkage happen in the measure() instruction.
                 self.declare_readout(ch=adc_ch, length=readout.duration)
-                self.add_readoutconfig(ch=adc_ch, name=name, freq=readout.frequency, gen_ch=readout.dac)
+
+                # Measurement-only readouts may not have a pulse on this DAC,
+                # but add_readoutconfig still requires a valid generator mapping.
+                ro_gen_ch = readout.dac
+                if ro_gen_ch not in self.gen_chs:
+                    sampling_rate = self.soccfg["gens"][ro_gen_ch]["fs"]
+                    zone = 1 if readout.frequency < sampling_rate / 2 else 2
+                    if self.soccfg["gens"][ro_gen_ch]["has_mixer"]:
+                        self.declare_gen(ro_gen_ch, nqz=zone, mixer_freq=readout.frequency)
+                    else:
+                        self.declare_gen(ro_gen_ch, nqz=zone)
+
+                self.add_readoutconfig(
+                    ch=adc_ch,
+                    name=name,
+                    freq=readout.frequency,
+                    gen_ch=ro_gen_ch,
+                )
+
+    def execute_readout(self, readout: Element):
+        """Schedule a v2 readout, with or without a DAC pulse.
+
+        ``Measurement`` elements only trigger the ADC. Pulse readouts both
+        trigger the ADC and play the corresponding DAC pulse.
+        """
+        t = readout.start_delay
+        adc_ch = readout.adc
+        self.send_readoutconfig(ch=adc_ch, name=self.readout_config_name(readout), t=t)
+        self.trigger(ros=[adc_ch], t=t)
+        if isinstance(readout, Pulse):
+            self.pulse(ch=readout.dac, name=readout.name, t=t)
+
+    def register_mux_readout_groups(self):
+        """Register one mux pulse per readout group."""
+        if not self.is_mux:
+            return
+
+        self.mux_group_pulses = {}
+        for group in self.multi_ro_pulses:
+            pulses = [readout for readout in group if isinstance(readout, Pulse)]
+            if not pulses:
+                continue
+
+            dac = pulses[0].dac
+            adcs: List[int] = []
+            for readout in group:
+                if readout.adc not in adcs:
+                    adcs.append(readout.adc)
+
+            if not self.mux_adc_order:
+                raise RuntimeError("Mux ADC order not initialized.")
+            missing_adcs = [adc for adc in adcs if adc not in self.mux_adc_order]
+            if missing_adcs:
+                raise RuntimeError(
+                    f"Mux readout group references undeclared ADCs: {missing_adcs}"
+                )
+
+            mask = [self.mux_adc_order.index(adc) for adc in adcs]
+            key = tuple(adcs)
+            name = f"mux_ro_{dac}_{'_'.join(str(idx) for idx in mask)}"
+            if key not in self.mux_group_pulses:
+                self.add_pulse(ch=dac, name=name, style="const", length=pulses[0].duration, mask=mask)
+                self.mux_group_pulses[key] = (dac, name)
+
+    def execute_mux_readout_group(self, readouts: List[Element]):
+        """Execute a grouped mux readout event."""
+        adcs: List[int] = []
+        for readout in readouts:
+            if readout.adc not in adcs:
+                adcs.append(readout.adc)
+                self.send_readoutconfig(
+                    ch=readout.adc,
+                    name=self.readout_config_name(readout),
+                    t=readout.start_delay,
+                )
+
+        if not adcs:
+            return
+        self.trigger(ros=adcs, t=readouts[0].start_delay)
+
+        key = tuple(adcs)
+        if key not in self.mux_group_pulses:
+            raise RuntimeError(f"Mux group {key} was not registered.")
+        dac, name = self.mux_group_pulses[key]
+        self.pulse(ch=dac, name=name, t=readouts[0].start_delay)
 
     def add_pulse_to_register(self, pulse: Pulse, freq=None, gain=None, phase=None):
         """Register a drive pulse definition in the v2 pulse library.
@@ -491,18 +585,18 @@ class BaseProgramV2(QickProgramV2):
         """
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-        name = pulse.name
+        envelope_name = pulse.name + "_envelope"
 
         # Register the envelope shape (only once per unique pulse name)
-        if name is not None and name not in self.registered_waveforms[gen_ch]:
+        if envelope_name is not None and envelope_name not in self.registered_waveforms[gen_ch]:
             if isinstance(pulse, Gaussian):
                 sigma = (pulse.duration / pulse.rel_sigma) * np.sqrt(2)
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=pulse.duration)
+                self.add_gauss(ch=gen_ch, name=envelope_name, sigma=sigma, length=pulse.duration)
             elif isinstance(pulse, FlatTop):
                 # ramp = half the total duration; flat part = other half
                 ramp_length = pulse.duration / 2
                 sigma = (ramp_length / pulse.rel_sigma) * np.sqrt(2)
-                self.add_gauss(ch=gen_ch, name=name, sigma=sigma, length=ramp_length)
+                self.add_gauss(ch=gen_ch, name=envelope_name, sigma=sigma, length=ramp_length, even_length=True)
             elif isinstance(pulse, Drag):
                 delta = (
                     -self.soccfg["gens"][gen_ch]["samps_per_clk"]
@@ -512,7 +606,7 @@ class BaseProgramV2(QickProgramV2):
                 sigma = (pulse.duration / pulse.rel_sigma) * np.sqrt(2)
                 self.add_DRAG(
                     ch=gen_ch,
-                    name=name,
+                    name=envelope_name,
                     sigma=sigma,
                     delta=delta,
                     alpha=pulse.beta,
@@ -522,10 +616,10 @@ class BaseProgramV2(QickProgramV2):
                 # add_envelope takes raw samples; convert duration (µs) → sample count
                 n_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
                 n_samples = int(n_cycles * self.soccfg["gens"][gen_ch]["samps_per_clk"])
-                self.add_envelope(ch=gen_ch, name=name, idata=pulse.i_values(n_samples, max_gain))
+                self.add_envelope(ch=gen_ch, name=envelope_name, idata=pulse.i_values(n_samples, max_gain))
             elif isinstance(pulse, Arbitrary):
-                self.add_envelope(ch=gen_ch, name=name, idata=pulse.i_values, qdata=pulse.q_values)
-            self.registered_waveforms[gen_ch].append(name)
+                self.add_envelope(ch=gen_ch, name=envelope_name, idata=pulse.i_values, qdata=pulse.q_values)
+            self.registered_waveforms[gen_ch].append(envelope_name)
 
         # Register the pulse definition (freq/phase/gain in v2 native units;
         # caller may pass QickSweep1D objects via the optional override args)
@@ -534,14 +628,15 @@ class BaseProgramV2(QickProgramV2):
             phase=phase if phase is not None else pulse.relative_phase,
             gain=gain if gain is not None else pulse.amplitude,
         )
+        pulse_name = pulse.name
         if isinstance(pulse, Rectangular):
-            self.add_pulse(ch=gen_ch, name=name, style="const", length=pulse.duration, **common)
+            self.add_pulse(ch=gen_ch, name=pulse_name, style="const", length=pulse.duration, **common)
         elif isinstance(pulse, FlatTop):
             # 'flat_top' style: envelope is the Gaussian ramp, length is the flat part
-            self.add_pulse(ch=gen_ch, name=name, style="flat_top", envelope=name,
+            self.add_pulse(ch=gen_ch, name=pulse_name, style="flat_top", envelope=envelope_name,
                            length=pulse.duration / 2, **common)
         elif isinstance(pulse, (Gaussian, Drag, Hann, Arbitrary)):
-            self.add_pulse(ch=gen_ch, name=name, style="arb", envelope=name, **common)
+            self.add_pulse(ch=gen_ch, name=pulse_name, style="arb", envelope=envelope_name, **common)
 
     def add_ro_pulse_to_register(self, pulse: Pulse):
         """Register a readout pulse."""
@@ -549,11 +644,14 @@ class BaseProgramV2(QickProgramV2):
         ro_ch = pulse.adc
         name = pulse.name
 
-        if pulse.shape != "rectangular":
-            raise TypeError("Only rectangular pulses currently supported in Qibosoq")
+        if pulse.shape == "rectangular":
+            # unique in asm_v2, to register a new readout pulse
+            self.add_pulse(ch=gen_ch, name=name, ro_ch=ro_ch, style="const", freq=pulse.frequency, length=pulse.duration, phase=pulse.relative_phase, gain=pulse.amplitude)
+        elif pulse.shape == "gaussian":
+            self.add_gauss(ch=gen_ch, name=name, sigma=pulse.duration/10, length=pulse.duration, even_length=True)
+        else:
+            raise TypeError("Only rectangular and gaussian pulses currently supported in Qibosoq")
 
-        # unique in asm_v2, to register a new readout pulse
-        self.add_pulse(ch=gen_ch, name=name, ro_ch=ro_ch, style="const", freq=pulse.frequency, length=pulse.duration, phase=pulse.relative_phase, gain=pulse.amplitude)
 
     def group_mux_ro(self) -> list:
         """Create a list containing readout pulses grouped by start time.
@@ -612,6 +710,7 @@ class BaseProgramV2(QickProgramV2):
         if ro_ch is None:
             return
 
+        self.mux_adc_order = adc_ch_added
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,

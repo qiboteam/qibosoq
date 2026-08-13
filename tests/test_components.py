@@ -1,6 +1,7 @@
 import pytest
+import numpy as np
 
-from qibosoq.components.base import Parameter
+from qibosoq.components.base import Parameter, Sweeper
 
 PARAMETERS = [
     (Parameter.FREQUENCY, "frequency"),
@@ -36,3 +37,58 @@ def test_parameter_variants():
     assert converted_list == expected
     assert list(converted_tuple) == expected
     assert sorted(converted_set) == sorted(expected)
+
+
+def test_sweeper_validation():
+    Sweeper(
+        expts=10,
+        parameters=[Parameter.FREQUENCY],
+        indexes=[0],
+        starts=np.array([0]),
+        stops=np.array([1]),
+    )
+
+    with pytest.raises(ValueError, match="Number of experiments must be positive"):
+        Sweeper(
+            expts=0,
+            parameters=[Parameter.FREQUENCY],
+            indexes=[0],
+            starts=np.array([0]),
+            stops=np.array([1]),
+        )
+
+    with pytest.raises(ValueError, match="requires at least one parameter"):
+        Sweeper(
+            expts=10,
+            parameters=[],
+            indexes=[],
+            starts=np.array([]),
+            stops=np.array([]),
+        )
+
+    with pytest.raises(ValueError, match="same length"):
+        Sweeper(
+            expts=10,
+            parameters=[Parameter.FREQUENCY],
+            indexes=[0, 1],
+            starts=np.array([0]),
+            stops=np.array([1]),
+        )
+
+    with pytest.raises(ValueError, match="non-negative integers"):
+        Sweeper(
+            expts=10,
+            parameters=[Parameter.FREQUENCY],
+            indexes=[-1],
+            starts=np.array([0]),
+            stops=np.array([1]),
+        )
+
+    with pytest.raises(ValueError, match="Amplitude sweep cannot exceed 1"):
+        Sweeper(
+            expts=10,
+            parameters=[Parameter.AMPLITUDE],
+            indexes=[0],
+            starts=np.array([1.2]),
+            stops=np.array([1]),
+        )

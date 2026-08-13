@@ -68,23 +68,38 @@ class ExecutePulseSequenceV2(FluxProgramV2, AveragerProgramV2):
                 self._register_flux_pulse(pulse)
             elif pulse.type == "drive":
                 self.add_pulse_to_register(pulse)
-            elif pulse.type == "readout" and pulse.adc is not None:
+            elif (
+                pulse.type == "readout"
+                and isinstance(pulse, Pulse)
+                and pulse.adc is not None
+                and not self.is_mux
+            ):
                 self.add_ro_pulse_to_register(pulse)
+
+        if self.is_mux:
+            self.register_mux_readout_groups()
 
     def _body(self, cfg):
         """Executed inside the hardware repetitions loop. Plays the pulse sequence."""
         self.set_bias("sweetspot")
+        muxed_readouts_executed = []
 
         for pulse in self.sequence:
             t = pulse.start_delay
-            name = pulse.name
 
             if pulse.type == "readout":
-                adc_ch = pulse.adc
-                self.send_readoutconfig(ch=adc_ch, name=name + "_ro", t=t)
-                self.pulse(ch=pulse.dac, name=name, t=t)
+                if self.is_mux and isinstance(pulse, Pulse):
+                    if pulse in muxed_readouts_executed:
+                        continue
+                    mux_group = next(
+                        group for group in self.multi_ro_pulses if pulse in group
+                    )
+                    self.execute_mux_readout_group(mux_group)
+                    muxed_readouts_executed.extend(mux_group)
+                else:
+                    self.execute_readout(pulse)
             elif pulse.type == "drive":
-                self.pulse(ch=pulse.dac, name=name, t=t)
+                self.pulse(ch=pulse.dac, name=pulse.name, t=t)
             elif pulse.type == "flux":
                 self.execute_flux_pulse(pulse)
             else:

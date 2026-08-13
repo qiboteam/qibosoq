@@ -1,0 +1,431 @@
+{
+    "board": "ZCU216",
+    "sw_version": "0.2.381",
+    "extra_description": [],
+    "dacs": {
+        "20": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                0
+            ]
+        },
+        "21": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                1
+            ]
+        },
+        "22": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                2
+            ]
+        },
+        "23": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                2,
+                3
+            ]
+        },
+        "30": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                3,
+                0
+            ]
+        },
+        "31": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                3,
+                1
+            ]
+        },
+        "32": {
+            "fs": 6881.280000000001,
+            "fs_div": 2,
+            "fs_mult": 56,
+            "f_fabric": 430.08,
+            "interpolation": 1,
+            "index": [
+                3,
+                2
+            ]
+        }
+    },
+    "adcs": {
+        "20": {
+            "fs": 2457.6,
+            "fs_div": 4,
+            "fs_mult": 40,
+            "f_fabric": 307.2,
+            "decimation": 1,
+            "index": [
+                2,
+                0
+            ]
+        },
+        "22": {
+            "fs": 2457.6,
+            "fs_div": 4,
+            "fs_mult": 40,
+            "f_fabric": 307.2,
+            "decimation": 1,
+            "index": [
+                2,
+                2
+            ]
+        }
+    },
+    "refclk_freq": 245.76,
+    "fw_timestamp": "Mon Aug 21 11:09:34 2023",
+    "mr_buf": {
+        "type": "mr_buffer_et",
+        "fullpath": "mr_buffer_et_0",
+        "maxlen": 8192,
+        "junk_len": 8,
+        "readouts": [
+            "axis_avg_buffer_0",
+            "axis_avg_buffer_1"
+        ],
+        "revision": 3,
+        "trigger_type": "output",
+        "trigger_port": 0,
+        "trigger_bit": 12
+    },
+    "ddr4_buf": {
+        "type": "axis_buffer_ddr_v1",
+        "fullpath": "axis_buffer_ddr_v1_0",
+        "readouts": [
+            "axis_avg_buffer_0",
+            "axis_avg_buffer_1"
+        ],
+        "burst_len": 128,
+        "junk_len": 401,
+        "junk_nt": 4,
+        "revision": 3,
+        "maxlen": 1073741824,
+        "trigger_type": "output",
+        "trigger_port": 0,
+        "trigger_bit": 13
+    },
+    "gens": [
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_0",
+            "revision": 4,
+            "tproc_ch": 1,
+            "dac": "20",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 0,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_1",
+            "revision": 4,
+            "tproc_ch": 2,
+            "dac": "21",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 1,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_2",
+            "revision": 4,
+            "tproc_ch": 3,
+            "dac": "22",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 2,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_3",
+            "revision": 4,
+            "tproc_ch": 4,
+            "dac": "23",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 3,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_4",
+            "revision": 4,
+            "tproc_ch": 5,
+            "dac": "30",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 4,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_5",
+            "revision": 4,
+            "tproc_ch": 6,
+            "dac": "31",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 5,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        },
+        {
+            "type": "axis_signal_gen_v6",
+            "fullpath": "axis_signal_gen_v6_6",
+            "revision": 4,
+            "tproc_ch": 7,
+            "dac": "32",
+            "has_mixer": false,
+            "has_dds": true,
+            "fs": 6881.280000000001,
+            "fs_mult": 56,
+            "fs_div": 2,
+            "interpolation": 1,
+            "f_fabric": 430.08,
+            "f_dds": 6881.280000000001,
+            "fdds_div": 2,
+            "maxlen": 65536,
+            "b_dds": 32,
+            "b_phase": 32,
+            "switch_ch": 6,
+            "samps_per_clk": 16,
+            "maxv": 32766,
+            "maxv_scale": 1.0
+        }
+    ],
+    "iqs": [],
+    "readouts": [
+        {
+            "avg_maxlen": 16384,
+            "buf_maxlen": 1024,
+            "trigger_type": "output",
+            "trigger_port": 0,
+            "trigger_bit": 14,
+            "tproc_ch": 0,
+            "tproc_ctrl": 0,
+            "adc": "20",
+            "b_phase": 32,
+            "fs": 2457.6,
+            "fs_mult": 40,
+            "fs_div": 4,
+            "decimation": 1,
+            "f_fabric": 307.2,
+            "f_dds": 2457.6,
+            "fdds_div": 4,
+            "f_output": 307.2,
+            "b_dds": 32,
+            "iq_offset": 0.0,
+            "has_outsel": true,
+            "has_weights": false,
+            "has_edge_counter": false,
+            "avgbuf_fullpath": "axis_avg_buffer_0",
+            "ro_fullpath": "axis_readout_v2_0",
+            "avgbuf_type": "axis_avg_buffer",
+            "ro_type": "axis_readout_v2",
+            "avgbuf_revision": 6,
+            "ro_revision": 8
+        },
+        {
+            "avg_maxlen": 16384,
+            "buf_maxlen": 1024,
+            "trigger_type": "output",
+            "trigger_port": 0,
+            "trigger_bit": 15,
+            "tproc_ch": 1,
+            "tproc_ctrl": 1,
+            "adc": "22",
+            "b_phase": 32,
+            "fs": 2457.6,
+            "fs_mult": 40,
+            "fs_div": 4,
+            "decimation": 1,
+            "f_fabric": 307.2,
+            "f_dds": 2457.6,
+            "fdds_div": 4,
+            "f_output": 307.2,
+            "b_dds": 32,
+            "iq_offset": 0.0,
+            "has_outsel": true,
+            "has_weights": false,
+            "has_edge_counter": false,
+            "avgbuf_fullpath": "axis_avg_buffer_1",
+            "ro_fullpath": "axis_readout_v2_1",
+            "avgbuf_type": "axis_avg_buffer",
+            "ro_type": "axis_readout_v2",
+            "avgbuf_revision": 6,
+            "ro_revision": 8
+        }
+    ],
+    "tprocs": [
+        {
+            "type": "qick_processor",
+            "fullpath": "axis_tproc64x32_x8_0",
+            "dmem_size": 4096,
+            "pmem_size": 8192,
+            "wmem_size": 8192,
+            "dreg_qty": 32,
+            "revision": 21,
+            "output_pins": [
+                [
+                    "output",
+                    0,
+                    0,
+                    "PMOD0_0_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    1,
+                    "PMOD0_1_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    2,
+                    "PMOD0_2_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    3,
+                    "PMOD0_3_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    4,
+                    "PMOD0_4_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    5,
+                    "PMOD0_5_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    6,
+                    "PMOD0_6_LS"
+                ],
+                [
+                    "output",
+                    0,
+                    7,
+                    "PMOD0_7_LS"
+                ]
+            ],
+            "start_pin": "PMOD1_0_LS",
+            "stop_pin": "PMOD1_1_LS",
+            "f_core": 430.08,
+            "f_time": 430.08
+        }
+    ]
+}
