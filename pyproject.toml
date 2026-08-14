@@ -6,7 +6,7 @@ authors = [
   { name = "Rodolfo Carobene", email = "rodolfo.carobene@gmail.com" },
   { name = "The Qibo Team"}
 ]
-license = { text = "Apache License 2.0" }
+license = "Apache-2.0"
 readme = "README.md"
 keywords = []
 classifiers = [
