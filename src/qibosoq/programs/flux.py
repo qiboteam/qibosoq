@@ -8,7 +8,7 @@ from qick import QickSoc
 from qick.asm_v1 import QickRegister
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components.base import Config, ConfigV2, Qubit
+from qibosoq.components.base import Config, Qubit
 from qibosoq.components.pulses import (
     Arbitrary,
     Element,
@@ -198,23 +198,37 @@ class FluxProgramV2(BaseProgramV2):
     """Abstract class for flux-tunable qubits programs."""
 
     def __init__(
-        self, soc: QickSoc, qpcfg: ConfigV2, sequence: List[Element], qubits: List[Qubit]
+        self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
     ):
         """Call super().__init__."""
         super().__init__(soc, qpcfg, sequence, qubits)
+
+    def _flux_qubits(self):
+        """Yield ``(qi, qubit, flux_ch)`` for qubits that need a bias pulse.
+
+        A qubit participates in flux biasing when it has a DAC and either a
+        nonzero static bias or an active bias sweep. Including swept qubits
+        here ensures a bias sweep around 0 is still registered and applied
+        instead of being silently dropped.
+        """
+        for qi, qubit in enumerate(self.qubits):
+            if qubit.dac is None:
+                continue
+            if qubit.bias in (None, 0) and qi not in self.bias_sweeps:
+                continue
+            yield qi, qubit, qubit.dac
 
     def register_bias_pulses(self):
         """Pre-register constant bias pulses for all flux qubits.
 
         Must be called from _initialize before the repetition loop.
         Registers both sweetspot and zero-amplitude pulses per qubit DAC.
+        Swept qubits (in ``self.bias_sweeps``) get a swept sweetspot gain.
         """
-        for qubit in self.qubits:
-            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
-                continue
-            flux_ch = qubit.dac
+        for qi, qubit, flux_ch in self._flux_qubits():
+            sweetspot_gain = self.bias_sweeps.get(qi, float(qubit.bias))
             for name, gain in [
-                (f"bias_sweetspot_{flux_ch}", float(qubit.bias)),
+                (f"bias_sweetspot_{flux_ch}", sweetspot_gain),
                 (f"bias_zero_{flux_ch}", 0.0),
             ]:
                 self.add_pulse(
@@ -234,10 +248,7 @@ class FluxProgramV2(BaseProgramV2):
         Args:
             mode: 'sweetspot' applies qubit.bias amplitude; 'zero' outputs nothing.
         """
-        for qubit in self.qubits:
-            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
-                continue
-            flux_ch = qubit.dac
+        for qi, qubit, flux_ch in self._flux_qubits():
             if mode == "sweetspot":
                 name = f"bias_sweetspot_{flux_ch}"
             elif mode == "zero":
@@ -245,6 +256,36 @@ class FluxProgramV2(BaseProgramV2):
             else:
                 raise NotImplementedError(f"Mode {mode} not supported")
             self.pulse(ch=flux_ch, name=name, t=0)
+
+    def play_sequence(self):
+        """Play the full sequence body once, in order.
+
+        Applies the sweetspot bias, then fires each element (readout, drive or
+        flux) relative to the advancing timeline. Shared by the tProc v2
+        sequence and sweep programs.
+        """
+        self.set_bias("sweetspot")
+        muxed_readouts_executed: List[Element] = []
+
+        for pulse in self.sequence:
+            self.delay(pulse.start_delay)
+            if pulse.type == "readout":
+                if self.is_mux and isinstance(pulse, Pulse):
+                    if pulse in muxed_readouts_executed:
+                        continue
+                    mux_group = next(
+                        group for group in self.multi_ro_pulses if pulse in group
+                    )
+                    self.execute_mux_readout_group(mux_group)
+                    muxed_readouts_executed.extend(mux_group)
+                else:
+                    self.execute_readout(pulse)
+            elif pulse.type == "drive":
+                self.pulse(ch=pulse.dac, name=pulse.name, t="auto")
+            elif pulse.type == "flux":
+                self.execute_flux_pulse(pulse)
+            else:
+                raise ValueError(f"Unsupported pulse type: {pulse.type!r}")
 
     def find_qubit_sweetspot(self, pulse: Pulse) -> float:
         """Return bias of a qubit from flux pulse."""
@@ -302,7 +343,7 @@ class FluxProgramV2(BaseProgramV2):
 
     def execute_flux_pulse(self, pulse: Pulse):
         """Fire a pre-registered flux pulse (_register_flux_pulse must be called first)."""
-        self.pulse(ch=pulse.dac, name=pulse.name, t=0)
+        self.pulse(ch=pulse.dac, name=pulse.name, t='auto')
 
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel."""

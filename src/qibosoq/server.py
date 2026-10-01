@@ -12,7 +12,7 @@ import numpy as np
 from qick import QickSoc
 
 import qibosoq.configuration as cfg
-from qibosoq.components.base import Config, ConfigV2, OperationCode, Parameter, Qubit, Sweeper
+from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element, Measurement, Shape
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
 from qibosoq.programs.sweepers import ExecuteSweeps, ExecuteSweepsV2
@@ -94,6 +94,15 @@ def validate_sweeps_payload(data: dict) -> List[Dict]:
     return sweepers
 
 
+def us_to_tproc_ticks(time_us: float, qick_soc: QickSoc) -> int:
+    """Convert a time in microseconds to tProc (v1) clock ticks.
+
+    ``ro_time_of_flight`` is expressed in us; tProc v1 needs it in clock ticks
+    (as ``adc_trig_offset``), while tProc v2 consumes it in us directly.
+    """
+    return int(qick_soc.us2cycles(time_us))
+
+
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
@@ -103,13 +112,18 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     opcode = OperationCode(data["operation_code"])
     args = []
 
+    # soft_avgs is deprecated and kept only for backward compatibility; drop it
+    # here so it is never used for the rest of the sequence (see 'rounds').
+    data["cfg"].pop("soft_avgs", None)
+
     # 1. Program Instantiation based on TPROC_VERSION
     if TPROC_VERSION == 1:
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
             programcls = ExecutePulseSequence
         elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
             programcls = ExecutePulseSequence
-            data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
+            # using rounds in acquire_decimated() to loop the same pulse sequence in QICK, aka soft_avg
+            data["cfg"]["rounds"] = data["cfg"]["reps"]
             data["cfg"]["reps"] = 1
         elif opcode is OperationCode.EXECUTE_SWEEPS:
             programcls = ExecuteSweeps
@@ -118,7 +132,20 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             raise NotImplementedError(
                 f"Operation code {data['operation_code']} not supported"
             )
-        
+
+        # ro_time_of_flight is provided in us; tProc v1 needs ADC clock ticks.
+        if "ro_time_of_flight" in data["cfg"]:
+            data["cfg"]["ro_time_of_flight"] = us_to_tproc_ticks(
+                data["cfg"]["ro_time_of_flight"], qick_soc
+            )
+        # remove ASMv2 specific keys from the config for tProc v1
+        if "final_wait" in data["cfg"]:
+            del data["cfg"]["final_wait"]
+        if "initial_delay" in data["cfg"]:
+            del data["cfg"]["initial_delay"]
+        if "reps_innermost" in data["cfg"]:
+            del data["cfg"]["reps_innermost"]
+
         program = programcls(
             qick_soc,
             Config(**data["cfg"]),
@@ -160,7 +187,9 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             programcls = ExecutePulseSequenceV2
         elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
             programcls = ExecutePulseSequenceV2
-            data["cfg"]["reps_innermost"] = True
+            # using rounds in acquire_decimated() to loop the same pulse sequence in QICK, aka soft_avg
+            data["cfg"]["rounds"] = data["cfg"]["reps"]
+            data["cfg"]["reps"] = 1
         elif opcode is OperationCode.EXECUTE_SWEEPS:
             programcls = ExecuteSweepsV2
             args = load_sweeps(validate_sweeps_payload(data))
@@ -168,9 +197,10 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             raise NotImplementedError(
                 f"Operation code {data['operation_code']} not supported"
             )
+
         program = programcls(
             qick_soc,
-            ConfigV2(**data["cfg"]),
+            Config(**data["cfg"]),
             load_elements(data["sequence"]),
             [Qubit(**qubit) for qubit in data["qubits"]],
             *args,
@@ -181,12 +211,16 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
         qick_logger.info(asm_prog)
 
         if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-            results = program.acquire_decimated(qick_soc, progress=False)
+            # rounds reruns the (reps=1) program in software and averages the
+            # decimated traces; without it only a single un-averaged shot is kept.
+            results = program.acquire_decimated(
+                qick_soc, rounds=data["cfg"]["rounds"], progress=False
+            )
             if results:
                 toti = [[results[0][..., 0].tolist()]]
                 totq = [[results[0][..., 1].tolist()]]
             else:
-                print("INFO: results is empty, most likely there is no Readout")
+                logger.info("results is empty, most likely there is no Readout")
                 toti = None
                 totq = None
         else:

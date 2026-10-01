@@ -154,6 +154,14 @@ This key is used and requested only if operation_code is ``EXECUTE_SWEEPS`` and 
         "sweepers": [asdict(sweep) for sweep in sweepers],
     }
 
+For each sweeper dictionary:
+
+* ``expts`` must be a positive integer.
+* ``parameters``, ``starts``, ``stops`` and ``indexes`` must all be non-empty lists.
+* ``parameters``, ``starts``, ``stops`` and ``indexes`` must all have the same length.
+
+If these constraints are not respected, ``EXECUTE_SWEEPS`` requests are rejected with a clear error message.
+
 
 average
 -------

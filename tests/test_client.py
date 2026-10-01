@@ -98,8 +98,12 @@ def targ_server_commands():
             "relaxation_time": 100,
             "ro_time_of_flight": 200,
             "reps": 1000,
-            "soft_avgs": 1,
             "average": True,
+            "rounds": 1,
+            "final_wait": 0,
+            "initial_delay": 1,
+            "reps_innermost": False,
+            "soft_avgs": 1,
         },
         "sequence": [
             {

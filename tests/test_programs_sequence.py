@@ -6,7 +6,7 @@ import qick
 qick.QickSoc = None
 
 import qibosoq.configuration
-from qibosoq.components.base import Config, ConfigV2, Qubit
+from qibosoq.components.base import Config, Qubit
 from qibosoq.components.pulses import Measurement, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
 
@@ -76,7 +76,7 @@ def soc_v2_multiplexed():
 
 @pytest.fixture
 def execute_pulse_sequence_v2(soc_v2):
-    config = ConfigV2()
+    config = Config()
     sequence = [
         Rectangular(
             frequency=100,
@@ -119,7 +119,7 @@ def test_execute_pulsesequence_v2_readout_triggers(execute_pulse_sequence_v2):
 
 
 def test_execute_pulsesequence_v2_handles_measurement(soc_v2):
-    config = ConfigV2()
+    config = Config()
     sequence = [
         Rectangular(
             frequency=100,
@@ -159,7 +159,7 @@ def test_execute_pulsesequence_v2_handles_measurement(soc_v2):
 
 
 def test_execute_pulsesequence_v2_multiplexed_readout_group(soc_v2_multiplexed):
-    config = ConfigV2()
+    config = Config()
     sequence = [
         Rectangular(
             frequency=100,

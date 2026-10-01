@@ -9,7 +9,7 @@ from qick.averager_program import QickSweep, merge_sweeps
 from qick.asm_v2 import AveragerProgramV2, QickSweep1D
 
 import qibosoq.configuration as qibosoq_cfg
-from qibosoq.components.base import Config, ConfigV2, Parameter, Qubit, Sweeper
+from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element, Pulse
 from qibosoq.programs.flux import FluxProgram, FluxProgramV2
 
@@ -42,7 +42,6 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
         super().__init__(soc, qpcfg, sequence, qubits)
 
         self.reps = qpcfg.reps  # must be done after NDAveragerProgram init
-        self.soft_avgs = qpcfg.soft_avgs
 
     def validate(self, sweeper: Sweeper):
         """Check if a sweeper is valid.
@@ -185,7 +184,7 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
     def __init__(
         self,
         soc: QickSoc,
-        qpcfg: ConfigV2,
+        qpcfg: Config,
         sequence: List[Element],
         qubits: List[Qubit],
         *sweepers: Sweeper,
@@ -218,8 +217,6 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
 
     def _initialize(self, cfg):
         """Declare channels, add sweep loops, and pre-register all pulses."""
-        self.declare_gen_and_ro(self.pulse_sequence)
-
         for sweeper in self.sweepers:
             self.validate(sweeper)
 
@@ -227,11 +224,12 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
         for i, sweeper in enumerate(self.sweepers):
             self.add_loop(f"sweep_{i}", count=sweeper.expts)
 
-        # Build sweep lookup tables.
+        # Build sweep lookup tables. self.bias_sweeps and self.ro_freq_sweeps are
+        # created empty in BaseProgramV2.__init__ (and consumed by
+        # register_bias_pulses/set_bias and declare_readout_freq); here we only
+        # populate them, keeping a single source of truth for their defaults.
         # pulse_sweeps: {seq_idx: {Parameter: QickSweep1D}}
-        # bias_sweeps:  {qubit_idx: QickSweep1D}
         pulse_sweeps = {}
-        bias_sweeps = {}
         for i, sweeper in enumerate(self.sweepers):
             loop = f"sweep_{i}"
             for idx, (par, jdx) in enumerate(zip(sweeper.parameters, sweeper.indexes)):
@@ -239,24 +237,29 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                 stop = float(sweeper.stops[idx])
                 swept = QickSweep1D(loop, start, stop)
                 if par is Parameter.BIAS:
-                    bias_sweeps[jdx] = swept
+                    self.bias_sweeps[jdx] = swept
                 elif par is Parameter.DELAY:
-                    # Set start_delay directly; _body will pass it as t=
+                    # Honored in _body via delay(pulse.start_delay).
                     self.sequence[jdx].start_delay = swept
                 else:
                     pulse_sweeps.setdefault(jdx, {})[par] = swept
+                    # A readout-frequency sweep must also move the ADC
+                    # down-conversion frequency, not only the DAC pulse.
+                    # (mux readout sweeps are not supported yet.)
+                    if (
+                        par is Parameter.FREQUENCY
+                        and self.sequence[jdx].type == "readout"
+                        and not self.is_mux
+                    ):
+                        self.ro_freq_sweeps[self.sequence[jdx].adc] = swept
 
-        # Register bias pulses (swept gain if bias is swept, static otherwise)
-        for qi, qubit in enumerate(self.qubits):
-            if qubit.bias is None or qubit.dac is None or qubit.bias == 0:
-                continue
-            flux_ch = qubit.dac
-            sweetspot_gain = bias_sweeps.get(qi, float(qubit.bias))
-            self.add_pulse(ch=flux_ch, name=f"bias_sweetspot_{flux_ch}",
-                           style="const", freq=0, phase=0,
-                           gain=sweetspot_gain, length=0.1)
-            self.add_pulse(ch=flux_ch, name=f"bias_zero_{flux_ch}",
-                           style="const", freq=0, phase=0, gain=0.0, length=0.1)
+        # Declared after ro_freq_sweeps is known so the readout config picks up
+        # the swept down-conversion frequency when requested.
+        self.declare_gen_and_ro(self.pulse_sequence)
+
+        # Register bias pulses (swept gain if bias is swept, static otherwise);
+        # self.bias_sweeps ensures qubits swept around bias 0 are still registered.
+        self.register_bias_pulses()
 
         # Register each pulse, substituting QickSweep1D for swept parameters
         for seq_idx, pulse in enumerate(self.sequence):
@@ -272,34 +275,17 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                 )
             elif pulse.type == "readout" and isinstance(pulse, Pulse) and pulse.adc is not None:
                 if not self.is_mux:
-                    self.add_ro_pulse_to_register(pulse)
+                    swept = pulse_sweeps.get(seq_idx, {})
+                    self.add_ro_pulse_to_register(
+                        pulse,
+                        freq=swept.get(Parameter.FREQUENCY),
+                        gain=swept.get(Parameter.AMPLITUDE),
+                        phase=swept.get(Parameter.RELATIVE_PHASE),
+                    )
         if self.is_mux:
             self.register_mux_readout_groups()
 
     def _body(self, cfg):
         """Executed inside all sweep loops. Identical to ExecutePulseSequenceV2."""
-        self.set_bias("sweetspot")
-        muxed_readouts_executed = []
-
-        for pulse in self.sequence:
-            t = pulse.start_delay  # may be QickSweep1D for a DELAY sweep
-
-            if pulse.type == "readout":
-                if self.is_mux and isinstance(pulse, Pulse):
-                    if pulse in muxed_readouts_executed:
-                        continue
-                    mux_group = next(
-                        group for group in self.multi_ro_pulses if pulse in group
-                    )
-                    self.execute_mux_readout_group(mux_group)
-                    muxed_readouts_executed.extend(mux_group)
-                else:
-                    self.execute_readout(pulse)
-            elif pulse.type == "drive":
-                self.pulse(ch=pulse.dac, name=pulse.name, t=t)
-            elif pulse.type == "flux":
-                self.execute_flux_pulse(pulse)
-            else:
-                raise ValueError(f"Unsupported pulse type: {pulse.type!r}")
-
+        self.play_sequence()
         self.set_bias("zero")
