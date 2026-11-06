@@ -1,7 +1,7 @@
 Installation instructions
 =========================
 
-``Qibosoq`` is fully compatible with Python >=3.8, <3.12.
+``Qibosoq`` is fully compatible with Python >=3.10, <3.14.
 
 Installing with pip
 """""""""""""""""""

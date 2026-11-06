@@ -484,7 +484,7 @@ class BaseProgramV2(QickProgramV2):
     def batch_declare_gen(self, pulse_sequence: List[Pulse]):
         """Declare generators for all PulseSequence."""
         # collate pulses by gen_ch
-        ch_to_pulses = {}
+        ch_to_pulses: Dict[int, List[Pulse]] = {}
         for pulse in pulse_sequence:
             if pulse.type != "readout":
                 ch_to_pulses.setdefault(pulse.dac, []).append(pulse)
