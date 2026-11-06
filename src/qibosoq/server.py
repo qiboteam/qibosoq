@@ -94,15 +94,6 @@ def validate_sweeps_payload(data: dict) -> List[Dict]:
     return sweepers
 
 
-def us_to_tproc_ticks(time_us: float, qick_soc: QickSoc) -> int:
-    """Convert a time in microseconds to tProc (v1) clock ticks.
-
-    ``ro_time_of_flight`` is expressed in us; tProc v1 needs it in clock ticks
-    (as ``adc_trig_offset``), while tProc v2 consumes it in us directly.
-    """
-    return int(qick_soc.us2cycles(time_us))
-
-
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
@@ -133,11 +124,6 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
                 f"Operation code {data['operation_code']} not supported"
             )
 
-        # ro_time_of_flight is provided in us; tProc v1 needs ADC clock ticks.
-        if "ro_time_of_flight" in data["cfg"]:
-            data["cfg"]["ro_time_of_flight"] = us_to_tproc_ticks(
-                data["cfg"]["ro_time_of_flight"], qick_soc
-            )
         # remove ASMv2 specific keys from the config for tProc v1
         if "final_wait" in data["cfg"]:
             del data["cfg"]["final_wait"]
@@ -224,7 +210,9 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
                 toti = None
                 totq = None
         else:
-            toti, totq = program.perform_experiment(qick_soc)
+            toti, totq = program.perform_experiment(
+                qick_soc, average=data["cfg"].get("average", True)
+            )
     else:
         raise RuntimeError(f"Unknown TPROC_VERSION {TPROC_VERSION}")
 

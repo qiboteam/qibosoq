@@ -14,11 +14,11 @@ class Config:
 
     relaxation_time: float = 100
     """Time to wait between shots (us). Mapped to 'final_delay' in ASMv2"""
-    ro_time_of_flight: float = 200
+    ro_time_of_flight: float = 0.5
     """Time to wait between readout pulse and acquisition (us).
 
-    Converted to ADC/tProc clock ticks for tProc v1 in the server; used
-    directly (in us) for tProc v2.
+    Converted to tProc clock ticks by the tProc v1 programs; used directly
+    (in us) for tProc v2.
     """
     reps: int = 1000
     """Number of shots. Hardware averaging"""

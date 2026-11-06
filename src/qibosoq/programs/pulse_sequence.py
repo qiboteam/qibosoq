@@ -57,7 +57,7 @@ class ExecutePulseSequenceV2(FluxProgramV2, AveragerProgramV2):
                 and pulse.adc is not None
                 and not self.is_mux
             ):
-                self.add_ro_pulse_to_register(pulse)
+                self.add_pulse_to_register(pulse)
 
         if self.is_mux:
             self.register_mux_readout_groups()

@@ -49,8 +49,8 @@ class BaseProgram(QickProgram):
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
 
-        # general settings
-        self.ro_time_of_flight = qpcfg.ro_time_of_flight
+        # general settings (ro_time_of_flight is in us, v1 needs tProc ticks)
+        self.ro_time_of_flight = self.us2cycles(qpcfg.ro_time_of_flight)
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
@@ -532,6 +532,8 @@ class BaseProgramV2(QickProgramV2):
         self.trigger(ros=[adc_ch], t=self.ro_time_of_flight)
         if isinstance(readout, Pulse):
             self.pulse(ch=readout.dac, name=readout.name, t=0)
+            # as v1 measure(syncdelay=0): next start_delay counts from the end
+            self.delay_auto(0)
 
     def register_mux_readout_groups(self):
         """Register one mux pulse per readout group."""
@@ -590,6 +592,8 @@ class BaseProgramV2(QickProgramV2):
             raise RuntimeError(f"Mux group {key} was not registered.")
         dac, name = self.mux_group_pulses[key]
         self.pulse(ch=dac, name=name, t=0)
+        # as v1 measure(syncdelay=0): next start_delay counts from the end
+        self.delay_auto(0)
 
     def add_pulse_to_register(self, pulse: Pulse, freq=None, gain=None, phase=None):
         """Register a drive pulse definition in the v2 pulse library.
@@ -645,6 +649,9 @@ class BaseProgramV2(QickProgramV2):
             phase=phase if phase is not None else pulse.relative_phase,
             gain=gain if gain is not None else pulse.amplitude,
         )
+        if pulse.adc is not None:
+            # match the generator frequency to the readout frequency grid
+            common["ro_ch"] = pulse.adc
         pulse_name = pulse.name
         if isinstance(pulse, Rectangular):
             self.add_pulse(ch=gen_ch, name=pulse_name, style="const", length=pulse.duration, **common)
@@ -654,31 +661,6 @@ class BaseProgramV2(QickProgramV2):
                            length=pulse.duration / 2, **common)
         elif isinstance(pulse, (Gaussian, Drag, Hann, Arbitrary)):
             self.add_pulse(ch=gen_ch, name=pulse_name, style="arb", envelope=envelope_name, **common)
-
-    def add_ro_pulse_to_register(self, pulse: Pulse, freq=None, gain=None, phase=None):
-        """Register a readout pulse.
-
-        Optional freq/gain/phase override the pulse's own values; pass
-        QickSweep1D objects here to register a readout pulse with a swept
-        parameter. When the frequency is swept the ADC down-conversion
-        frequency must be swept as well (see ``ro_freq_sweeps``).
-        """
-        gen_ch = pulse.dac
-        ro_ch = pulse.adc
-        name = pulse.name
-
-        freq_val = freq if freq is not None else pulse.frequency
-        gain_val = gain if gain is not None else pulse.amplitude
-        phase_val = phase if phase is not None else pulse.relative_phase
-
-        if pulse.shape == "rectangular":
-            # unique in asm_v2, to register a new readout pulse
-            self.add_pulse(ch=gen_ch, name=name, ro_ch=ro_ch, style="const", freq=freq_val, length=pulse.duration, phase=phase_val, gain=gain_val)
-        elif pulse.shape == "gaussian":
-            self.add_gauss(ch=gen_ch, name=name, sigma=pulse.duration/10, length=pulse.duration, even_length=True)
-        else:
-            raise TypeError("Only rectangular and gaussian pulses currently supported in Qibosoq")
-
 
     def group_mux_ro(self) -> list:
         """Create a list containing readout pulses grouped by start time.
@@ -750,18 +732,22 @@ class BaseProgramV2(QickProgramV2):
     def perform_experiment(
         self,
         soc: QickSoc,
+        average: bool = True,
     ) -> Tuple[list, list]:
         """Call acquire, executing the experiment (tProc v2 version).
 
-        Averaging is always performed over the reps loop; the ``average`` flag
-        used by tProc v1 is not supported here (single-shot acquisition is not
-        yet implemented for tProc v2).
+        Averaging is always performed over the reps loop; single-shot
+        acquisition (``average=False``) is not yet implemented for tProc v2.
 
         Returns:
             (toti, totq): nested lists of I and Q values, one entry per
             readout channel.  Shape mirrors acquire() output with last axis
             split: toti[ch] = buf[ch][..., 0], totq[ch] = buf[ch][..., 1].
         """
+        if not average:
+            raise NotImplementedError(
+                "Single-shot acquisition (average=False) is not supported on tProc v2 yet."
+            )
 
         buf = self.acquire(soc, progress=False)
 

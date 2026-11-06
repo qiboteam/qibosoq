@@ -3,7 +3,6 @@
 import logging
 from typing import Iterable, List, Union
 
-import numpy as np
 from qick import NDAveragerProgram, QickSoc
 from qick.averager_program import QickSweep, merge_sweeps
 from qick.asm_v2 import AveragerProgramV2, QickSweep1D
@@ -276,7 +275,7 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
             elif pulse.type == "readout" and isinstance(pulse, Pulse) and pulse.adc is not None:
                 if not self.is_mux:
                     swept = pulse_sweeps.get(seq_idx, {})
-                    self.add_ro_pulse_to_register(
+                    self.add_pulse_to_register(
                         pulse,
                         freq=swept.get(Parameter.FREQUENCY),
                         gain=swept.get(Parameter.AMPLITUDE),

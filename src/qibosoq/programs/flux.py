@@ -20,6 +20,9 @@ from qibosoq.programs.base import BaseProgram, BaseProgramV2
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
+BIAS_SETTLE_TIME = 0.1
+"""Time (us) waited after setting a flux bias, before playing other pulses."""
+
 
 class FluxProgram(BaseProgram):
     """Abstract class for flux-tunable qubits programs."""
@@ -239,6 +242,7 @@ class FluxProgramV2(BaseProgramV2):
                     phase=0,
                     gain=gain,
                     length=0.1,  # 0.1 µs — short enough to not delay the experiment
+                    stdysel="last",  # hold the bias after the pulse ends
                 )
 
     def set_bias(self, mode: str = "sweetspot"):
@@ -248,14 +252,19 @@ class FluxProgramV2(BaseProgramV2):
         Args:
             mode: 'sweetspot' applies qubit.bias amplitude; 'zero' outputs nothing.
         """
-        for qi, qubit, flux_ch in self._flux_qubits():
-            if mode == "sweetspot":
-                name = f"bias_sweetspot_{flux_ch}"
-            elif mode == "zero":
-                name = f"bias_zero_{flux_ch}"
-            else:
-                raise NotImplementedError(f"Mode {mode} not supported")
-            self.pulse(ch=flux_ch, name=name, t=0)
+        if mode not in ("sweetspot", "zero"):
+            raise NotImplementedError(f"Mode {mode} not supported")
+        flux_qubits = list(self._flux_qubits())
+        if not flux_qubits:
+            return
+
+        if mode == "zero":
+            # remove the bias only after every pulse and readout has ended
+            self.delay_auto(0)
+        for _, _, flux_ch in flux_qubits:
+            self.pulse(ch=flux_ch, name=f"bias_{mode}_{flux_ch}", t=0)
+        # let the bias settle before continuing (v1 used sync_all(50))
+        self.delay_auto(BIAS_SETTLE_TIME)
 
     def play_sequence(self):
         """Play the full sequence body once, in order.
@@ -339,6 +348,8 @@ class FluxProgramV2(BaseProgramV2):
             freq=0,
             phase=0,
             gain=1.0,  # amplitude already encoded in i_vals (scaled to max_gain)
+            outsel="input",
+            stdysel="last",  # stay at the sweetspot after the pulse ends
         )
 
     def execute_flux_pulse(self, pulse: Pulse):
