@@ -7,7 +7,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Measurement, Rectangular
+from qibosoq.components.pulses import Gaussian, Measurement, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
 
 
@@ -265,3 +265,53 @@ def test_flux_body(soc):
 
     program = ExecutePulseSequence(soc, config, sequence, qubits)
     program.body()
+
+
+def v2_pulse(name, type, dac, adc, start_delay, duration=0.1, cls=Rectangular, **kw):
+    return cls(
+        frequency=100,
+        amplitude=0.1,
+        relative_phase=0,
+        start_delay=start_delay,
+        duration=duration,
+        name=name,
+        type=type,
+        dac=dac,
+        adc=adc,
+        **kw,
+    )
+
+
+def test_v2_bias_and_flux_pulses_hold_their_value(soc_v2):
+    sequence = [
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("readout0", "readout", 6, 0, 0.1),
+    ]
+    program = ExecutePulseSequenceV2(
+        soc_v2, Config(), sequence, [Qubit(bias=0.3, dac=2)]
+    )
+    for name in ["bias_sweetspot_2", "bias_zero_2", "flux0"]:
+        assert program.pulses[name].params["stdysel"] == "last"
+
+
+def test_v2_back_to_back_readouts_do_not_overlap(soc_v2, caplog):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 0, 0, duration=1.0),
+    ]
+    with caplog.at_level("WARNING"):
+        ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    assert "conflict" not in caplog.text
+
+
+def test_v2_gaussian_readout(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0, cls=Gaussian, rel_sigma=5),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    assert "readout0" in program.pulses
+
+
+def test_v2_single_shots_not_implemented(execute_pulse_sequence_v2):
+    with pytest.raises(NotImplementedError):
+        execute_pulse_sequence_v2.perform_experiment(None, average=False)

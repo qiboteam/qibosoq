@@ -123,7 +123,7 @@ def test_execute_program(mocker, soc):
         "operation_code": 1,
         "cfg": {
             "relaxation_time": 100,
-            "ro_time_of_flight": 200,
+            "ro_time_of_flight": 0.5,
             "reps": 1000,
             "soft_avgs": 1,
             "average": True,
@@ -197,7 +197,7 @@ def test_execute_program_v2(mocker, soc_v2):
         "operation_code": 1,
         "cfg": {
             "reps": 1000,
-            "final_delay": 100,
+            "relaxation_time": 100,
             "final_wait": 0,
             "initial_delay": 1,
             "reps_innermost": False,
@@ -308,7 +308,7 @@ def test_execute_program_sweep_payload_validation(sweepers, message, tproc_versi
     cfg = (
         {
             "relaxation_time": 100,
-            "ro_time_of_flight": 200,
+            "ro_time_of_flight": 0.5,
             "reps": 1000,
             "soft_avgs": 1,
             "average": True,
@@ -316,7 +316,7 @@ def test_execute_program_sweep_payload_validation(sweepers, message, tproc_versi
         if tproc_version == 1
         else {
             "reps": 1000,
-            "final_delay": 100,
+            "relaxation_time": 100,
             "final_wait": 0,
             "initial_delay": 1,
             "reps_innermost": False,

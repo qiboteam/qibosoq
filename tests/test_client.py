@@ -96,7 +96,7 @@ def targ_server_commands():
         "operation_code": OperationCode.EXECUTE_PULSE_SEQUENCE,
         "cfg": {
             "relaxation_time": 100,
-            "ro_time_of_flight": 200,
+            "ro_time_of_flight": 0.5,
             "reps": 1000,
             "average": True,
             "rounds": 1,
