@@ -13,11 +13,12 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Scientific/Engineering :: Physics"
 ]
-requires-python = ">=3.8,<3.14"
+requires-python = ">=3.10,<3.14"
 dependencies = [
+  "numpy>=1.24,<2.0; (platform_machine == 'aarch64' or platform_machine == 'armv7l')",
+  "numpy>=2.0.0; (platform_machine != 'aarch64' and platform_machine != 'armv7l')",
   "qick==0.2.421",
-  "numpy>=1.24,<2; python_version < '3.11'",
-  "numpy>=2.0.0; python_version >= '3.11'"
+  "pynq>=2.6.0,<=3.0.1; (platform_machine == 'aarch64' or platform_machine == 'armv7l')"
 ]
 
 [project.urls]
