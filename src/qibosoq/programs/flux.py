@@ -324,6 +324,7 @@ class FluxProgramV2(BaseProgramV2):
         samples_per_clk = self.soccfg["gens"][gen_ch]["samps_per_clk"]
         duration_samples = int(duration_cycles * samples_per_clk)
 
+        i_vals: np.ndarray
         if isinstance(pulse, Rectangular):
             amp = np.trunc(pulse.amplitude * max_gain).astype(int)
             i_vals = np.full(duration_samples, amp)

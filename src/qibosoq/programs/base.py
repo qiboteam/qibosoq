@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from qick import QickProgram, QickSoc
-from qick.asm_v2 import QickProgramV2, QickSweep1D
+from qick.asm_v2 import AveragerProgramV2, QickSweep1D
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -393,7 +393,7 @@ class BaseProgram(QickProgram):
         raise NotImplementedError
 
 
-class BaseProgramV2(QickProgramV2):
+class BaseProgramV2(AveragerProgramV2):
     def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit], **kwargs):
         """
         Base setup for qibosoq utilizing tProc v2.
