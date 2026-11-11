@@ -9,26 +9,31 @@ repos:
       - id: check-yaml
       - id: debug-statements
   - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 25.11.0
+    rev: 26.10.1
     hooks:
       - id: black
   - repo: https://github.com/pycqa/isort
-    rev: 7.0.0
+    rev: 10.0.0b2
     hooks:
       - id: isort
         args: ["--profile", "black"]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
   - repo: https://github.com/hadialqattan/pycln
-    rev: v2.6.0
+    rev: v2.6.1
     hooks:
       - id: pycln
         args:
           - --config=pyproject.toml
           - --all
   - repo: https://github.com/pycqa/pydocstyle
-    rev: 6.3.0  # pick a git hash / tag to point to
+    rev: 6.3.0
     hooks:
       - id: pydocstyle
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.1
+    hooks:
+      - id: nbstripout
+        args: ["--keep-output"]
