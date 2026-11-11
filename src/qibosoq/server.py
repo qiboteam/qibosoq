@@ -103,9 +103,10 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     opcode = OperationCode(data["operation_code"])
     args = []
 
-    # soft_avgs is deprecated and kept only for backward compatibility; drop it
-    # here so it is never used for the rest of the sequence (see 'rounds').
-    data["cfg"].pop("soft_avgs", None)
+    # soft_avgs is the deprecated name of rounds, still sent by older clients
+    soft_avgs = data["cfg"].pop("soft_avgs", 1)
+    if data["cfg"].get("rounds", 1) == 1:
+        data["cfg"]["rounds"] = soft_avgs
 
     # 1. Program Instantiation based on TPROC_VERSION
     if TPROC_VERSION == 1:

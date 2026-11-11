@@ -401,3 +401,40 @@ def test_execute_sweeps_v2_validation(soc_v2):
     )
     with pytest.raises(ValueError):
         ExecuteSweepsV2(soc_v2, Config(), v2_sequence(), [Qubit()], bias)
+
+
+@pytest.mark.parametrize("reps_innermost", [False, True])
+def test_execute_sweeps_v2_single_shots(soc_v2, reps_innermost):
+    sweepers = [
+        Sweeper(
+            expts=3, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[0.5],
+            indexes=[0],
+        ),
+        Sweeper(
+            expts=4, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110],
+            indexes=[0],
+        ),
+    ]
+    reps = 2
+    config = Config(reps=reps, reps_innermost=reps_innermost)
+    program = ExecuteSweepsV2(soc_v2, config, v2_sequence(), [Qubit()], *sweepers)
+
+    loop_dims = [loop[1] for loop in program.loops]
+    raw = np.arange(np.prod(loop_dims) * 2, dtype=float).reshape(*loop_dims, 1, 2)
+    program.acquire = lambda soc, rounds=1, progress=True: setattr(
+        program, "acc_buf", [raw]
+    )
+
+    toti, totq = program.perform_experiment(None, average=False)
+
+    ro_ch, ro = next(iter(program.ro_chs.items()))
+    offset = program._ro_offset(ro_ch, ro.get("ro_config"))
+    # one adc, (readouts, sweep points, shots), as in tProc v1
+    assert np.array(toti).shape == (1, 1, 3 * 4, reps)
+    for p0 in range(3):
+        for p1 in range(4):
+            for shot in range(reps):
+                index = (p0, p1, shot) if reps_innermost else (shot, p0, p1)
+                expected = raw[index][0] / ro["length"] - offset
+                assert toti[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[0])
+                assert totq[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[1])

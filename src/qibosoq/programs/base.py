@@ -49,8 +49,8 @@ class BaseProgram(QickProgram):
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
 
-        # general settings (ro_time_of_flight is in us, v1 needs tProc ticks)
-        self.ro_time_of_flight = self.us2cycles(qpcfg.ro_time_of_flight)
+        # general settings
+        self.ro_time_of_flight = qpcfg.ro_time_of_flight
 
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
@@ -404,8 +404,10 @@ class BaseProgramV2(AveragerProgramV2):
         self.sequence = sequence
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
-        self.ro_time_of_flight = qpcfg.ro_time_of_flight
-        
+        # ro_time_of_flight is given in tProc ticks, v2 schedules in us
+        self.ro_time_of_flight = soc.cycles2us(qpcfg.ro_time_of_flight)
+        self.rounds = qpcfg.rounds
+
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
         self.readouts_per_experiment = len(
@@ -741,27 +743,46 @@ class BaseProgramV2(AveragerProgramV2):
     ) -> Tuple[list, list]:
         """Call acquire, executing the experiment (tProc v2 version).
 
-        Averaging is always performed over the reps loop; single-shot
-        acquisition (``average=False``) is not yet implemented for tProc v2.
+        Args:
+            average (bool): if true return averaged res, otherwise single shots
 
         Returns:
             (toti, totq): nested lists of I and Q values, one entry per
-            readout channel.  Shape mirrors acquire() output with last axis
-            split: toti[ch] = buf[ch][..., 0], totq[ch] = buf[ch][..., 1].
+            readout channel, in the same layout as the tProc v1 programs.
+            Averaged: (readouts, *sweeps) per channel.
+            Single shots: (readouts, shots) per channel, or
+            (readouts, sweep_points, shots) when sweeping.
         """
-        if not average:
-            raise NotImplementedError(
-                "Single-shot acquisition (average=False) is not supported on tProc v2 yet."
-            )
-
-        buf = self.acquire(soc, progress=False)
+        buf = self.acquire(soc, rounds=self.rounds, progress=False)
 
         # if there are no actual readouts, return empty lists
         if self.readouts_per_experiment == 0:
             return [], []
 
+        if not average:
+            return self.collect_shots()
+
         # buf: list of arrays (one per readout channel).
         # Each array has shape (...sweep_dims..., 2) where [..., 0]=I, [..., 1]=Q.
         toti = [np.array(ch)[..., 0].tolist() for ch in buf]
         totq = [np.array(ch)[..., 1].tolist() for ch in buf]
+        return toti, totq
+
+    def collect_shots(self) -> Tuple[list, list]:
+        """Return the single shots (i, q) of the last round, for each readout channel.
+
+        Raw values are normalized as acquire() does for the averages.
+        """
+        toti, totq = [], []
+        for raw, (ch, ro) in zip(self.get_raw(), self.ro_chs.items()):
+            # (*loops, reads, 2), the reps loop is at avg_level
+            shots = np.moveaxis(raw.astype(float), self.avg_level, -3)
+            if not ro["edge_counting"]:
+                shots = shots / ro["length"] - self._ro_offset(ch, ro.get("ro_config"))
+            # -> (2, reads, *sweeps, reps)
+            shots = np.moveaxis(shots, [-1, -2], [0, 1])
+            if shots.ndim > 4:
+                shots = shots.reshape(*shots.shape[:2], -1, shots.shape[-1])
+            toti.append(shots[0].tolist())
+            totq.append(shots[1].tolist())
         return toti, totq

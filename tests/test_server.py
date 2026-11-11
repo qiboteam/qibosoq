@@ -123,7 +123,7 @@ def test_execute_program(mocker, soc):
         "operation_code": 1,
         "cfg": {
             "relaxation_time": 100,
-            "ro_time_of_flight": 0.5,
+            "ro_time_of_flight": 200,
             "reps": 1000,
             "soft_avgs": 1,
             "average": True,
@@ -308,7 +308,7 @@ def test_execute_program_sweep_payload_validation(sweepers, message, tproc_versi
     cfg = (
         {
             "relaxation_time": 100,
-            "ro_time_of_flight": 0.5,
+            "ro_time_of_flight": 200,
             "reps": 1000,
             "soft_avgs": 1,
             "average": True,
@@ -348,3 +348,41 @@ def test_execute_program_sweep_payload_validation(sweepers, message, tproc_versi
 
     with pytest.raises(ValueError, match=message):
         execute_program(commands, None)
+
+
+@pytest.mark.parametrize("tproc_version", [1, 2])
+@pytest.mark.parametrize(
+    "cfg, rounds",
+    [({"soft_avgs": 4}, 4), ({"soft_avgs": 4, "rounds": 2}, 2), ({}, 1)],
+)
+def test_execute_program_soft_avgs_is_rounds(
+    mocker, soc, soc_v2, tproc_version, cfg, rounds
+):
+    server.TPROC_VERSION = tproc_version
+    base = "BaseProgram" if tproc_version == 1 else "BaseProgramV2"
+    perform = mocker.patch(
+        f"qibosoq.programs.base.{base}.perform_experiment", return_value=([], [])
+    )
+    configs = mocker.spy(server, "Config")
+    commands = {
+        "operation_code": 1,
+        "cfg": {"reps": 10, "average": True, **cfg},
+        "sequence": [
+            {
+                "shape": "rectangular",
+                "frequency": 6400,
+                "amplitude": 0.05,
+                "relative_phase": 0,
+                "start_delay": 0,
+                "duration": 0.1,
+                "name": "readout_pulse",
+                "type": "readout",
+                "dac": 6 if tproc_version == 1 else 1,
+                "adc": 0,
+            },
+        ],
+        "qubits": [{"bias": 0.0, "dac": None}],
+    }
+    execute_program(commands, soc if tproc_version == 1 else soc_v2)
+    assert configs.call_args.kwargs["rounds"] == rounds
+    perform.assert_called_once()

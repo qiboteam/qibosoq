@@ -1,5 +1,6 @@
 import pathlib
 
+import numpy as np
 import pytest
 import qick
 
@@ -312,6 +313,49 @@ def test_v2_gaussian_readout(soc_v2):
     assert "readout0" in program.pulses
 
 
-def test_v2_single_shots_not_implemented(execute_pulse_sequence_v2):
-    with pytest.raises(NotImplementedError):
-        execute_pulse_sequence_v2.perform_experiment(None, average=False)
+def test_v2_time_of_flight_in_ticks(soc_v2):
+    sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
+    program = ExecutePulseSequenceV2(
+        soc_v2, Config(ro_time_of_flight=200), sequence, [Qubit()]
+    )
+    assert program.ro_time_of_flight == pytest.approx(soc_v2.cycles2us(200))
+
+
+def fake_acquire(program, raw):
+    """Replace acquire() with one that fills the raw buffer and records rounds."""
+
+    def acquire(soc, rounds=1, progress=True):
+        program.acquired_rounds = rounds
+        program.acc_buf = [raw]
+        return [raw.mean(axis=program.avg_level)]
+
+    program.acquire = acquire
+
+
+def normalized(program, raw):
+    ro_ch, ro = next(iter(program.ro_chs.items()))
+    return raw / ro["length"] - program._ro_offset(ro_ch, ro.get("ro_config"))
+
+
+def test_v2_single_shots(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0),
+    ]
+    reps = 5
+    program = ExecutePulseSequenceV2(
+        soc_v2, Config(reps=reps, rounds=3), sequence, [Qubit()]
+    )
+    raw = np.arange(reps * 2 * 2, dtype=float).reshape(reps, 2, 2)
+    fake_acquire(program, raw)
+
+    toti, totq = program.perform_experiment(None, average=False)
+
+    assert program.acquired_rounds == 3
+    expected = normalized(program, raw)
+    # one adc, (readouts, shots), as in tProc v1
+    assert np.array(toti).shape == (1, 2, reps)
+    for read in range(2):
+        for shot in range(reps):
+            assert toti[0][read][shot] == pytest.approx(expected[shot, read, 0])
+            assert totq[0][read][shot] == pytest.approx(expected[shot, read, 1])

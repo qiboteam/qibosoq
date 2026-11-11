@@ -14,19 +14,15 @@ class Config:
 
     relaxation_time: float = 100
     """Time to wait between shots (us). Mapped to 'final_delay' in ASMv2"""
-    ro_time_of_flight: float = 0.5
-    """Time to wait between readout pulse and acquisition (us).
+    ro_time_of_flight: int = 200
+    """Time to wait between readout pulse and acquisition (tProc clock ticks).
 
-    Converted to tProc clock ticks by the tProc v1 programs; used directly
-    (in us) for tProc v2.
+    The tProc v2 programs convert it to us with the board's tProc clock.
     """
     reps: int = 1000
     """Number of shots. Hardware averaging"""
     average: bool = True
-    """
-       ASMv1: Returns software integrated results if true.
-       ASMv2: This field is ignored; averaging is done by setting reps and rounds.
-    """
+    """Returns averaged results if true, single shots otherwise."""
     rounds: int = 1
     """
     Number of times to rerun the program, averaging results in software (aka "Software averaging")
@@ -60,8 +56,7 @@ class Config:
         freq N:  M shots
     """
     soft_avgs: int = 1
-    """Deprecated. Kept only for backward compatibility; removed at the start of
-    execute_program and no longer used (see ``rounds``)."""
+    """Deprecated alias of ``rounds``, used only when ``rounds`` is left at 1."""
 
 
 class OperationCode(IntEnum):
