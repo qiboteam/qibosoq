@@ -348,7 +348,7 @@ class FluxProgramV2(BaseProgramV2):
 
     def execute_flux_pulse(self, pulse: Pulse):
         """Fire a pre-registered flux pulse (_register_flux_pulse must be called first)."""
-        self.pulse(ch=pulse.dac, name=pulse.name, t='auto')
+        self.pulse(ch=pulse.dac, name=pulse.name, t="auto")
 
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel."""
@@ -365,7 +365,7 @@ class FluxProgramV2(BaseProgramV2):
         Declares drives, fluxes and readout (mux or not) and readout freq.
         """
         # declare generators first
-        # for simplicity, we assume that there it is axis_signal_gen_v6 or axis_sg_int4_v2 (no mux) 
+        # for simplicity, we assume that there it is axis_signal_gen_v6 or axis_sg_int4_v2 (no mux)
         self.batch_declare_gen([pulse for pulse in sequence if pulse.type == "drive"])
 
         self.declare_nqz_flux()

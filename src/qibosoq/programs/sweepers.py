@@ -3,10 +3,9 @@
 import logging
 from typing import Iterable, List, Union
 
-import numpy as np
 from qick import NDAveragerProgram, QickSoc
-from qick.averager_program import QickSweep, merge_sweeps
 from qick.asm_v2 import AveragerProgramV2, QickSweep1D
+from qick.averager_program import QickSweep, merge_sweeps
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
@@ -173,6 +172,7 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
 
         self.sync_all(self.wait_initialize)
 
+
 class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
     """Class to execute PulseSequences with parameter sweeps on tProc v2.
 
@@ -273,7 +273,11 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                     gain=swept.get(Parameter.AMPLITUDE),
                     phase=swept.get(Parameter.RELATIVE_PHASE),
                 )
-            elif pulse.type == "readout" and isinstance(pulse, Pulse) and pulse.adc is not None:
+            elif (
+                pulse.type == "readout"
+                and isinstance(pulse, Pulse)
+                and pulse.adc is not None
+            ):
                 if not self.is_mux:
                     swept = pulse_sweeps.get(seq_idx, {})
                     self.add_ro_pulse_to_register(

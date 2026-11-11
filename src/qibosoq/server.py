@@ -21,6 +21,7 @@ logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 TPROC_VERSION = 0  # set 0 first, to ensure that version is set in serve()
 
+
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
     """Convert a list of elements in dict form to a list of Pulse objects."""
     obj_sequence = []
@@ -154,7 +155,6 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
             *args,
         )
 
-
         asm_prog = program.asm()
         qick_logger.handlers[0].doRollover()  # type: ignore
         qick_logger.info(asm_prog)
@@ -281,18 +281,18 @@ def serve(host, port):
     """Open the TCPServer and wait forever for connections."""
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
-    global TPROC_VERSION # to access global variable
+    global TPROC_VERSION  # to access global variable
     with TCPServer((host, port), ConnectionHandler) as server:
         server.qick_soc = QickSoc(
             bitfile=cfg.QICKSOC_LOCATION, external_clk=cfg.EXT_CLK
         )
         # Using this to detect which TPROC_VERISON is loaded in bitstream
-        if 'axis_tproc64x32_x8_0' in server.qick_soc.ip_dict:
+        if "axis_tproc64x32_x8_0" in server.qick_soc.ip_dict:
             TPROC_VERSION = 1
-        elif 'qick_processor_0' in server.qick_soc.ip_dict:
+        elif "qick_processor_0" in server.qick_soc.ip_dict:
             TPROC_VERSION = 2
         else:
-            raise RuntimeError('No tProcessor found')
+            raise RuntimeError("No tProcessor found")
         print(f"Set TPROC_VERSION = {TPROC_VERSION}")
         print(server.qick_soc)
         log_initial_info()

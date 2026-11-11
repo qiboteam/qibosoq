@@ -394,7 +394,14 @@ class BaseProgram(QickProgram):
 
 
 class BaseProgramV2(QickProgramV2):
-    def __init__(self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit], **kwargs):
+    def __init__(
+        self,
+        soc: QickSoc,
+        qpcfg: Config,
+        sequence: List[Element],
+        qubits: List[Qubit],
+        **kwargs,
+    ):
         """
         Base setup for qibosoq utilizing tProc v2.
         Extracts channel mappings and configurations.
@@ -405,7 +412,7 @@ class BaseProgramV2(QickProgramV2):
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
         self.qubits = qubits
         self.ro_time_of_flight = qpcfg.ro_time_of_flight
-        
+
         # mux settings
         self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
         self.readouts_per_experiment = len(
@@ -512,7 +519,9 @@ class BaseProgramV2(QickProgramV2):
                     sampling_rate = self.soccfg["gens"][ro_gen_ch]["fs"]
                     zone = 1 if readout.frequency < sampling_rate / 2 else 2
                     if self.soccfg["gens"][ro_gen_ch]["has_mixer"]:
-                        self.declare_gen(ro_gen_ch, nqz=zone, mixer_freq=readout.frequency)
+                        self.declare_gen(
+                            ro_gen_ch, nqz=zone, mixer_freq=readout.frequency
+                        )
                     else:
                         self.declare_gen(ro_gen_ch, nqz=zone)
 
@@ -567,7 +576,13 @@ class BaseProgramV2(QickProgramV2):
             key = tuple(adcs)
             name = f"mux_ro_{dac}_{'_'.join(str(idx) for idx in mask)}"
             if key not in self.mux_group_pulses:
-                self.add_pulse(ch=dac, name=name, style="const", length=pulses[0].duration, mask=mask)
+                self.add_pulse(
+                    ch=dac,
+                    name=name,
+                    style="const",
+                    length=pulses[0].duration,
+                    mask=mask,
+                )
                 self.mux_group_pulses[key] = (dac, name)
 
     def execute_mux_readout_group(self, readouts: List[Element]):
@@ -610,15 +625,26 @@ class BaseProgramV2(QickProgramV2):
         envelope_name = pulse.name + "_envelope"
 
         # Register the envelope shape (only once per unique pulse name)
-        if envelope_name is not None and envelope_name not in self.registered_waveforms[gen_ch]:
+        if (
+            envelope_name is not None
+            and envelope_name not in self.registered_waveforms[gen_ch]
+        ):
             if isinstance(pulse, Gaussian):
                 sigma = (pulse.duration / pulse.rel_sigma) * np.sqrt(2)
-                self.add_gauss(ch=gen_ch, name=envelope_name, sigma=sigma, length=pulse.duration)
+                self.add_gauss(
+                    ch=gen_ch, name=envelope_name, sigma=sigma, length=pulse.duration
+                )
             elif isinstance(pulse, FlatTop):
                 # ramp = half the total duration; flat part = other half
                 ramp_length = pulse.duration / 2
                 sigma = (ramp_length / pulse.rel_sigma) * np.sqrt(2)
-                self.add_gauss(ch=gen_ch, name=envelope_name, sigma=sigma, length=ramp_length, even_length=True)
+                self.add_gauss(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    sigma=sigma,
+                    length=ramp_length,
+                    even_length=True,
+                )
             elif isinstance(pulse, Drag):
                 delta = (
                     -self.soccfg["gens"][gen_ch]["samps_per_clk"]
@@ -638,9 +664,18 @@ class BaseProgramV2(QickProgramV2):
                 # add_envelope takes raw samples; convert duration (µs) → sample count
                 n_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
                 n_samples = int(n_cycles * self.soccfg["gens"][gen_ch]["samps_per_clk"])
-                self.add_envelope(ch=gen_ch, name=envelope_name, idata=pulse.i_values(n_samples, max_gain))
+                self.add_envelope(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    idata=pulse.i_values(n_samples, max_gain),
+                )
             elif isinstance(pulse, Arbitrary):
-                self.add_envelope(ch=gen_ch, name=envelope_name, idata=pulse.i_values, qdata=pulse.q_values)
+                self.add_envelope(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    idata=pulse.i_values,
+                    qdata=pulse.q_values,
+                )
             self.registered_waveforms[gen_ch].append(envelope_name)
 
         # Register the pulse definition (freq/phase/gain in v2 native units;
@@ -652,13 +687,31 @@ class BaseProgramV2(QickProgramV2):
         )
         pulse_name = pulse.name
         if isinstance(pulse, Rectangular):
-            self.add_pulse(ch=gen_ch, name=pulse_name, style="const", length=pulse.duration, **common)
+            self.add_pulse(
+                ch=gen_ch,
+                name=pulse_name,
+                style="const",
+                length=pulse.duration,
+                **common,
+            )
         elif isinstance(pulse, FlatTop):
             # 'flat_top' style: envelope is the Gaussian ramp, length is the flat part
-            self.add_pulse(ch=gen_ch, name=pulse_name, style="flat_top", envelope=envelope_name,
-                           length=pulse.duration / 2, **common)
+            self.add_pulse(
+                ch=gen_ch,
+                name=pulse_name,
+                style="flat_top",
+                envelope=envelope_name,
+                length=pulse.duration / 2,
+                **common,
+            )
         elif isinstance(pulse, (Gaussian, Drag, Hann, Arbitrary)):
-            self.add_pulse(ch=gen_ch, name=pulse_name, style="arb", envelope=envelope_name, **common)
+            self.add_pulse(
+                ch=gen_ch,
+                name=pulse_name,
+                style="arb",
+                envelope=envelope_name,
+                **common,
+            )
 
     def add_ro_pulse_to_register(self, pulse: Pulse, freq=None, gain=None, phase=None):
         """Register a readout pulse.
@@ -678,12 +731,28 @@ class BaseProgramV2(QickProgramV2):
 
         if pulse.shape == "rectangular":
             # unique in asm_v2, to register a new readout pulse
-            self.add_pulse(ch=gen_ch, name=name, ro_ch=ro_ch, style="const", freq=freq_val, length=pulse.duration, phase=phase_val, gain=gain_val)
+            self.add_pulse(
+                ch=gen_ch,
+                name=name,
+                ro_ch=ro_ch,
+                style="const",
+                freq=freq_val,
+                length=pulse.duration,
+                phase=phase_val,
+                gain=gain_val,
+            )
         elif pulse.shape == "gaussian":
-            self.add_gauss(ch=gen_ch, name=name, sigma=pulse.duration/10, length=pulse.duration, even_length=True)
+            self.add_gauss(
+                ch=gen_ch,
+                name=name,
+                sigma=pulse.duration / 10,
+                length=pulse.duration,
+                even_length=True,
+            )
         else:
-            raise TypeError("Only rectangular and gaussian pulses currently supported in Qibosoq")
-
+            raise TypeError(
+                "Only rectangular and gaussian pulses currently supported in Qibosoq"
+            )
 
     def group_mux_ro(self) -> list:
         """Create a list containing readout pulses grouped by start time.

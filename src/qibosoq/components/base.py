@@ -143,9 +143,13 @@ class Sweeper:
             raise ValueError("Sweeper requires at least one parameter.")
 
         if len(self.indexes) != n_parameters:
-            raise ValueError("Sweeper indexes and parameters must have the same length.")
+            raise ValueError(
+                "Sweeper indexes and parameters must have the same length."
+            )
         if len(self.starts) != n_parameters or len(self.stops) != n_parameters:
-            raise ValueError("Sweeper starts/stops and parameters must have the same length.")
+            raise ValueError(
+                "Sweeper starts/stops and parameters must have the same length."
+            )
 
         for idx in self.indexes:
             if not isinstance(idx, (int, np.integer)) or idx < 0:

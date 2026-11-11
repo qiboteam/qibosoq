@@ -63,7 +63,9 @@ def execute_pulse_sequence(soc):
 @pytest.fixture
 def soc_v2():
     qibosoq.configuration.IS_MULTIPLEXED = False
-    return qick.QickConfig(str(pathlib.Path(__file__).parent / "qick_config_v2_standard.json"))
+    return qick.QickConfig(
+        str(pathlib.Path(__file__).parent / "qick_config_v2_standard.json")
+    )
 
 
 @pytest.fixture
