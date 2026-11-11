@@ -67,6 +67,7 @@ the supported QICK versions corresponding to specific Qibosoq releases.
 | 0.1.1            | >=0.2.165, <=0.2.181   |
 | >=0.1.2, <=0.1.4 | >=0.2.211, <=0.2.249   |
 | 0.1.5            | 0.2.291                |
+| 0.1.6            | >=0.2.421              |
 
 ### TII boards
 
