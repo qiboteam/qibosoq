@@ -438,3 +438,35 @@ def test_execute_sweeps_v2_single_shots(soc_v2, reps_innermost):
                 expected = raw[index][0] / ro["length"] - offset
                 assert toti[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[0])
                 assert totq[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[1])
+
+
+def test_execute_sweeps_single_shots(soc):
+    sweepers = [
+        Sweeper(
+            expts=3, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[0.5],
+            indexes=[0],
+        ),
+        Sweeper(
+            expts=4, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[90],
+            indexes=[0],
+        ),
+    ]
+    reps = 2
+    sequence = v2_sequence()
+    sequence[0].adc = 0
+    program = ExecuteSweeps(soc, Config(reps=reps), sequence, [Qubit()], *sweepers)
+
+    # tProc v1 raw buffer: (reps, *sweeps, readouts, 2), first sweeper outermost
+    raw = np.arange(reps * 3 * 4 * 2, dtype=float).reshape(reps, 3, 4, 1, 2)
+    program.acc_buf = [raw]
+    toti, totq = program.collect_shots()
+
+    length = soc.us2cycles(sequence[1].duration, ro_ch=0)
+    # one adc, (readouts, sweep points, shots)
+    assert np.array(toti).shape == (1, 1, 3 * 4, reps)
+    for p0 in range(3):
+        for p1 in range(4):
+            for shot in range(reps):
+                expected = raw[shot, p0, p1, 0] / length
+                assert toti[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[0])
+                assert totq[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[1])

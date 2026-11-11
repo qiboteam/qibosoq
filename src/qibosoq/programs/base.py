@@ -287,9 +287,10 @@ class BaseProgram(QickProgram):
         tot = []
 
         for idx, count in enumerate(adc_count.astype(int)):
-            stacked = np.swapaxes(self.acc_buf[idx], 0, 2) / lengths[idx]
+            # (shots, *sweeps, readouts, 2) -> (2, readouts, *sweeps, shots)
+            stacked = np.moveaxis(self.acc_buf[idx], [-1, -2, 0], [0, 1, -1])
+            stacked = stacked / lengths[idx]
             if hasattr(self, "sweep_axes"):
-                stacked = np.moveaxis(stacked, -1, 0)
                 # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
                 shape = (
                     2,
