@@ -397,6 +397,33 @@ def test_v2_arbitrary_envelopes_in_dac_units(soc_v2):
     assert flux.max() == pytest.approx(0.5 * soc_v2["gens"][2]["maxv"], abs=1)
 
 
+def test_v2_envelopes_respect_maxv_scale(soc_v2):
+    """int4 generators limit the envelopes to 0.9 maxv, as qick's own shapes."""
+    for gen in (2, 3):
+        soc_v2["gens"][gen]["maxv_scale"] = 0.9
+    samples = 64
+    kw = dict(cls=Arbitrary, i_values=[1.0] * samples, q_values=[0.0] * samples)
+    sequence = [
+        v2_pulse("arb", "drive", 3, None, 0, **kw),
+        v2_pulse("hann", "drive", 3, None, 0, cls=Hann),
+        v2_pulse("gauss", "drive", 3, None, 0, cls=Gaussian, rel_sigma=5),
+        v2_pulse("flux0", "flux", 2, None, 0, **kw),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[3].amplitude = 1.0
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    envs = program.envelopes[3]["envs"]
+    gauss_peak = envs["gauss_envelope"]["data"][:, 0].max()
+    assert gauss_peak == pytest.approx(soc_v2.get_maxv(3), abs=1)
+    assert envs["arb_envelope"]["data"][:, 0].max() == pytest.approx(gauss_peak, abs=1)
+    assert envs["hann_envelope"]["data"][:, 0].max() == pytest.approx(
+        gauss_peak, rel=0.01
+    )
+    flux = program.envelopes[2]["envs"]["flux0"]["data"][:, 0]
+    assert flux.max() == pytest.approx(soc_v2.get_maxv(2), abs=1)
+
+
 def test_v2_readouts_on_dacs_in_different_zones(soc_v2):
     sequence = [
         v2_pulse("readout0", "readout", 5, 0, 0),

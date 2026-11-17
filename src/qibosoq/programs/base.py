@@ -117,6 +117,7 @@ class BaseProgram(QickProgram):
         """
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        max_envelope = self.soccfg.get_maxv(gen_ch)
 
         # assign gain parameter
         gain = int(pulse.amplitude * max_gain)
@@ -159,14 +160,14 @@ class BaseProgram(QickProgram):
                 )
 
             elif isinstance(pulse, Hann):
-                self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_gain))
+                self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_envelope))
             elif isinstance(pulse, Arbitrary):
                 # qibolab sends envelopes normalized to 1, qick wants DAC units
                 self.add_pulse(
                     gen_ch,
                     name,
-                    np.array(pulse.i_values) * max_gain,
-                    np.array(pulse.q_values) * max_gain,
+                    np.array(pulse.i_values) * max_envelope,
+                    np.array(pulse.q_values) * max_envelope,
                 )
             self.registered_waveforms[gen_ch].append(name)
 
@@ -679,7 +680,8 @@ class BaseProgramV2(AveragerProgramV2):
         QickSweep1D objects here to register a pulse with a swept parameter.
         """
         gen_ch = pulse.dac
-        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        # envelope samples are limited to maxv * maxv_scale (0.9 on int4 gens)
+        max_envelope = self.soccfg.get_maxv(gen_ch)
         envelope_name, new_envelope = None, False
         if pulse.waveform_name is not None:
             envelope_name, new_envelope = self.envelope_name(
@@ -727,15 +729,15 @@ class BaseProgramV2(AveragerProgramV2):
                 self.add_envelope(
                     ch=gen_ch,
                     name=envelope_name,
-                    idata=pulse.i_values(n_samples, max_gain),
+                    idata=pulse.i_values(n_samples, max_envelope),
                 )
             elif isinstance(pulse, Arbitrary):
                 # qibolab sends envelopes normalized to 1, qick wants DAC units
                 self.add_envelope(
                     ch=gen_ch,
                     name=envelope_name,
-                    idata=np.array(pulse.i_values) * max_gain,
-                    qdata=np.array(pulse.q_values) * max_gain,
+                    idata=np.array(pulse.i_values) * max_envelope,
+                    qdata=np.array(pulse.q_values) * max_envelope,
                 )
 
         # Register the pulse definition (freq/phase/gain in v2 native units;
