@@ -68,12 +68,26 @@ def execute_pulse_sequence(soc):
     return program
 
 
-@pytest.fixture
-def soc_v2():
+def load_soc_v2(file):
     qibosoq.configuration.IS_MULTIPLEXED = False
-    return qick.QickConfig(
-        str(pathlib.Path(__file__).parent / "qick_config_v2_standard.json")
-    )
+    return qick.QickConfig(str(pathlib.Path(__file__).parent / file))
+
+
+@pytest.fixture
+def soc_v2_static():
+    """Firmware with PYNQ-configured readouts (axis_readout_v2)."""
+    return load_soc_v2("qick_config_v2_standard.json")
+
+
+@pytest.fixture
+def soc_v2_dynamic():
+    """Firmware with tProc-configured readouts (axis_dyn_readout_v1)."""
+    return load_soc_v2("qick_config_v2_dynamic.json")
+
+
+@pytest.fixture(params=["static", "dynamic"])
+def soc_v2(request):
+    return request.getfixturevalue(f"soc_v2_{request.param}")
 
 
 @pytest.fixture
@@ -82,23 +96,6 @@ def soc_v2_multiplexed():
     return qick.QickConfig(
         str(pathlib.Path(__file__).parent / "qick_config_v2_multiplexed.json")
     )
-
-
-def static_readouts(soc):
-    """Drop tproc_ctrl, which real PYNQ-configured readouts do not have."""
-    for readout in soc["readouts"]:
-        readout.pop("tproc_ctrl", None)
-    return soc
-
-
-@pytest.fixture
-def soc_v2_static(soc_v2):
-    return static_readouts(soc_v2)
-
-
-@pytest.fixture
-def soc_v2_multiplexed_static(soc_v2_multiplexed):
-    return static_readouts(soc_v2_multiplexed)
 
 
 @pytest.fixture
@@ -502,6 +499,16 @@ def test_v2_static_readout(soc_v2_static, mocker):
     assert regs["f_rounded"] == pytest.approx(100, abs=0.01)
 
 
+def test_v2_readout_config_only_for_dynamic_readouts(soc_v2):
+    sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    dynamic = "tproc_ctrl" in soc_v2["readouts"][0]
+    assert bool(program.readout_config_names) is dynamic
+    assert ("freq" in program.ro_chs[0]) is not dynamic
+    # readout pulse, plus the readout config for dynamic readouts
+    assert program.asm().count("WPORT_WR") == 1 + dynamic
+
+
 @pytest.mark.parametrize("field, value", [("frequency", 200), ("duration", 0.2)])
 def test_v2_static_readouts_on_one_adc_must_match(soc_v2_static, field, value):
     sequence = [
@@ -513,7 +520,7 @@ def test_v2_static_readouts_on_one_adc_must_match(soc_v2_static, field, value):
         ExecutePulseSequenceV2(soc_v2_static, Config(), sequence, [Qubit()])
 
 
-def test_v2_dynamic_readouts_on_one_adc_must_share_duration(soc_v2):
+def test_v2_readouts_on_one_adc_must_share_duration(soc_v2):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
         v2_pulse("readout1", "readout", 6, 0, 0, duration=0.2),
@@ -522,29 +529,27 @@ def test_v2_dynamic_readouts_on_one_adc_must_share_duration(soc_v2):
         ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
 
 
-def test_v2_dynamic_readout_config_per_frequency(soc_v2):
+def test_v2_dynamic_readout_config_per_frequency(soc_v2_dynamic):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
         v2_pulse("readout1", "readout", 6, 0, 0),
         v2_pulse("readout2", "readout", 6, 0, 0),
     ]
     sequence[1].frequency = 200
-    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    program = ExecutePulseSequenceV2(soc_v2_dynamic, Config(), sequence, [Qubit()])
     names = program.readout_config_names
     assert names[0] == names[2] != names[1]
     freqs = [program.pulses[names[i]].params["freq"].start for i in range(3)]
     assert freqs == [100, 200, 100]
 
 
-def test_v2_multiplexed_static_readouts(soc_v2_multiplexed_static, mocker):
+def test_v2_multiplexed_static_readouts(soc_v2_multiplexed, mocker):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
         v2_pulse("readout1", "readout", 6, 1, 0),
     ]
     sequence[1].frequency = 400
-    program = ExecutePulseSequenceV2(
-        soc_v2_multiplexed_static, Config(), sequence, [Qubit()]
-    )
+    program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
     assert [program.ro_chs[adc]["freq"] for adc in (0, 1)] == [100, 400]
     assert not program.readout_config_names
 

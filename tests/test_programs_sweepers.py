@@ -293,12 +293,26 @@ def test_check_validity_sweep(soc):
         )
 
 
-@pytest.fixture
-def soc_v2():
+def load_soc_v2(file):
     qibosoq.configuration.IS_MULTIPLEXED = False
-    return qick.QickConfig(
-        str(pathlib.Path(__file__).parent / "qick_config_v2_standard.json")
-    )
+    return qick.QickConfig(str(pathlib.Path(__file__).parent / file))
+
+
+@pytest.fixture
+def soc_v2_static():
+    """Firmware with PYNQ-configured readouts (axis_readout_v2)."""
+    return load_soc_v2("qick_config_v2_standard.json")
+
+
+@pytest.fixture
+def soc_v2_dynamic():
+    """Firmware with tProc-configured readouts (axis_dyn_readout_v1)."""
+    return load_soc_v2("qick_config_v2_dynamic.json")
+
+
+@pytest.fixture(params=["static", "dynamic"])
+def soc_v2(request):
+    return request.getfixturevalue(f"soc_v2_{request.param}")
 
 
 def v2_sequence():
@@ -332,7 +346,6 @@ def v2_sequence():
     "parameter, starts, stops, index",
     [
         (Parameter.FREQUENCY, 90, 110, 0),
-        (Parameter.FREQUENCY, 90, 110, 1),
         (Parameter.AMPLITUDE, 0, 0.5, 0),
         (Parameter.AMPLITUDE, 0, 0.5, 1),
         (Parameter.RELATIVE_PHASE, 0, 90, 0),
@@ -349,19 +362,27 @@ def test_execute_sweeps_v2(soc_v2, parameter, starts, stops, index):
     )
     program = ExecuteSweepsV2(soc_v2, Config(), v2_sequence(), [Qubit()], sweeper)
     assert [loop[0] for loop in program.loops] == ["reps", "sweep_0"]
-    if parameter is Parameter.FREQUENCY and index == 1:
-        # a readout frequency sweep must also move the down-conversion frequency
-        config = program.pulses[program.readout_config_names[1]]
-        assert config.params["freq"].is_sweep()
 
 
-def test_execute_sweeps_v2_readout_frequency_on_shared_adc(soc_v2):
+def test_execute_sweeps_v2_readout_frequency(soc_v2_dynamic):
+    sweeper = Sweeper(
+        expts=5, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110], indexes=[1]
+    )
+    program = ExecuteSweepsV2(
+        soc_v2_dynamic, Config(), v2_sequence(), [Qubit()], sweeper
+    )
+    # a readout frequency sweep must also move the down-conversion frequency
+    config = program.pulses[program.readout_config_names[1]]
+    assert config.params["freq"].is_sweep()
+
+
+def test_execute_sweeps_v2_readout_frequency_on_shared_adc(soc_v2_dynamic):
     sequence = v2_sequence()
     sequence.append(replace(sequence[1]))
     sweeper = Sweeper(
         expts=5, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110], indexes=[2]
     )
-    program = ExecuteSweepsV2(soc_v2, Config(), sequence, [Qubit()], sweeper)
+    program = ExecuteSweepsV2(soc_v2_dynamic, Config(), sequence, [Qubit()], sweeper)
     # only the swept readout moves its down-conversion frequency
     names = program.readout_config_names
     assert names[1] != names[2]
@@ -369,14 +390,12 @@ def test_execute_sweeps_v2_readout_frequency_on_shared_adc(soc_v2):
     assert program.pulses[names[2]].params["freq"].is_sweep()
 
 
-def test_execute_sweeps_v2_static_readout_frequency(soc_v2):
-    for readout in soc_v2["readouts"]:
-        readout.pop("tproc_ctrl", None)
+def test_execute_sweeps_v2_static_readout_frequency(soc_v2_static):
     sweeper = Sweeper(
         expts=5, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110], indexes=[1]
     )
     with pytest.raises(NotImplementedError):
-        ExecuteSweepsV2(soc_v2, Config(), v2_sequence(), [Qubit()], sweeper)
+        ExecuteSweepsV2(soc_v2_static, Config(), v2_sequence(), [Qubit()], sweeper)
 
 
 def test_execute_sweeps_v2_bias(soc_v2):
