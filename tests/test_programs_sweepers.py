@@ -407,11 +407,17 @@ def test_execute_sweeps_v2_validation(soc_v2):
 def test_execute_sweeps_v2_single_shots(soc_v2, reps_innermost):
     sweepers = [
         Sweeper(
-            expts=3, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[0.5],
+            expts=3,
+            parameters=[Parameter.AMPLITUDE],
+            starts=[0],
+            stops=[0.5],
             indexes=[0],
         ),
         Sweeper(
-            expts=4, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110],
+            expts=4,
+            parameters=[Parameter.FREQUENCY],
+            starts=[90],
+            stops=[110],
             indexes=[0],
         ),
     ]
@@ -443,11 +449,17 @@ def test_execute_sweeps_v2_single_shots(soc_v2, reps_innermost):
 def test_execute_sweeps_single_shots(soc):
     sweepers = [
         Sweeper(
-            expts=3, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[0.5],
+            expts=3,
+            parameters=[Parameter.AMPLITUDE],
+            starts=[0],
+            stops=[0.5],
             indexes=[0],
         ),
         Sweeper(
-            expts=4, parameters=[Parameter.RELATIVE_PHASE], starts=[0], stops=[90],
+            expts=4,
+            parameters=[Parameter.RELATIVE_PHASE],
+            starts=[0],
+            stops=[90],
             indexes=[0],
         ),
     ]

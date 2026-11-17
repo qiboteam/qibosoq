@@ -38,7 +38,7 @@ class ExecutePulseSequenceV2(FluxProgramV2, AveragerProgramV2):
     """Class to execute arbitrary PulseSequences on tProc v2."""
 
     def _initialize(self, cfg):
-        """Executed once before the reps loop.
+        """Execute once before the reps loop.
 
         Declares generators and readouts, then pre-registers all pulse
         waveforms so that _body can fire them without calling add_pulse.
@@ -63,6 +63,6 @@ class ExecutePulseSequenceV2(FluxProgramV2, AveragerProgramV2):
             self.register_mux_readout_groups()
 
     def _body(self, cfg):
-        """Executed inside the hardware repetitions loop. Plays the pulse sequence."""
+        """Execute inside the hardware repetitions loop. Plays the pulse sequence."""
         self.play_sequence()
         self.set_bias("zero")
