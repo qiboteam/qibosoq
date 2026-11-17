@@ -99,7 +99,12 @@ class Drag(Pulse):
     rel_sigma: float
     """Sigma of the drag as a fraction of duration."""
     beta: float
-    """Beta parameter for drag pulse."""
+    """Beta parameter for drag pulse.
+
+    It is passed to qick's ``add_DRAG`` as ``alpha``. With the same value,
+    the Q component is about 1/pi of the one in qibolab's DRAG envelope, so
+    beta must be calibrated on qibosoq rather than copied from qibolab.
+    """
     shape: str = "drag"
 
     @property
