@@ -20,6 +20,7 @@ from qibosoq.programs.sweepers import ExecuteSweeps, ExecuteSweepsV2
 logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 TPROC_VERSION = 0  # set 0 first, to ensure that version is set in serve()
+MUX4_PHASE_BITS = 32
 
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
@@ -259,6 +260,23 @@ class ConnectionHandler(BaseRequestHandler):
         self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
+def fix_mux4_generators():
+    """Let QickSoc load firmware with axis_sg_mux4 generators.
+
+    qick leaves B_PHASE unset for AxisSgMux4V1/V2/V3, but asserts it for every
+    pulsed generator, so QickSoc() fails on such firmware. These generators have
+    no phase register, so any width works. Only a missing B_PHASE is set, so
+    this does nothing on other firmware or once qick defines it.
+    """
+    # pylint: disable-next=import-outside-toplevel
+    from qick.drivers import generator  # needs pynq, only on the board
+
+    for name in ("AxisSgMux4V1", "AxisSgMux4V2", "AxisSgMux4V3"):
+        driver = getattr(generator, name, None)
+        if driver is not None and driver.B_PHASE is None:
+            driver.B_PHASE = MUX4_PHASE_BITS
+
+
 def log_initial_info():
     """Log info regarding the loaded configuration."""
     logger.info("Server listening, PID %d", os.getpid())
@@ -276,6 +294,7 @@ def serve(host, port):
     TCPServer.allow_reuse_address = True
     global TPROC_VERSION  # to access global variable
     with TCPServer((host, port), ConnectionHandler) as server:
+        fix_mux4_generators()
         server.qick_soc = QickSoc(
             bitfile=cfg.QICKSOC_LOCATION, external_clk=cfg.EXT_CLK
         )

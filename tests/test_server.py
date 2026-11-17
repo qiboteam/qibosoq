@@ -1,4 +1,7 @@
+import importlib
 import pathlib
+import sys
+import types
 
 import numpy as np
 import pytest
@@ -386,3 +389,49 @@ def test_execute_program_soft_avgs_is_rounds(
     execute_program(commands, soc if tproc_version == 1 else soc_v2)
     assert configs.call_args.kwargs["rounds"] == rounds
     perform.assert_called_once()
+
+
+def test_fix_mux4_generators(mocker, monkeypatch):
+    # qick generator drivers import pynq, which is only available on the board;
+    # patch.dict also drops the modules imported here when the test ends
+    pynq_buffer = types.ModuleType("pynq.buffer")
+    pynq_buffer.allocate = None
+    pynq_overlay = types.ModuleType("pynq.overlay")
+    pynq_overlay.DefaultIP = type("DefaultIP", (), {"__init__": lambda self, d: None})
+    mocker.patch.dict(
+        sys.modules,
+        {
+            "pynq": types.ModuleType("pynq"),
+            "pynq.buffer": pynq_buffer,
+            "pynq.overlay": pynq_overlay,
+        },
+    )
+    drivers = importlib.import_module("qick.drivers")
+    monkeypatch.setattr(drivers, "generator", None, raising=False)
+    generator = importlib.import_module("qick.drivers.generator")
+
+    mux4 = [generator.AxisSgMux4V1, generator.AxisSgMux4V2, generator.AxisSgMux4V3]
+    for driver in mux4:
+        monkeypatch.setattr(driver, "B_PHASE", None)
+    server.fix_mux4_generators()
+    assert [driver.B_PHASE for driver in mux4] == [server.MUX4_PHASE_BITS] * 3
+
+    # defined widths are kept
+    monkeypatch.setattr(generator.AxisSgMux4V2, "B_PHASE", 16)
+    server.fix_mux4_generators()
+    assert generator.AxisSgMux4V2.B_PHASE == 16
+    assert generator.AxisSgInt4V1.B_PHASE == 16
+    assert generator.AxisSignalGen.B_PHASE == 32
+
+
+def test_serve_fixes_mux4_before_qicksoc(mocker):
+    calls = []
+    mocker.patch.object(server, "fix_mux4_generators", lambda: calls.append("fix"))
+    soc = mocker.Mock(ip_dict={})
+    mocker.patch.object(
+        server, "QickSoc", side_effect=lambda **_: calls.append("soc") or soc
+    )
+    mocker.patch.object(server, "TCPServer")
+    with pytest.raises(RuntimeError, match="No tProcessor"):
+        server.serve("localhost", 0)
+    assert calls == ["fix", "soc"]
