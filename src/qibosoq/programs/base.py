@@ -639,14 +639,15 @@ class BaseProgramV2(AveragerProgramV2):
             and envelope_name not in self.registered_waveforms[gen_ch]
         ):
             if isinstance(pulse, Gaussian):
-                sigma = (pulse.duration / pulse.rel_sigma) * np.sqrt(2)
+                # unlike asm_v1 (GAUSS_BUG), v2 takes the true standard deviation
+                sigma = pulse.duration / pulse.rel_sigma
                 self.add_gauss(
                     ch=gen_ch, name=envelope_name, sigma=sigma, length=pulse.duration
                 )
             elif isinstance(pulse, FlatTop):
                 # ramp = half the total duration; flat part = other half
                 ramp_length = pulse.duration / 2
-                sigma = (ramp_length / pulse.rel_sigma) * np.sqrt(2)
+                sigma = ramp_length / pulse.rel_sigma
                 self.add_gauss(
                     ch=gen_ch,
                     name=envelope_name,
@@ -660,7 +661,7 @@ class BaseProgramV2(AveragerProgramV2):
                     * self.soccfg["gens"][gen_ch]["f_fabric"]
                     / 2
                 )
-                sigma = (pulse.duration / pulse.rel_sigma) * np.sqrt(2)
+                sigma = pulse.duration / pulse.rel_sigma
                 self.add_DRAG(
                     ch=gen_ch,
                     name=envelope_name,

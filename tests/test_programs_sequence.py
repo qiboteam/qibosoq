@@ -8,7 +8,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Gaussian, Measurement, Rectangular
+from qibosoq.components.pulses import Drag, Gaussian, Measurement, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
 
 
@@ -313,6 +313,33 @@ def test_v2_gaussian_readout(soc_v2):
     ]
     program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
     assert "readout0" in program.pulses
+
+
+def envelope_std(samples):
+    weights = samples / samples.sum()
+    x = np.arange(len(samples))
+    mean = (weights * x).sum()
+    return np.sqrt((weights * (x - mean) ** 2).sum())
+
+
+@pytest.mark.parametrize("cls,kw", [(Gaussian, {}), (Drag, {"beta": 0.0})])
+def test_v2_gaussian_sigma(soc_v2, cls, kw):
+    duration, rel_sigma = 0.1, 5
+    sequence = [
+        v2_pulse(
+            "drive0", "drive", 3, None, 0, duration, cls, rel_sigma=rel_sigma, **kw
+        ),
+        v2_pulse("readout0", "readout", 6, 0, duration),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    data = program.envelopes[3]["envs"]["drive0_envelope"]["data"][:, 0]
+
+    sigma = duration / rel_sigma * soc_v2["gens"][3]["fs"]
+    x = np.arange(len(data))
+    expected = np.exp(-((x - (len(data) - 1) / 2) ** 2) / (2 * sigma**2))
+    assert envelope_std(data.astype(float)) == pytest.approx(
+        envelope_std(expected), rel=0.02
+    )
 
 
 def test_v2_time_of_flight_in_ticks(soc_v2):
