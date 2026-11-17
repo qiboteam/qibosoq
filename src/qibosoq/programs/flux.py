@@ -388,7 +388,7 @@ class FluxProgramV2(BaseProgramV2):
         if self.is_mux:
             self.declare_gen_mux_ro()
         else:
-            self.declare_nqz_zones(
+            self.batch_declare_gen(
                 [pulse for pulse in sequence if pulse.type == "readout"]
             )
         self.declare_readout_freq()

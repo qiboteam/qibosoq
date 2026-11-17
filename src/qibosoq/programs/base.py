@@ -510,12 +510,11 @@ class BaseProgramV2(AveragerProgramV2):
             self.declare_gen(gen_ch, nqz=zone)
 
     def batch_declare_gen(self, pulse_sequence: List[Pulse]):
-        """Declare generators for all PulseSequence."""
+        """Declare generators for all PulseSequence, one nqz zone per generator."""
         # collate pulses by gen_ch
         ch_to_pulses: Dict[int, List[Pulse]] = {}
         for pulse in pulse_sequence:
-            if pulse.type != "readout":
-                ch_to_pulses.setdefault(pulse.dac, []).append(pulse)
+            ch_to_pulses.setdefault(pulse.dac, []).append(pulse)
 
         for gen_ch, pulses in ch_to_pulses.items():
             self.declare_nqz_zones(pulses)

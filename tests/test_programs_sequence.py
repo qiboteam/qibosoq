@@ -385,6 +385,18 @@ def test_v2_arbitrary_envelopes_in_dac_units(soc_v2):
     assert flux.max() == pytest.approx(0.5 * soc_v2["gens"][2]["maxv"], abs=1)
 
 
+def test_v2_readouts_on_dacs_in_different_zones(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 5, 0, 0),
+        v2_pulse("readout1", "readout", 6, 1, 0),
+    ]
+    sequence[0].frequency = 3000
+    sequence[1].frequency = 5000
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    assert program.gen_chs[5]["nqz"] == 1
+    assert program.gen_chs[6]["nqz"] == 2
+
+
 def test_v2_repeated_pulse_names(soc_v2):
     """qibolab can reuse a pulse id within a sequence, e.g. a duplicated rx90."""
     sequence = [
