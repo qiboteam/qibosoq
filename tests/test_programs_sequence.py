@@ -316,14 +316,39 @@ def test_v2_bias_and_flux_pulses_hold_their_value(soc_v2):
         assert program.pulses[name].params["stdysel"] == "last"
 
 
+def macros(program, name):
+    return [macro for macro in program.macro_list if type(macro).__name__ == name]
+
+
 def test_v2_back_to_back_readouts_do_not_overlap(soc_v2, caplog):
+    """qibolab counts start_delay from the start of the previous element."""
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0, duration=1.0),
-        v2_pulse("readout1", "readout", 6, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 0, 1.0, duration=1.0),
     ]
     with caplog.at_level("WARNING"):
-        ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+        program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
     assert "conflict" not in caplog.text
+    # the first acquisition is still running, its config is not resent
+    assert len(macros(program, "ConfigReadout")) == (
+        0 if program.is_static_readout(0) else 1
+    )
+
+
+def test_v2_simultaneous_readouts_start_together(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 5, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 1, 0, duration=1.0),
+    ]
+    sequence[1].frequency = 200
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    body = program.macro_list
+    triggers = [
+        idx for idx, macro in enumerate(body) if macro in macros(program, "Trigger")
+    ]
+    between = body[triggers[0] : triggers[1]]
+    delays = [macro for macro in between if type(macro).__name__ == "Delay"]
+    assert all(macro.t == 0 and not macro.auto for macro in delays)
 
 
 def test_v2_gaussian_readout(soc_v2):
@@ -514,7 +539,7 @@ def test_v2_results_in_ascending_adc_order(soc_v2):
     """qibolab maps the results to the ADCs in ascending order."""
     sequence = [
         v2_pulse("readout1", "readout", 6, 1, 0),
-        v2_pulse("readout0", "readout", 6, 0, 0),
+        v2_pulse("readout0", "readout", 5, 0, 0),
     ]
     sequence[0].frequency = 200
     program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
@@ -551,7 +576,7 @@ def normalized(program, raw):
 def test_v2_single_shots(soc_v2):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
-        v2_pulse("readout1", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0.1),
     ]
     reps = 5
     program = ExecutePulseSequenceV2(
@@ -625,8 +650,8 @@ def test_v2_readouts_on_one_adc_must_share_duration(soc_v2):
 def test_v2_dynamic_readout_config_per_frequency(soc_v2_dynamic):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
-        v2_pulse("readout1", "readout", 6, 0, 0),
-        v2_pulse("readout2", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0.1),
+        v2_pulse("readout2", "readout", 6, 0, 0.1),
     ]
     sequence[1].frequency = 200
     program = ExecutePulseSequenceV2(soc_v2_dynamic, Config(), sequence, [Qubit()])
@@ -682,8 +707,8 @@ def test_v2_mux_tones_and_masks(soc_v2_multiplexed, mocker):
         mux_readout(0, 100),
         v2_pulse("drive0", "drive", 3, None, 0),
         # equal to the second readout, but a separate acquisition
-        mux_readout(0, 100),
-        mux_readout(0, 100),
+        mux_readout(0, 100, start_delay=0.1),
+        mux_readout(0, 100, start_delay=0.1),
     ]
     program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
 

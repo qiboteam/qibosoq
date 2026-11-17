@@ -3,7 +3,7 @@
 import logging
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Set, Tuple, Union
 
 import numpy as np
 from qick import QickProgram, QickSoc
@@ -478,6 +478,9 @@ class BaseProgramV2(AveragerProgramV2):
         self.ro_freq_sweeps: Dict[int, QickSweep1D] = {}
         # {seq_idx: name} readout config sent before each dynamic readout
         self.readout_config_names: Dict[int, str] = {}
+        # seq idx of the readouts whose config differs from the previous
+        # readout on the same ADC, the only ones that send it
+        self.readout_config_changes: Set[int] = set()
 
         # {qubit_idx: QickSweep1D} swept flux bias gains. Populated by sweep
         # programs so a bias sweep is registered/applied even when the qubit's
@@ -530,9 +533,17 @@ class BaseProgramV2(AveragerProgramV2):
         self.envelope_names[definition] = name
         return name, True
 
-    def readout_config_name(self, readout: Element) -> str:
-        """Return the name of the readout config to send before ``readout``."""
-        return self.readout_config_names[self.element_index[id(readout)]]
+    def send_readout_config(self, readout: Element):
+        """Send the readout config of ``readout``, if its ADC needs a new one.
+
+        The previous acquisition on the same ADC can still be running (it is
+        delayed by the time of flight), so an unchanged config is not sent.
+        """
+        idx = self.element_index[id(readout)]
+        if idx in self.readout_config_changes:
+            self.send_readoutconfig(
+                ch=readout.adc, name=self.readout_config_names[idx], t=0
+            )
 
     def is_mux_gen(self, gen_ch: int) -> bool:
         """Return whether a generator is multiplexed (plays several tones)."""
@@ -594,6 +605,7 @@ class BaseProgramV2(AveragerProgramV2):
         acquisition. Static readouts take the frequency at declaration.
         """
         configs: Dict[tuple, str] = {}
+        last_config: Dict[int, str] = {}
         # results come back in declaration order, qibolab expects ascending ADCs
         readouts = [
             (idx, elem)
@@ -653,6 +665,10 @@ class BaseProgramV2(AveragerProgramV2):
                     gen_ch=ro_gen_ch,
                 )
             self.readout_config_names[idx] = configs[key]
+            # sorting by ADC keeps the sequence order of each ADC's readouts
+            if last_config.get(adc_ch) != configs[key]:
+                self.readout_config_changes.add(idx)
+            last_config[adc_ch] = configs[key]
 
     def execute_readout(self, readout: Element):
         """Schedule a v2 readout, with or without a DAC pulse.
@@ -661,18 +677,14 @@ class BaseProgramV2(AveragerProgramV2):
         trigger the ADC and play the corresponding DAC pulse.
 
         The reference time is already advanced by ``delay(start_delay)`` in
-        the body loop, so events are scheduled relative to it (``t=0``).
+        the body loop, so events are scheduled relative to it (``t=0``). As
+        in qibolab, start_delay counts from the start of the previous element,
+        so the readout does not move the reference to its end.
         """
-        adc_ch = readout.adc
-        if not self.is_static_readout(adc_ch):
-            self.send_readoutconfig(
-                ch=adc_ch, name=self.readout_config_name(readout), t=0
-            )
-        self.trigger(ros=[adc_ch], t=self.ro_time_of_flight)
+        self.send_readout_config(readout)
+        self.trigger(ros=[readout.adc], t=self.ro_time_of_flight)
         if isinstance(readout, Pulse):
             self.pulse(ch=readout.dac, name=self.pulse_name(readout), t=0)
-            # as v1 measure(syncdelay=0): next start_delay counts from the end
-            self.delay_auto(0)
 
     def register_mux_readout_groups(self):
         """Register one mux pulse per readout group, enabling the group tones."""
@@ -701,16 +713,9 @@ class BaseProgramV2(AveragerProgramV2):
         group = self.multi_ro_pulses[group_idx]
         adcs = [readout.adc for readout in group]
         for readout in group:
-            if not self.is_static_readout(readout.adc):
-                self.send_readoutconfig(
-                    ch=readout.adc,
-                    name=self.readout_config_name(readout),
-                    t=0,
-                )
+            self.send_readout_config(readout)
         self.trigger(ros=adcs, t=self.ro_time_of_flight)
         self.pulse(ch=group[0].dac, name=self.mux_group_pulses[group_idx], t=0)
-        # as v1 measure(syncdelay=0): next start_delay counts from the end
-        self.delay_auto(0)
 
     def add_pulse_to_register(self, pulse: Pulse, freq=None, gain=None, phase=None):
         """Register a drive pulse definition in the v2 pulse library.
