@@ -84,6 +84,23 @@ def soc_v2_multiplexed():
     )
 
 
+def static_readouts(soc):
+    """Drop tproc_ctrl, which real PYNQ-configured readouts do not have."""
+    for readout in soc["readouts"]:
+        readout.pop("tproc_ctrl", None)
+    return soc
+
+
+@pytest.fixture
+def soc_v2_static(soc_v2):
+    return static_readouts(soc_v2)
+
+
+@pytest.fixture
+def soc_v2_multiplexed_static(soc_v2_multiplexed):
+    return static_readouts(soc_v2_multiplexed)
+
+
 @pytest.fixture
 def execute_pulse_sequence_v2(soc_v2):
     config = Config()
@@ -463,3 +480,77 @@ def test_v2_single_shots(soc_v2):
         for shot in range(reps):
             assert toti[0][read][shot] == pytest.approx(expected[shot, read, 0])
             assert totq[0][read][shot] == pytest.approx(expected[shot, read, 1])
+
+
+def test_v2_static_readout(soc_v2_static, mocker):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0),
+        Measurement(
+            type="readout", frequency=100, start_delay=0, duration=0.1, dac=6, adc=0
+        ),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2_static, Config(), sequence, [Qubit()])
+    readout = program.ro_chs[0]
+    assert (readout["freq"], readout["gen_ch"], readout["trigs"]) == (100, 6, 2)
+    # the frequency is set by PYNQ, there is no tProc readout config
+    assert list(program.pulses) == ["readout0_0"]
+
+    soc = mocker.Mock()
+    program.config_readouts(soc)
+    ch, regs = soc.configure_readout.call_args.args
+    assert ch == 0
+    assert regs["f_rounded"] == pytest.approx(100, abs=0.01)
+
+
+@pytest.mark.parametrize("field, value", [("frequency", 200), ("duration", 0.2)])
+def test_v2_static_readouts_on_one_adc_must_match(soc_v2_static, field, value):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0),
+    ]
+    setattr(sequence[1], field, value)
+    with pytest.raises(ValueError):
+        ExecutePulseSequenceV2(soc_v2_static, Config(), sequence, [Qubit()])
+
+
+def test_v2_dynamic_readouts_on_one_adc_must_share_duration(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0, duration=0.2),
+    ]
+    with pytest.raises(ValueError):
+        ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+
+
+def test_v2_dynamic_readout_config_per_frequency(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0),
+        v2_pulse("readout2", "readout", 6, 0, 0),
+    ]
+    sequence[1].frequency = 200
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    names = program.readout_config_names
+    assert names[0] == names[2] != names[1]
+    freqs = [program.pulses[names[i]].params["freq"].start for i in range(3)]
+    assert freqs == [100, 200, 100]
+
+
+def test_v2_multiplexed_static_readouts(soc_v2_multiplexed_static, mocker):
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 1, 0),
+    ]
+    sequence[1].frequency = 400
+    program = ExecutePulseSequenceV2(
+        soc_v2_multiplexed_static, Config(), sequence, [Qubit()]
+    )
+    assert [program.ro_chs[adc]["freq"] for adc in (0, 1)] == [100, 400]
+    assert not program.readout_config_names
+
+    soc = mocker.Mock()
+    program.config_readouts(soc)
+    _, regs, _ = soc.config_mux_readout.call_args.args
+    assert [reg["pfb_port"] for reg in regs] == [0, 1]
+    freqs = [reg["f_rounded"] for reg in regs]
+    assert freqs == pytest.approx([100, 400], abs=0.01)

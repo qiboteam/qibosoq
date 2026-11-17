@@ -211,9 +211,19 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
             elif par is Parameter.DURATION:
                 raise NotImplementedError("Sweepers on duration are not implemented.")
             else:
-                if self.sequence[sweeper.indexes[idx]].type == "flux":
+                target = self.sequence[sweeper.indexes[idx]]
+                if target.type == "flux":
                     raise NotImplementedError(
                         "Sweepers on flux pulses are not implemented."
+                    )
+                if (
+                    par is Parameter.FREQUENCY
+                    and target.type == "readout"
+                    and self.is_static_readout(target.adc)
+                ):
+                    raise NotImplementedError(
+                        f"Readout {target.adc} is configured at declaration (static), "
+                        "its frequency cannot be swept."
                     )
 
     def _initialize(self, cfg):
@@ -252,7 +262,7 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                         and self.sequence[jdx].type == "readout"
                         and not self.is_mux
                     ):
-                        self.ro_freq_sweeps[self.sequence[jdx].adc] = swept
+                        self.ro_freq_sweeps[jdx] = swept
 
         # Declared after ro_freq_sweeps is known so the readout config picks up
         # the swept down-conversion frequency when requested.

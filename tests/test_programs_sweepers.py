@@ -1,4 +1,5 @@
 import pathlib
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -350,7 +351,32 @@ def test_execute_sweeps_v2(soc_v2, parameter, starts, stops, index):
     assert [loop[0] for loop in program.loops] == ["reps", "sweep_0"]
     if parameter is Parameter.FREQUENCY and index == 1:
         # a readout frequency sweep must also move the down-conversion frequency
-        assert 0 in program.ro_freq_sweeps
+        config = program.pulses[program.readout_config_names[1]]
+        assert config.params["freq"].is_sweep()
+
+
+def test_execute_sweeps_v2_readout_frequency_on_shared_adc(soc_v2):
+    sequence = v2_sequence()
+    sequence.append(replace(sequence[1]))
+    sweeper = Sweeper(
+        expts=5, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110], indexes=[2]
+    )
+    program = ExecuteSweepsV2(soc_v2, Config(), sequence, [Qubit()], sweeper)
+    # only the swept readout moves its down-conversion frequency
+    names = program.readout_config_names
+    assert names[1] != names[2]
+    assert not program.pulses[names[1]].params["freq"].is_sweep()
+    assert program.pulses[names[2]].params["freq"].is_sweep()
+
+
+def test_execute_sweeps_v2_static_readout_frequency(soc_v2):
+    for readout in soc_v2["readouts"]:
+        readout.pop("tproc_ctrl", None)
+    sweeper = Sweeper(
+        expts=5, parameters=[Parameter.FREQUENCY], starts=[90], stops=[110], indexes=[1]
+    )
+    with pytest.raises(NotImplementedError):
+        ExecuteSweepsV2(soc_v2, Config(), v2_sequence(), [Qubit()], sweeper)
 
 
 def test_execute_sweeps_v2_bias(soc_v2):

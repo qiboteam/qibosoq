@@ -437,10 +437,13 @@ class BaseProgramV2(AveragerProgramV2):
             if pulse.dac not in self.registered_waveforms:
                 self.registered_waveforms[pulse.dac] = []
 
-        # {adc_ch: QickSweep1D} swept ADC down-conversion frequencies. Populated by
-        # sweep programs before declare_readout_freq so a readout-frequency sweep
-        # also moves the demodulation frequency, not just the DAC pulse.
+        # {seq_idx: QickSweep1D} swept readout down-conversion frequencies.
+        # Populated by sweep programs before declare_readout_freq so a
+        # readout-frequency sweep also moves the demodulation frequency, not
+        # just the DAC pulse.
         self.ro_freq_sweeps: Dict[int, QickSweep1D] = {}
+        # {seq_idx: name} readout config sent before each dynamic readout
+        self.readout_config_names: Dict[int, str] = {}
 
         # {qubit_idx: QickSweep1D} swept flux bias gains. Populated by sweep
         # programs so a bias sweep is registered/applied even when the qubit's
@@ -473,12 +476,16 @@ class BaseProgramV2(AveragerProgramV2):
         return f"{pulse.name}_{self.element_index[id(pulse)]}"
 
     def readout_config_name(self, readout: Element) -> str:
-        """Return the readout-config name for an ADC channel.
+        """Return the name of the readout config to send before ``readout``."""
+        return self.readout_config_names[self.element_index[id(readout)]]
 
-        Readout configs are currently declared once per ADC channel, so the name
-        must not depend on Pulse-only attributes such as ``name``.
+    def is_static_readout(self, adc_ch: int) -> bool:
+        """Return whether a readout is configured by PYNQ, not by the tProc.
+
+        Only tProc-controlled readouts have ``tproc_ctrl``. The others (e.g. PFB
+        readouts) take their frequency in declare_readout, fixed per program.
         """
-        return f"readout_{readout.adc}_ro"
+        return "tproc_ctrl" not in self.soccfg["readouts"][adc_ch]
 
     def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
         """Declare nqz zone (1-2) for a given PulseSequence.
@@ -520,37 +527,68 @@ class BaseProgramV2(AveragerProgramV2):
             self.declare_nqz_zones(pulses)
 
     def declare_readout_freq(self):
-        """Declare ADCs downconversion frequencies."""
-        adc_ch_already_declared = []
-        for readout in (elem for elem in self.sequence if elem.type == "readout"):
+        """Declare the readouts and their down-conversion frequencies.
+
+        Each ADC has a single acquisition window per program. Dynamic readouts
+        get one readout config per distinct frequency, sent before each
+        acquisition. Static readouts take the frequency at declaration.
+        """
+        configs: Dict[tuple, str] = {}
+        for idx, readout in enumerate(self.sequence):
+            if readout.type != "readout":
+                continue
             adc_ch = readout.adc
-            name = self.readout_config_name(readout)
-            if adc_ch not in adc_ch_already_declared:
-                adc_ch_already_declared.append(adc_ch)
+            ro_gen_ch = readout.dac
+            static = self.is_static_readout(adc_ch)
 
-                # tProc v2 ONLY wants ch and length(in us) for dynamic readouts.
-                # Frequency and generator linkage happen in the measure() instruction.
-                self.declare_readout(ch=adc_ch, length=readout.duration)
-
-                # Measurement-only readouts may not have a pulse on this DAC,
-                # but add_readoutconfig still requires a valid generator mapping.
-                ro_gen_ch = readout.dac
-                if ro_gen_ch not in self.gen_chs:
-                    sampling_rate = self.soccfg["gens"][ro_gen_ch]["fs"]
-                    zone = 1 if readout.frequency < sampling_rate / 2 else 2
-                    if self.soccfg["gens"][ro_gen_ch]["has_mixer"]:
-                        self.declare_gen(
-                            ro_gen_ch, nqz=zone, mixer_freq=readout.frequency
-                        )
-                    else:
-                        self.declare_gen(ro_gen_ch, nqz=zone)
-
-                self.add_readoutconfig(
+            if adc_ch in self.ro_chs:
+                declared = self.ro_chs[adc_ch]
+                length = self.us2cycles(ro_ch=adc_ch, us=readout.duration)
+                if declared["length"] != length:
+                    raise ValueError(
+                        f"Readouts on ADC {adc_ch} must share the same duration."
+                    )
+                if static and declared["freq"] != readout.frequency:
+                    raise ValueError(
+                        f"Readout {adc_ch} is configured at declaration (static), "
+                        "all its readouts must share the same frequency."
+                    )
+            elif static:
+                self.declare_readout(
                     ch=adc_ch,
-                    name=name,
-                    freq=self.ro_freq_sweeps.get(adc_ch, readout.frequency),
+                    length=readout.duration,
+                    freq=readout.frequency,
                     gen_ch=ro_gen_ch,
                 )
+            else:
+                # frequency and generator are set by the readout config
+                self.declare_readout(ch=adc_ch, length=readout.duration)
+
+            if static:
+                continue
+
+            # Measurement-only readouts may not have a pulse on this DAC,
+            # but add_readoutconfig still requires a valid generator mapping.
+            if ro_gen_ch not in self.gen_chs:
+                sampling_rate = self.soccfg["gens"][ro_gen_ch]["fs"]
+                zone = 1 if readout.frequency < sampling_rate / 2 else 2
+                if self.soccfg["gens"][ro_gen_ch]["has_mixer"]:
+                    self.declare_gen(ro_gen_ch, nqz=zone, mixer_freq=readout.frequency)
+                else:
+                    self.declare_gen(ro_gen_ch, nqz=zone)
+
+            key: tuple = (adc_ch, ro_gen_ch, readout.frequency)
+            if idx in self.ro_freq_sweeps:
+                key = ("sweep", idx)
+            if key not in configs:
+                configs[key] = f"readout_{adc_ch}_ro_{len(configs)}"
+                self.add_readoutconfig(
+                    ch=adc_ch,
+                    name=configs[key],
+                    freq=self.ro_freq_sweeps.get(idx, readout.frequency),
+                    gen_ch=ro_gen_ch,
+                )
+            self.readout_config_names[idx] = configs[key]
 
     def execute_readout(self, readout: Element):
         """Schedule a v2 readout, with or without a DAC pulse.
@@ -562,7 +600,10 @@ class BaseProgramV2(AveragerProgramV2):
         the body loop, so events are scheduled relative to it (``t=0``).
         """
         adc_ch = readout.adc
-        self.send_readoutconfig(ch=adc_ch, name=self.readout_config_name(readout), t=0)
+        if not self.is_static_readout(adc_ch):
+            self.send_readoutconfig(
+                ch=adc_ch, name=self.readout_config_name(readout), t=0
+            )
         self.trigger(ros=[adc_ch], t=self.ro_time_of_flight)
         if isinstance(readout, Pulse):
             self.pulse(ch=readout.dac, name=self.pulse_name(readout), t=0)
@@ -617,6 +658,8 @@ class BaseProgramV2(AveragerProgramV2):
         for readout in readouts:
             if readout.adc not in adcs:
                 adcs.append(readout.adc)
+                if self.is_static_readout(readout.adc):
+                    continue
                 self.send_readoutconfig(
                     ch=readout.adc,
                     name=self.readout_config_name(readout),
