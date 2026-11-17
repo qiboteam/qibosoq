@@ -833,3 +833,25 @@ def test_v2_measurement_with_mux_readouts(soc_v2_multiplexed):
     program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
     assert program.mux_group_pulses == ["mux_ro_6_0"]
     assert [program.ro_chs[adc]["trigs"] for adc in (0, 1)] == [1, 1]
+
+
+@pytest.mark.parametrize("freqs", [(200, 500), (7226, 7300)])
+def test_v1_mux_readouts_demodulate_the_played_tones(freqs, monkeypatch, mocker):
+    """tProc v1 frequencies are relative, qick adds the mixer to the readouts."""
+    monkeypatch.setattr(qibosoq.configuration, "IS_MULTIPLEXED", True)
+    soc = qick.QickConfig(
+        str(pathlib.Path(__file__).parent / "qick_config_multiplexed.json")
+    )
+    soc.reset_gens = lambda: None
+    sequence = [mux_readout(0, freqs[0]), mux_readout(1, freqs[1])]
+    for readout in sequence:
+        readout.duration = 1
+    program = ExecutePulseSequence(soc, Config(), sequence, [Qubit()])
+    gen = program.gen_chs[6]
+    mixer = gen["mixer_freq"]["rounded"]
+    played = [mixer + tone["freq_rounded"] for tone in gen["mux_tones"]]
+    assert played == pytest.approx(freqs, abs=0.1)
+
+    program.config_readouts(mocker.Mock())
+    demodulated = [program.ro_chs[adc]["ro_config"]["f_rounded"] for adc in (0, 1)]
+    assert demodulated == pytest.approx(played, abs=0.1)

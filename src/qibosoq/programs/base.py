@@ -147,6 +147,11 @@ class BaseProgram(QickProgram):
                 length = self.soc.us2cycles(readout.duration, ro_ch=adc_ch)
 
                 freq = readout.frequency
+                # tProc v1 frequencies are relative to the generator mixer,
+                # which qick adds back to the down-conversion frequency
+                gen_cfg = self.gen_chs.get(ro_ch, {})
+                if "mixer_freq" in gen_cfg:
+                    freq -= gen_cfg["mixer_freq"]["rounded"]
 
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
@@ -379,8 +384,14 @@ class BaseProgram(QickProgram):
 
         gen = self.soccfg["gens"][ro_ch]
         # the tones are DDS offsets from the mixer (relative in tProc v1)
-        mixer_freq = mux_centre(mux_freqs) if gen["has_mixer"] else 0
-        zone = 1 if (mixer_freq or mux_freqs[0]) < gen["fs"] / 2 else 2
+        centre = mux_centre(mux_freqs) if gen["has_mixer"] else mux_freqs[0]
+        zone = 1 if centre < gen["fs"] / 2 else 2
+        mixer_freq = 0
+        if gen["has_mixer"]:
+            # the tones are offsets from the mixer as qick will round it
+            mixer_freq = self.soccfg.calc_mixer_freq(
+                ro_ch, centre, zone, adc_ch_added[0]
+            )["rounded"]
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,
