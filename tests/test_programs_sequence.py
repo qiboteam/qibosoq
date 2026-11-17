@@ -293,7 +293,7 @@ def test_v2_bias_and_flux_pulses_hold_their_value(soc_v2):
     program = ExecutePulseSequenceV2(
         soc_v2, Config(), sequence, [Qubit(bias=0.3, dac=2)]
     )
-    for name in ["bias_sweetspot_2", "bias_zero_2", "flux0"]:
+    for name in ["bias_sweetspot_2", "bias_zero_2", "flux0_0"]:
         assert program.pulses[name].params["stdysel"] == "last"
 
 
@@ -312,7 +312,7 @@ def test_v2_gaussian_readout(soc_v2):
         v2_pulse("readout0", "readout", 6, 0, 0, cls=Gaussian, rel_sigma=5),
     ]
     program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
-    assert "readout0" in program.pulses
+    assert "readout0_0" in program.pulses
 
 
 def envelope_std(samples):
@@ -340,6 +340,26 @@ def test_v2_gaussian_sigma(soc_v2, cls, kw):
     assert envelope_std(data.astype(float)) == pytest.approx(
         envelope_std(expected), rel=0.02
     )
+
+
+def test_v2_repeated_pulse_names(soc_v2):
+    """qibolab can reuse a pulse id within a sequence, e.g. a duplicated rx90."""
+    sequence = [
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("rx90", "drive", 3, None, 0, cls=Gaussian, rel_sigma=5),
+        v2_pulse("rx90", "drive", 3, None, 0, cls=Gaussian, rel_sigma=5),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[3].relative_phase = 90
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    assert {"flux0_0", "flux0_1", "rx90_2", "rx90_3"} <= set(program.pulses)
+    # envelopes are shared, the pulse parameters are not
+    assert list(program.envelopes[3]["envs"]) == ["rx90_envelope"]
+    assert list(program.envelopes[2]["envs"]) == ["flux0"]
+    phases = [program.pulses[f"rx90_{i}"].waveforms[0].phase for i in (2, 3)]
+    assert phases[0] != phases[1]
 
 
 def test_v2_time_of_flight_in_ticks(soc_v2):

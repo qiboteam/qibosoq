@@ -413,6 +413,7 @@ class BaseProgramV2(AveragerProgramV2):
         self.soccfg = soc  # this is used by qick
         self.sequence = sequence
         self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
+        self.element_index = {id(elem): idx for idx, elem in enumerate(sequence)}
         self.qubits = qubits
         # ro_time_of_flight is given in tProc ticks, v2 schedules in us
         self.ro_time_of_flight = soc.cycles2us(qpcfg.ro_time_of_flight)
@@ -455,6 +456,15 @@ class BaseProgramV2(AveragerProgramV2):
             initial_delay=qpcfg.initial_delay,
             reps_innermost=qpcfg.reps_innermost,
         )
+
+    def pulse_name(self, pulse: Pulse) -> str:
+        """Return a program-unique name for the pulse definition.
+
+        qibolab can reuse a pulse id within a sequence (e.g. a duplicated rx90),
+        while qick v2 needs unique pulse names. Envelopes stay keyed by
+        ``pulse.name``, so duplicates still share waveform memory.
+        """
+        return f"{pulse.name}_{self.element_index[id(pulse)]}"
 
     def readout_config_name(self, readout: Element) -> str:
         """Return the readout-config name for an ADC channel.
@@ -550,7 +560,7 @@ class BaseProgramV2(AveragerProgramV2):
         self.send_readoutconfig(ch=adc_ch, name=self.readout_config_name(readout), t=0)
         self.trigger(ros=[adc_ch], t=self.ro_time_of_flight)
         if isinstance(readout, Pulse):
-            self.pulse(ch=readout.dac, name=readout.name, t=0)
+            self.pulse(ch=readout.dac, name=self.pulse_name(readout), t=0)
             # as v1 measure(syncdelay=0): next start_delay counts from the end
             self.delay_auto(0)
 
@@ -698,7 +708,7 @@ class BaseProgramV2(AveragerProgramV2):
         if pulse.adc is not None:
             # match the generator frequency to the readout frequency grid
             common["ro_ch"] = pulse.adc
-        pulse_name = pulse.name
+        pulse_name = self.pulse_name(pulse)
         if isinstance(pulse, Rectangular):
             self.add_pulse(
                 ch=gen_ch,

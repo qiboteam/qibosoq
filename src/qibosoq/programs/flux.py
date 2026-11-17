@@ -295,7 +295,7 @@ class FluxProgramV2(BaseProgramV2):
                 else:
                     self.execute_readout(pulse)
             elif pulse.type == "drive":
-                self.pulse(ch=pulse.dac, name=pulse.name, t="auto")
+                self.pulse(ch=pulse.dac, name=self.pulse_name(pulse), t="auto")
             elif pulse.type == "flux":
                 self.execute_flux_pulse(pulse)
             else:
@@ -345,10 +345,12 @@ class FluxProgramV2(BaseProgramV2):
         if (abs(i_vals) > max_gain).any():
             raise ValueError("Flux pulse got amplitude > 1")
 
-        self.add_envelope(ch=gen_ch, name=pulse.name, idata=i_vals, qdata=q_vals)
+        if pulse.name not in self.registered_waveforms[gen_ch]:
+            self.add_envelope(ch=gen_ch, name=pulse.name, idata=i_vals, qdata=q_vals)
+            self.registered_waveforms[gen_ch].append(pulse.name)
         self.add_pulse(
             ch=gen_ch,
-            name=pulse.name,
+            name=self.pulse_name(pulse),
             style="arb",
             envelope=pulse.name,
             freq=0,
@@ -360,7 +362,7 @@ class FluxProgramV2(BaseProgramV2):
 
     def execute_flux_pulse(self, pulse: Pulse):
         """Fire a pre-registered flux pulse (_register_flux_pulse must be called first)."""
-        self.pulse(ch=pulse.dac, name=pulse.name, t="auto")
+        self.pulse(ch=pulse.dac, name=self.pulse_name(pulse), t="auto")
 
     def declare_nqz_flux(self):
         """Declare nqz = 1 for used flux channel."""
