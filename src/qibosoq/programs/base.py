@@ -108,10 +108,19 @@ class BaseProgram(QickProgram):
                 zone = 1 if freq < sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
 
+    def readouts_by_adc(self) -> List[Element]:
+        """Return the readouts sorted by ADC, keeping the sequence order per ADC.
+
+        Results come back in the order the readouts are declared, and qibolab
+        expects them in ascending ADC number.
+        """
+        readouts = [elem for elem in self.sequence if elem.type == "readout"]
+        return sorted(readouts, key=lambda readout: readout.adc)
+
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies."""
         adc_ch_already_declared = []
-        for readout in (elem for elem in self.sequence if elem.type == "readout"):
+        for readout in self.readouts_by_adc():
             adc_ch = readout.adc
             ro_ch = readout.dac
             if adc_ch not in adc_ch_already_declared:
@@ -298,9 +307,8 @@ class BaseProgram(QickProgram):
         """Read the internal buffers and returns single shots (i,q)."""
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
-        for elem in (elem for elem in self.sequence if elem.type == "readout"):
+        for elem in self.readouts_by_adc():
             adc_ch = elem.adc
-            ro_ch = elem.dac
             if adc_ch not in adcs:
                 # Convert acquisition length into ADC clock cycles
                 lengths.append(self.soc.us2cycles(elem.duration, ro_ch=adc_ch))
@@ -572,9 +580,13 @@ class BaseProgramV2(AveragerProgramV2):
         acquisition. Static readouts take the frequency at declaration.
         """
         configs: Dict[tuple, str] = {}
-        for idx, readout in enumerate(self.sequence):
-            if readout.type != "readout":
-                continue
+        # results come back in declaration order, qibolab expects ascending ADCs
+        readouts = [
+            (idx, elem)
+            for idx, elem in enumerate(self.sequence)
+            if elem.type == "readout"
+        ]
+        for idx, readout in sorted(readouts, key=lambda item: item[1].adc):
             adc_ch = readout.adc
             ro_gen_ch = readout.dac
             static = self.is_static_readout(adc_ch)

@@ -510,6 +510,20 @@ def test_v2_repeated_pulse_names_with_different_envelopes(soc_v2):
     assert len(played("rx_3")) == 2 * len(played("rx_2"))
 
 
+def test_v2_results_in_ascending_adc_order(soc_v2):
+    """qibolab maps the results to the ADCs in ascending order."""
+    sequence = [
+        v2_pulse("readout1", "readout", 6, 1, 0),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[0].frequency = 200
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    assert list(program.ro_chs) == [0, 1]
+    if not program.is_static_readout(0):
+        configs = program.readout_config_names
+        assert configs[0].startswith("readout_1") and configs[1].startswith("readout_0")
+
+
 def test_v2_time_of_flight_in_ticks(soc_v2):
     sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
     program = ExecutePulseSequenceV2(

@@ -372,3 +372,23 @@ def test_add_envelope_with_duration_samples(execute_pulse_sequence, cls, kw):
     expected = program.soc.us2cycles(0.04, gen_ch=3) * gen["samps_per_clk"]
     data = program.envelopes[3]["envs"][pulse.waveform_name]["data"]
     assert len(data) == expected
+
+
+def test_results_in_ascending_adc_order(soc):
+    """qibolab maps the results to the ADCs in ascending order."""
+    sequence = [
+        Rectangular(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name=f"readout{adc}",
+            type="readout",
+            dac=6,
+            adc=adc,
+        )
+        for adc in (1, 0)
+    ]
+    program = ExecutePulseSequence(soc, Config(), sequence, [Qubit()])
+    assert list(program.ro_chs) == [0, 1]
