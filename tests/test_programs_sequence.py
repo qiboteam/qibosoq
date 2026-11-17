@@ -612,18 +612,28 @@ def test_v2_single_shots(soc_v2):
             assert totq[0][read][shot] == pytest.approx(expected[shot, read, 1])
 
 
-def test_v2_static_readout(soc_v2_static, mocker):
+@pytest.mark.parametrize("measurement_first", [False, True])
+@pytest.mark.parametrize("measurement_dac", [6, 0])
+def test_v2_static_readout(soc_v2_static, mocker, measurement_dac, measurement_first):
+    """qibolab sends acquisitions without pulse on DAC 0."""
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
         Measurement(
-            type="readout", frequency=100, start_delay=0, duration=0.1, dac=6, adc=0
+            type="readout",
+            frequency=100,
+            start_delay=0,
+            duration=0.1,
+            dac=measurement_dac,
+            adc=0,
         ),
     ]
+    if measurement_first:
+        sequence.reverse()
     program = ExecutePulseSequenceV2(soc_v2_static, Config(), sequence, [Qubit()])
     readout = program.ro_chs[0]
     assert (readout["freq"], readout["gen_ch"], readout["trigs"]) == (100, 6, 2)
     # the frequency is set by PYNQ, there is no tProc readout config
-    assert list(program.pulses) == ["readout0_0"]
+    assert list(program.pulses) == [f"readout0_{int(measurement_first)}"]
 
     soc = mocker.Mock()
     program.config_readouts(soc)

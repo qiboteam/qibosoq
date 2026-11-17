@@ -632,10 +632,18 @@ class BaseProgramV2(AveragerProgramV2):
             for idx, elem in enumerate(self.sequence)
             if elem.type == "readout"
         ]
+        # a Measurement has no pulse, a static ADC is matched to the DAC of
+        # its readout pulse
+        pulse_dacs: Dict[int, int] = {}
+        for _, readout in readouts:
+            if isinstance(readout, Pulse):
+                pulse_dacs.setdefault(readout.adc, readout.dac)
         for idx, readout in sorted(readouts, key=lambda item: item[1].adc):
             adc_ch = readout.adc
-            ro_gen_ch = readout.dac
             static = self.is_static_readout(adc_ch)
+            ro_gen_ch = readout.dac
+            if static and not isinstance(readout, Pulse):
+                ro_gen_ch = pulse_dacs.get(adc_ch, readout.dac)
 
             if adc_ch in self.ro_chs:
                 declared = self.ro_chs[adc_ch]
