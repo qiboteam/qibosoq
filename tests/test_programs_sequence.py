@@ -734,7 +734,6 @@ def test_v2_mux_tones_and_masks(soc_v2_multiplexed, mocker):
 @pytest.mark.parametrize("freqs", [(400, 450), (7226, 7300)])
 def test_v2_mux_mixer_centred_on_tones(soc_v2_multiplexed, freqs):
     """qick's mux4 v2 generator has a digital mixer, the tones are offsets."""
-    soc_v2_multiplexed["gens"][6]["has_mixer"] = True
     sequence = [mux_readout(0, freqs[0]), mux_readout(1, freqs[1])]
     program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
     gen = program.gen_chs[6]
