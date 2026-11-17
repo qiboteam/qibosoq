@@ -1,3 +1,4 @@
+import copy
 import pathlib
 
 import numpy as np
@@ -69,7 +70,6 @@ def execute_pulse_sequence(soc):
 
 
 def load_soc_v2(file):
-    qibosoq.configuration.IS_MULTIPLEXED = False
     return qick.QickConfig(str(pathlib.Path(__file__).parent / file))
 
 
@@ -92,10 +92,8 @@ def soc_v2(request):
 
 @pytest.fixture
 def soc_v2_multiplexed():
-    qibosoq.configuration.IS_MULTIPLEXED = True
-    return qick.QickConfig(
-        str(pathlib.Path(__file__).parent / "qick_config_v2_multiplexed.json")
-    )
+    """Firmware with a mux generator (6) and PFB readouts (0-3)."""
+    return load_soc_v2("qick_config_v2_multiplexed.json")
 
 
 @pytest.fixture
@@ -559,3 +557,111 @@ def test_v2_multiplexed_static_readouts(soc_v2_multiplexed, mocker):
     assert [reg["pfb_port"] for reg in regs] == [0, 1]
     freqs = [reg["f_rounded"] for reg in regs]
     assert freqs == pytest.approx([100, 400], abs=0.01)
+
+
+def mux_readout(adc, frequency, start_delay=0, dac=6, **kw):
+    pulse = v2_pulse(f"readout{adc}", "readout", dac, adc, start_delay, **kw)
+    pulse.frequency = frequency
+    return pulse
+
+
+@pytest.mark.parametrize("is_multiplexed", [False, True])
+def test_v2_mux_detected_per_generator(
+    soc_v2_multiplexed, soc_v2_static, is_multiplexed, monkeypatch
+):
+    """tProc v2 programs ignore the global IS_MULTIPLEXED."""
+    monkeypatch.setattr(qibosoq.configuration, "IS_MULTIPLEXED", is_multiplexed)
+    sequence = [mux_readout(0, 100), mux_readout(1, 400)]
+    mux = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+    assert mux.mux_group_pulses == ["mux_ro_6_0_1"]
+
+    sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
+    plain = ExecutePulseSequenceV2(soc_v2_static, Config(), sequence, [Qubit()])
+    assert plain.multi_ro_pulses == []
+    assert "readout0_0" in plain.pulses
+
+
+def test_v2_mux_tones_and_masks(soc_v2_multiplexed, mocker):
+    sequence = [
+        mux_readout(1, 400),
+        mux_readout(0, 100),
+        v2_pulse("drive0", "drive", 3, None, 0),
+        # equal to the second readout, but a separate acquisition
+        mux_readout(0, 100),
+        mux_readout(0, 100),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+
+    # one tone per ADC, in order of appearance
+    tones = program.gen_chs[6]["mux_tones"]
+    assert [tone["freq_rounded"] for tone in tones] == pytest.approx([400, 100])
+    names = program.mux_group_pulses
+    assert names == ["mux_ro_6_0_1", "mux_ro_6_1", "mux_ro_6_1"]
+    masks = [program.pulses[name].waveforms[0].conf for name in names]
+    assert masks == [0b11, 0b10, 0b10]
+    assert [program.ro_chs[adc]["trigs"] for adc in (0, 1)] == [3, 1]
+
+    # each tone is demodulated by the PFB output of its ADC
+    soc = mocker.Mock()
+    program.config_readouts(soc)
+    _, regs, _ = soc.config_mux_readout.call_args.args
+    ro_freqs = {reg["pfb_port"]: reg["f_rounded"] for reg in regs}
+    for tone, adc in zip(tones, (1, 0)):
+        port = soc_v2_multiplexed["readouts"][adc]["pfb_port"]
+        assert tone["freq_rounded"] == pytest.approx(ro_freqs[port])
+
+
+def test_v2_normal_and_mux_generators(soc_v2_multiplexed):
+    second_mux = copy.deepcopy(soc_v2_multiplexed["gens"][6])
+    second_mux.update(fullpath="axis_sg_mux4_v2_7", tproc_ch=7, dac="10")
+    soc_v2_multiplexed["gens"].append(second_mux)
+    sequence = [
+        v2_pulse("drive0", "drive", 3, None, 0),
+        mux_readout(0, 100),
+        mux_readout(1, 400),
+        mux_readout(2, 700, dac=7),
+        mux_readout(3, 1000, dac=5),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+    assert [len(program.gen_chs[gen]["mux_tones"]) for gen in (6, 7)] == [2, 1]
+    assert "mux_tones" not in program.gen_chs[5]
+    assert program.mux_group_pulses == ["mux_ro_6_0_1", "mux_ro_7_0"]
+    assert "readout3_4" in program.pulses
+    assert [program.ro_chs[adc]["trigs"] for adc in range(4)] == [1, 1, 1, 1]
+
+
+def test_v2_mux_tone_limit(soc_v2_multiplexed):
+    soc_v2_multiplexed["gens"][6]["n_tones"] = 2
+    sequence = [mux_readout(adc, 100 + 300 * adc) for adc in range(3)]
+    with pytest.raises(ValueError, match="2 tones"):
+        ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+
+
+@pytest.mark.parametrize("field, value", [("frequency", 200), ("amplitude", 0.3)])
+def test_v2_mux_tone_is_fixed(soc_v2_multiplexed, field, value):
+    sequence = [
+        mux_readout(0, 100),
+        v2_pulse("drive0", "drive", 3, None, 0),
+        mux_readout(0, 100),
+    ]
+    setattr(sequence[2], field, value)
+    with pytest.raises(ValueError):
+        ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+
+
+def test_v2_mux_readout_must_be_rectangular(soc_v2_multiplexed):
+    sequence = [mux_readout(0, 100, cls=Gaussian, rel_sigma=5)]
+    with pytest.raises(TypeError):
+        ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+
+
+def test_v2_measurement_with_mux_readouts(soc_v2_multiplexed):
+    sequence = [
+        mux_readout(0, 100),
+        Measurement(
+            type="readout", frequency=400, start_delay=0, duration=0.1, dac=6, adc=1
+        ),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+    assert program.mux_group_pulses == ["mux_ro_6_0"]
+    assert [program.ro_chs[adc]["trigs"] for adc in (0, 1)] == [1, 1]

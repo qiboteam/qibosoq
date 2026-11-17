@@ -294,7 +294,6 @@ def test_check_validity_sweep(soc):
 
 
 def load_soc_v2(file):
-    qibosoq.configuration.IS_MULTIPLEXED = False
     return qick.QickConfig(str(pathlib.Path(__file__).parent / file))
 
 
@@ -313,6 +312,12 @@ def soc_v2_dynamic():
 @pytest.fixture(params=["static", "dynamic"])
 def soc_v2(request):
     return request.getfixturevalue(f"soc_v2_{request.param}")
+
+
+@pytest.fixture
+def soc_v2_multiplexed():
+    """Firmware with a mux generator (6) and PFB readouts (0-3)."""
+    return load_soc_v2("qick_config_v2_multiplexed.json")
 
 
 def v2_sequence():
@@ -527,3 +532,60 @@ def test_execute_sweeps_single_shots(soc):
                 expected = raw[shot, p0, p1, 0] / length
                 assert toti[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[0])
                 assert totq[0][0][p0 * 4 + p1][shot] == pytest.approx(expected[1])
+
+
+def v2_mux_sequence():
+    sequence = v2_sequence()
+    readout = replace(sequence[1], name="readout1", adc=1, frequency=400, start_delay=0)
+    return sequence + [readout]
+
+
+@pytest.mark.parametrize(
+    "parameter, starts, stops",
+    [
+        (Parameter.FREQUENCY, 90, 110),
+        (Parameter.AMPLITUDE, 0, 0.5),
+        (Parameter.RELATIVE_PHASE, 0, 90),
+    ],
+)
+def test_execute_sweeps_v2_mux_readout(soc_v2_multiplexed, parameter, starts, stops):
+    sweeper = Sweeper(
+        expts=5, parameters=[parameter], starts=[starts], stops=[stops], indexes=[2]
+    )
+    with pytest.raises(NotImplementedError, match="multiplexed"):
+        ExecuteSweepsV2(
+            soc_v2_multiplexed, Config(), v2_mux_sequence(), [Qubit()], sweeper
+        )
+
+
+def test_execute_sweeps_v2_mux_readout_delay(soc_v2_multiplexed):
+    def delay(index):
+        return Sweeper(
+            expts=5,
+            parameters=[Parameter.DELAY],
+            starts=[0],
+            stops=[1],
+            indexes=[index],
+        )
+
+    # the group starts with the swept delay
+    program = ExecuteSweepsV2(
+        soc_v2_multiplexed, Config(), v2_mux_sequence(), [Qubit()], delay(1)
+    )
+    assert program.mux_group_pulses == ["mux_ro_6_0_1"]
+    # the second readout is played with the first one
+    with pytest.raises(NotImplementedError, match="multiplexed"):
+        ExecuteSweepsV2(
+            soc_v2_multiplexed, Config(), v2_mux_sequence(), [Qubit()], delay(2)
+        )
+
+
+def test_execute_sweeps_v2_with_mux_readouts(soc_v2_multiplexed):
+    sweeper = Sweeper(
+        expts=5, parameters=[Parameter.AMPLITUDE], starts=[0], stops=[0.5], indexes=[0]
+    )
+    program = ExecuteSweepsV2(
+        soc_v2_multiplexed, Config(), v2_mux_sequence(), [Qubit()], sweeper
+    )
+    assert program.mux_group_pulses == ["mux_ro_6_0_1"]
+    assert [program.ro_chs[adc]["trigs"] for adc in (0, 1)] == [1, 1]

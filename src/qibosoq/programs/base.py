@@ -425,8 +425,6 @@ class BaseProgramV2(AveragerProgramV2):
         self.ro_time_of_flight = soc.cycles2us(qpcfg.ro_time_of_flight)
         self.rounds = qpcfg.rounds
 
-        # mux settings
-        self.is_mux = qibosoq_cfg.IS_MULTIPLEXED
         self.readouts_per_experiment = len(
             [elem for elem in self.sequence if elem.type == "readout"]
         )
@@ -450,11 +448,14 @@ class BaseProgramV2(AveragerProgramV2):
         # static bias is 0 (see FluxProgramV2._flux_qubits).
         self.bias_sweeps: Dict[int, QickSweep1D] = {}
 
-        if self.is_mux:
-            self.multi_ro_pulses = self.group_mux_ro()
-            self.readouts_per_experiment = len(self.multi_ro_pulses)
-            self.mux_adc_order: List[int] = []
-            self.mux_group_pulses: Dict[Tuple[int, ...], Tuple[int, str]] = {}
+        # mux settings: a readout is multiplexed if its generator is.
+        # {dac: [first readout pulse of each tone]}, a tone index is its position
+        self.mux_tones: Dict[int, List[Pulse]] = {}
+        # {id(readout): group index} for the readouts in multi_ro_pulses
+        self.mux_group_of: Dict[int, int] = {}
+        self.multi_ro_pulses = self.group_mux_ro()
+        # pulse name of each group in multi_ro_pulses
+        self.mux_group_pulses: List[str] = []
 
         # Pass remaining arguments to AveragerProgramV2
         super().__init__(
@@ -478,6 +479,10 @@ class BaseProgramV2(AveragerProgramV2):
     def readout_config_name(self, readout: Element) -> str:
         """Return the name of the readout config to send before ``readout``."""
         return self.readout_config_names[self.element_index[id(readout)]]
+
+    def is_mux_gen(self, gen_ch: int) -> bool:
+        """Return whether a generator is multiplexed (plays several tones)."""
+        return "n_tones" in self.soccfg["gens"][gen_ch]
 
     def is_static_readout(self, adc_ch: int) -> bool:
         """Return whether a readout is configured by PYNQ, not by the tProc.
@@ -611,70 +616,40 @@ class BaseProgramV2(AveragerProgramV2):
             self.delay_auto(0)
 
     def register_mux_readout_groups(self):
-        """Register one mux pulse per readout group."""
-        if not self.is_mux:
-            return
-
-        self.mux_group_pulses = {}
+        """Register one mux pulse per readout group, enabling the group tones."""
+        self.mux_group_pulses = []
         for group in self.multi_ro_pulses:
-            pulses = [readout for readout in group if isinstance(readout, Pulse)]
-            if not pulses:
-                continue
-
-            dac = pulses[0].dac
-            adcs: List[int] = []
-            for readout in group:
-                if readout.adc not in adcs:
-                    adcs.append(readout.adc)
-
-            if not self.mux_adc_order:
-                raise RuntimeError("Mux ADC order not initialized.")
-            missing_adcs = [adc for adc in adcs if adc not in self.mux_adc_order]
-            if missing_adcs:
-                raise RuntimeError(
-                    f"Mux readout group references undeclared ADCs: {missing_adcs}"
-                )
-
-            mask = [self.mux_adc_order.index(adc) for adc in adcs]
-            key = tuple(adcs)
+            dac = group[0].dac
+            tone_adcs = [tone.adc for tone in self.mux_tones[dac]]
+            mask = sorted(tone_adcs.index(readout.adc) for readout in group)
             name = f"mux_ro_{dac}_{'_'.join(str(idx) for idx in mask)}"
-            if key not in self.mux_group_pulses:
+            if name not in self.pulses:
                 self.add_pulse(
                     ch=dac,
                     name=name,
                     style="const",
-                    length=pulses[0].duration,
+                    length=group[0].duration,
                     mask=mask,
                 )
-                self.mux_group_pulses[key] = (dac, name)
+            self.mux_group_pulses.append(name)
 
-    def execute_mux_readout_group(self, readouts: List[Element]):
+    def execute_mux_readout_group(self, group_idx: int):
         """Execute a grouped mux readout event.
 
         The reference time is already advanced by ``delay(start_delay)`` in
         the body loop, so events are scheduled relative to it (``t=0``).
         """
-        adcs: List[int] = []
-        for readout in readouts:
-            if readout.adc not in adcs:
-                adcs.append(readout.adc)
-                if self.is_static_readout(readout.adc):
-                    continue
+        group = self.multi_ro_pulses[group_idx]
+        adcs = [readout.adc for readout in group]
+        for readout in group:
+            if not self.is_static_readout(readout.adc):
                 self.send_readoutconfig(
                     ch=readout.adc,
                     name=self.readout_config_name(readout),
                     t=0,
                 )
-
-        if not adcs:
-            return
         self.trigger(ros=adcs, t=self.ro_time_of_flight)
-
-        key = tuple(adcs)
-        if key not in self.mux_group_pulses:
-            raise RuntimeError(f"Mux group {key} was not registered.")
-        dac, name = self.mux_group_pulses[key]
-        self.pulse(ch=dac, name=name, t=0)
+        self.pulse(ch=group[0].dac, name=self.mux_group_pulses[group_idx], t=0)
         # as v1 measure(syncdelay=0): next start_delay counts from the end
         self.delay_auto(0)
 
@@ -785,72 +760,75 @@ class BaseProgramV2(AveragerProgramV2):
                 **common,
             )
 
-    def group_mux_ro(self) -> list:
-        """Create a list containing readout pulses grouped by start time.
+    def group_mux_ro(self) -> List[List[Pulse]]:
+        """Group the readout pulses played by multiplexed generators.
 
-        Example of list:
-        [[pulse1, pulse2], [pulse3]]
-
-        Readout pulses are considered to be correctly organized.
+        A mux generator plays all its tones at once: consecutive readout pulses
+        of the same mux generator, on different ADCs and with no delay in
+        between, form one group played as a single pulse, e.g.
+        [[pulse1, pulse2], [pulse3]]. Each distinct ADC of a mux generator is
+        one tone, whose frequency and amplitude are fixed for the program.
         """
-        mux_list: List[List[Element]] = []
-        group: List[Element] = []
+        mux_list: List[List[Pulse]] = []
+        group: List[Pulse] = []
+        for elem in self.sequence:
+            if not (
+                isinstance(elem, Pulse)
+                and elem.type == "readout"
+                and self.is_mux_gen(elem.dac)
+            ):
+                group = []
+                continue
+            if not isinstance(elem, Rectangular):
+                raise TypeError("Only rectangular pulses can be multiplexed")
 
-        for pulse in self.sequence:
-            readout = pulse.type == "readout"
-            if (not readout) or pulse.start_delay != 0:
-                if len(group) > 0:
-                    mux_list.append(group)
-                    group = []
-
-            if readout:
-                group.append(pulse)
-
-        if len(group) > 0:
-            mux_list.append(group)
-
-        for group in mux_list:
-            durations = {pulse.duration for pulse in group}
-            if len(durations) > 1:
-                raise RuntimeError(
-                    f"Muxed readout pulses must share same duration.: {mux_list}"
+            tones = self.mux_tones.setdefault(elem.dac, [])
+            tone = next((tone for tone in tones if tone.adc == elem.adc), None)
+            if tone is None:
+                n_tones = self.soccfg["gens"][elem.dac]["n_tones"]
+                if len(tones) == n_tones:
+                    raise ValueError(
+                        f"Multiplexed generator {elem.dac} supports {n_tones} tones "
+                        "(one per ADC)."
+                    )
+                tones.append(elem)
+            elif (tone.frequency, tone.amplitude) != (elem.frequency, elem.amplitude):
+                raise ValueError(
+                    f"Multiplexed readouts of generator {elem.dac} on ADC "
+                    f"{elem.adc} must share the same frequency and amplitude."
                 )
+
+            if (
+                group
+                and group[0].dac == elem.dac
+                and elem.start_delay == 0
+                and all(readout.adc != elem.adc for readout in group)
+            ):
+                if elem.duration != group[0].duration:
+                    raise RuntimeError(
+                        f"Muxed readout pulses must share same duration.: {group}"
+                    )
+                group.append(elem)
+            else:
+                group = [elem]
+                mux_list.append(group)
+            self.mux_group_of[id(elem)] = len(mux_list) - 1
         return mux_list
 
     def declare_gen_mux_ro(self):
-        """Declare nqz zone for multiplexed readout."""
-        adc_ch_added = []
-
-        mux_freqs = []
-        mux_gains = []
-
-        ro_ch = None
-        zone = 1
-        for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
-            if not isinstance(pulse, Pulse):
-                continue
-            adc_ch = pulse.adc
-            ro_ch = pulse.dac
-
-            if adc_ch not in adc_ch_added:
-                adc_ch_added.append(adc_ch)
-                freq = pulse.frequency
-                zone = 1 if freq < self.soccfg["gens"][ro_ch]["fs"] / 2 else 2
-                mux_freqs.append(freq)
-                mux_gains.append(pulse.amplitude)
-
-        if ro_ch is None:
-            return
-
-        self.mux_adc_order = adc_ch_added
-        self.declare_gen(
-            ch=ro_ch,
-            nqz=zone,
-            mixer_freq=0,
-            mux_freqs=mux_freqs,
-            mux_gains=mux_gains,
-            ro_ch=adc_ch_added[0],
-        )
+        """Declare the multiplexed generators with their readout tones."""
+        for dac, tones in self.mux_tones.items():
+            gen = self.soccfg["gens"][dac]
+            zone = 1 if tones[0].frequency < gen["fs"] / 2 else 2
+            mixer = {"mixer_freq": 0} if gen["has_mixer"] else {}
+            self.declare_gen(
+                ch=dac,
+                nqz=zone,
+                mux_freqs=[tone.frequency for tone in tones],
+                mux_gains=[tone.amplitude for tone in tones],
+                ro_ch=tones[0].adc,
+                **mixer,
+            )
 
     def perform_experiment(
         self,

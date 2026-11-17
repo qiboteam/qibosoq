@@ -280,21 +280,16 @@ class FluxProgramV2(BaseProgramV2):
         sequence and sweep programs.
         """
         self.set_bias("sweetspot")
-        muxed_readouts_executed: List[Element] = []
 
         for pulse in self.sequence:
             self.delay(pulse.start_delay)
             if pulse.type == "readout":
-                if self.is_mux and isinstance(pulse, Pulse):
-                    if pulse in muxed_readouts_executed:
-                        continue
-                    mux_group = next(
-                        group for group in self.multi_ro_pulses if pulse in group
-                    )
-                    self.execute_mux_readout_group(mux_group)
-                    muxed_readouts_executed.extend(mux_group)
-                else:
+                group_idx = self.mux_group_of.get(id(pulse))
+                if group_idx is None:
                     self.execute_readout(pulse)
+                elif self.multi_ro_pulses[group_idx][0] is pulse:
+                    # the other readouts of the group are played with the first
+                    self.execute_mux_readout_group(group_idx)
             elif pulse.type == "drive":
                 self.pulse(ch=pulse.dac, name=self.pulse_name(pulse), t="auto")
             elif pulse.type == "flux":
@@ -385,10 +380,12 @@ class FluxProgramV2(BaseProgramV2):
         self.batch_declare_gen([pulse for pulse in sequence if pulse.type == "drive"])
 
         self.declare_nqz_flux()
-        if self.is_mux:
-            self.declare_gen_mux_ro()
-        else:
-            self.batch_declare_gen(
-                [pulse for pulse in sequence if pulse.type == "readout"]
-            )
+        self.declare_gen_mux_ro()
+        self.batch_declare_gen(
+            [
+                pulse
+                for pulse in sequence
+                if pulse.type == "readout" and not self.is_mux_gen(pulse.dac)
+            ]
+        )
         self.declare_readout_freq()

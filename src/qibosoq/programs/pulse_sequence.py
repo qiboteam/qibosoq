@@ -55,12 +55,11 @@ class ExecutePulseSequenceV2(FluxProgramV2, AveragerProgramV2):
                 pulse.type == "readout"
                 and isinstance(pulse, Pulse)
                 and pulse.adc is not None
-                and not self.is_mux
+                and not self.is_mux_gen(pulse.dac)
             ):
                 self.add_pulse_to_register(pulse)
 
-        if self.is_mux:
-            self.register_mux_readout_groups()
+        self.register_mux_readout_groups()
 
     def _body(self, cfg):
         """Execute inside the hardware repetitions loop. Plays the pulse sequence."""

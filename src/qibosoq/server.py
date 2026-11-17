@@ -262,7 +262,11 @@ class ConnectionHandler(BaseRequestHandler):
 def log_initial_info():
     """Log info regarding the loaded configuration."""
     logger.info("Server listening, PID %d", os.getpid())
-    mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
+    if TPROC_VERSION == 2:
+        # tProc v2 programs detect the multiplexed generators themselves
+        mux_str = "tProc v2"
+    else:
+        mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
     logger.info("%s firmware loaded from %s", mux_str, cfg.QICKSOC_LOCATION)
 
 
