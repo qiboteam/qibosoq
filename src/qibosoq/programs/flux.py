@@ -111,7 +111,8 @@ class FluxProgram(BaseProgram):
         elif isinstance(pulse, FluxExponential):
             i_vals = pulse.i_values(duration, max_gain)
         elif isinstance(pulse, Arbitrary):
-            i_vals = np.array(pulse.i_values)
+            # normalized envelope, flux pulses carry the amplitude in the samples
+            i_vals = np.array(pulse.i_values) * pulse.amplitude * max_gain
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(
@@ -331,7 +332,8 @@ class FluxProgramV2(BaseProgramV2):
         elif isinstance(pulse, FluxExponential):
             i_vals = pulse.i_values(duration_samples, max_gain)
         elif isinstance(pulse, Arbitrary):
-            i_vals = np.array(pulse.i_values)
+            # normalized envelope, flux pulses carry the amplitude in the samples
+            i_vals = np.array(pulse.i_values) * pulse.amplitude * max_gain
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(

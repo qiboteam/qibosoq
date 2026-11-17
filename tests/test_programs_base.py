@@ -189,6 +189,12 @@ def test_add_pulse_to_register(execute_pulse_sequence):
     execute_pulse_sequence.add_pulse_to_register(pulse3)
     execute_pulse_sequence.add_pulse_to_register(pulse4)
 
+    # qibolab sends envelopes normalized to 1, qick wants DAC units
+    maxv = execute_pulse_sequence.soccfg["gens"][3]["maxv"]
+    data = execute_pulse_sequence.envelopes[3]["envs"]["pulse3"]["data"]
+    assert data[:, 0].max() == pytest.approx(0.2 * maxv, abs=1)
+    assert data[:, 1].max() == pytest.approx(0.2 * maxv, abs=1)
+
 
 def test_body(soc):
     config = Config()

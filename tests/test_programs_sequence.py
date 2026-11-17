@@ -8,7 +8,14 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Drag, Gaussian, Hann, Measurement, Rectangular
+from qibosoq.components.pulses import (
+    Arbitrary,
+    Drag,
+    Gaussian,
+    Hann,
+    Measurement,
+    Rectangular,
+)
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
 
 
@@ -357,6 +364,25 @@ def test_v2_hann_amplitude_applied_once(soc_v2):
         program.pulses[name].waveforms[0].gain.start for name in ("hann_0", "gauss_1")
     ]
     assert gains[0] == gains[1]
+
+
+def test_v2_arbitrary_envelopes_in_dac_units(soc_v2):
+    """qibolab sends envelopes normalized to 1."""
+    samples = 64
+    kw = dict(cls=Arbitrary, i_values=[1.0] * samples, q_values=[0.0] * samples)
+    sequence = [
+        v2_pulse("drive0", "drive", 3, None, 0, **kw),
+        v2_pulse("flux0", "flux", 2, None, 0, **kw),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[1].amplitude = 0.5
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    drive = program.envelopes[3]["envs"]["drive0_envelope"]["data"][:, 0]
+    assert drive.max() == pytest.approx(soc_v2["gens"][3]["maxv"], abs=1)
+    # flux pulses play at full gain, the amplitude is in the samples
+    flux = program.envelopes[2]["envs"]["flux0"]["data"][:samples, 0]
+    assert flux.max() == pytest.approx(0.5 * soc_v2["gens"][2]["maxv"], abs=1)
 
 
 def test_v2_repeated_pulse_names(soc_v2):

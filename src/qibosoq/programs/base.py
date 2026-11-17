@@ -161,7 +161,13 @@ class BaseProgram(QickProgram):
             elif isinstance(pulse, Hann):
                 self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_gain))
             elif isinstance(pulse, Arbitrary):
-                self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
+                # qibolab sends envelopes normalized to 1, qick wants DAC units
+                self.add_pulse(
+                    gen_ch,
+                    name,
+                    np.array(pulse.i_values) * max_gain,
+                    np.array(pulse.q_values) * max_gain,
+                )
             self.registered_waveforms[gen_ch].append(name)
 
         args = {"waveform": name} if name is not None else {}
@@ -690,11 +696,12 @@ class BaseProgramV2(AveragerProgramV2):
                     idata=pulse.i_values(n_samples, max_gain),
                 )
             elif isinstance(pulse, Arbitrary):
+                # qibolab sends envelopes normalized to 1, qick wants DAC units
                 self.add_envelope(
                     ch=gen_ch,
                     name=envelope_name,
-                    idata=pulse.i_values,
-                    qdata=pulse.q_values,
+                    idata=np.array(pulse.i_values) * max_gain,
+                    qdata=np.array(pulse.q_values) * max_gain,
                 )
             self.registered_waveforms[gen_ch].append(envelope_name)
 
