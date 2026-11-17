@@ -192,8 +192,16 @@ class FluxProgram(BaseProgram):
                 self.execute_flux_pulse(elem)
 
         self.wait_all()
-        self.set_bias("zero")
+        # the bias holds the sweetspot through relaxation, see end()
         self.sync_all(self.relax_delay)
+
+    def end(self):
+        """Remove the flux bias after the last shot, then end the program.
+
+        Called once by make_program, after the repetition loops.
+        """
+        self.set_bias("zero")
+        self.append_instruction("end")
 
     def declare_zones_and_ro(self, sequence: List[Pulse]):
         """Declare all nqz zones and readout frequencies.
@@ -258,6 +266,14 @@ class FluxProgramV2(BaseProgramV2):
                     length=0.1,  # 0.1 µs — short enough to not delay the experiment
                     stdysel="last",  # hold the bias after the pulse ends
                 )
+
+    def _cleanup(self, cfg):
+        """Remove the flux bias after the last shot.
+
+        The bias holds the sweetspot through relaxation, so that each shot
+        starts from a settled flux.
+        """
+        self.set_bias("zero")
 
     def set_bias(self, mode: str = "sweetspot"):
         """Fire a pre-registered constant bias pulse on every flux DAC.

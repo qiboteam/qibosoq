@@ -320,6 +320,21 @@ def macros(program, name):
     return [macro for macro in program.macro_list if type(macro).__name__ == name]
 
 
+def test_v2_bias_held_through_relaxation(soc_v2):
+    """The bias goes back to zero only after the last shot."""
+    sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
+    program = ExecutePulseSequenceV2(
+        soc_v2, Config(), sequence, [Qubit(bias=0.3, dac=2)]
+    )
+    names = [
+        (type(macro).__name__, getattr(macro, "name", None))
+        for macro in program.macro_list
+    ]
+    close = names.index(("CloseLoop", None))
+    assert names.index(("Pulse", "bias_sweetspot_2")) < close
+    assert names.index(("Pulse", "bias_zero_2")) > close
+
+
 def test_v2_back_to_back_readouts_do_not_overlap(soc_v2, caplog):
     """qibolab counts start_delay from the start of the previous element."""
     sequence = [

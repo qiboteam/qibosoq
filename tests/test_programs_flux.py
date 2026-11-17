@@ -263,3 +263,32 @@ def test_drive_envelopes_differ_by_duration(soc):
     ]
     program = ExecutePulseSequence(soc, config, sequence, [Qubit()])
     assert len(program.envelopes[3]["envs"]) == 2
+
+
+def test_bias_held_through_relaxation(soc):
+    """The bias goes back to zero only after the last shot."""
+    sequence = [
+        Rectangular(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name="readout",
+            type="readout",
+            dac=6,
+            adc=0,
+        )
+    ]
+    program = ExecutePulseSequence(soc, Config(), sequence, [Qubit(bias=0.3, dac=2)])
+    names = [inst["name"] for inst in program.prog_list]
+    # the bias registers are written by "set" instructions on the flux DAC
+    flux_sets = [
+        idx
+        for idx, inst in enumerate(program.prog_list)
+        if inst["name"] == "set"
+        and inst["args"][0] == program.soccfg["gens"][2]["tproc_ch"]
+    ]
+    loop_end = names.index("loopnz")
+    assert flux_sets[0] < loop_end < flux_sets[-1]
+    assert len(flux_sets) == 2

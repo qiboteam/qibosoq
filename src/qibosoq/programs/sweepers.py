@@ -330,4 +330,3 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
     def _body(self, cfg):
         """Execute inside all sweep loops. Identical to ExecutePulseSequenceV2."""
         self.play_sequence()
-        self.set_bias("zero")
