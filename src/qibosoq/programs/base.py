@@ -38,6 +38,11 @@ def check_not_mux(soccfg, pulse: Pulse):
         )
 
 
+def mux_centre(freqs: List[float]) -> float:
+    """Return the mixer frequency centring the tones of a mux generator (MHz)."""
+    return (min(freqs) + max(freqs)) / 2
+
+
 def resample_envelope(values, n_samples: int) -> np.ndarray:
     """Linearly resample envelope samples to ``n_samples`` points.
 
@@ -358,7 +363,6 @@ class BaseProgram(QickProgram):
         mux_gains = []
 
         ro_ch = None
-        zone = 1
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if not isinstance(pulse, Pulse):
                 continue
@@ -367,19 +371,21 @@ class BaseProgram(QickProgram):
 
             if adc_ch not in adc_ch_added:
                 adc_ch_added.append(adc_ch)
-                freq = pulse.frequency
-                zone = 1 if freq < self.soccfg["gens"][ro_ch]["fs"] / 2 else 2
-                mux_freqs.append(freq)
+                mux_freqs.append(pulse.frequency)
                 mux_gains.append(pulse.amplitude)
 
         if ro_ch is None:
             return
 
+        gen = self.soccfg["gens"][ro_ch]
+        # the tones are DDS offsets from the mixer (relative in tProc v1)
+        mixer_freq = mux_centre(mux_freqs) if gen["has_mixer"] else 0
+        zone = 1 if (mixer_freq or mux_freqs[0]) < gen["fs"] / 2 else 2
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,
-            mixer_freq=0,
-            mux_freqs=mux_freqs,
+            mixer_freq=mixer_freq,
+            mux_freqs=[freq - mixer_freq for freq in mux_freqs],
             mux_gains=mux_gains,
             ro_ch=adc_ch_added[0],
         )
@@ -885,12 +891,16 @@ class BaseProgramV2(AveragerProgramV2):
         """Declare the multiplexed generators with their readout tones."""
         for dac, tones in self.mux_tones.items():
             gen = self.soccfg["gens"][dac]
-            zone = 1 if tones[0].frequency < gen["fs"] / 2 else 2
-            mixer = {"mixer_freq": 0} if gen["has_mixer"] else {}
+            freqs = [tone.frequency for tone in tones]
+            # the tones are DDS offsets from the mixer, which can only reach
+            # f_dds / 2 around it
+            centre = mux_centre(freqs)
+            zone = 1 if centre < gen["fs"] / 2 else 2
+            mixer = {"mixer_freq": centre} if gen["has_mixer"] else {}
             self.declare_gen(
                 ch=dac,
                 nqz=zone,
-                mux_freqs=[tone.frequency for tone in tones],
+                mux_freqs=freqs,
                 mux_gains=[tone.amplitude for tone in tones],
                 ro_ch=tones[0].adc,
                 **mixer,
