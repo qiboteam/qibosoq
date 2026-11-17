@@ -12,6 +12,7 @@ from qibosoq.components.pulses import (
     Drag,
     FlatTop,
     Gaussian,
+    Hann,
     Measurement,
     Rectangular,
 )
@@ -345,3 +346,29 @@ def test_execute_readout_pulse(soc):
         sequence[-1].duration = 0.03
         with pytest.raises(RuntimeError):
             program = ExecutePulseSequence(soc, config, sequence, qubits)
+
+
+@pytest.mark.parametrize("cls,kw", [(Hann, {}), (Arbitrary, "samples")])
+def test_add_envelope_with_duration_samples(execute_pulse_sequence, cls, kw):
+    """Envelopes have one sample per DAC sample, whatever qibolab sends."""
+    if kw == "samples":
+        kw = dict(i_values=[1.0] * 500, q_values=[0.0] * 500)
+    pulse = cls(
+        frequency=100,
+        amplitude=0.1,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.04,
+        name="pulse",
+        type="drive",
+        dac=3,
+        adc=None,
+        **kw,
+    )
+    program = execute_pulse_sequence
+    program.add_pulse_to_register(pulse)
+
+    gen = program.soccfg["gens"][3]
+    expected = program.soc.us2cycles(0.04, gen_ch=3) * gen["samps_per_clk"]
+    data = program.envelopes[3]["envs"][pulse.waveform_name]["data"]
+    assert len(data) == expected

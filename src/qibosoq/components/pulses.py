@@ -162,7 +162,7 @@ class Hann(Pulse):
 
         The amplitude is applied by the pulse gain, as for the other drive shapes.
         """
-        i_vals = np.sin(np.pi * np.arange(0, 1, 1 / duration)) ** 2
+        i_vals = np.sin(np.pi * np.arange(duration) / duration) ** 2
         return max_gain * i_vals
 
 

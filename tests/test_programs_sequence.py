@@ -424,6 +424,32 @@ def test_v2_envelopes_respect_maxv_scale(soc_v2):
     assert flux.max() == pytest.approx(soc_v2.get_maxv(2), abs=1)
 
 
+@pytest.mark.parametrize("samples", [40, 400, 500])
+def test_v2_arbitrary_envelopes_resampled_to_duration(soc_v2, samples):
+    """qibolab samples envelopes at its own rate, not at the DAC one."""
+    duration = 0.04
+    ramp = list(np.linspace(0, 1, samples))
+    kw = dict(cls=Arbitrary, i_values=ramp, q_values=[0.0] * samples)
+    sequence = [
+        v2_pulse("drive0", "drive", 3, None, 0, duration, **kw),
+        v2_pulse("flux0", "flux", 2, None, 0, duration, **kw),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[1].amplitude = 1.0
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    for dac, name in [(3, "drive0_envelope"), (2, "flux0")]:
+        expected = soc_v2.us2cycles(duration, gen_ch=dac) * (
+            soc_v2["gens"][dac]["samps_per_clk"]
+        )
+        data = program.envelopes[dac]["envs"][name]["data"][:expected, 0]
+        assert len(data) == expected
+        # the ramp keeps its shape: increasing, from about 0 to full scale
+        assert np.all(np.diff(data) >= 0)
+        assert data[0] < 0.05 * soc_v2.get_maxv(dac)
+        assert data[-1] > 0.95 * soc_v2.get_maxv(dac)
+
+
 def test_v2_readouts_on_dacs_in_different_zones(soc_v2):
     sequence = [
         v2_pulse("readout0", "readout", 5, 0, 0),

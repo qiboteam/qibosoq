@@ -17,7 +17,7 @@ from qibosoq.components.pulses import (
     Rectangular,
     samples_digest,
 )
-from qibosoq.programs.base import BaseProgram, BaseProgramV2
+from qibosoq.programs.base import BaseProgram, BaseProgramV2, resample_envelope
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -115,7 +115,8 @@ class FluxProgram(BaseProgram):
             i_vals = pulse.i_values(duration, max_envelope)
         elif isinstance(pulse, Arbitrary):
             # normalized envelope, flux pulses carry the amplitude in the samples
-            i_vals = np.array(pulse.i_values) * pulse.amplitude * max_envelope
+            envelope = resample_envelope(pulse.i_values, duration)
+            i_vals = envelope * pulse.amplitude * max_envelope
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(
@@ -336,7 +337,8 @@ class FluxProgramV2(BaseProgramV2):
             i_vals = pulse.i_values(duration_samples, max_envelope)
         elif isinstance(pulse, Arbitrary):
             # normalized envelope, flux pulses carry the amplitude in the samples
-            i_vals = np.array(pulse.i_values) * pulse.amplitude * max_envelope
+            envelope = resample_envelope(pulse.i_values, duration_samples)
+            i_vals = envelope * pulse.amplitude * max_envelope
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(

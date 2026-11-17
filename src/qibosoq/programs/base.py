@@ -26,6 +26,21 @@ from qibosoq.components.pulses import (
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
+def resample_envelope(values, n_samples: int) -> np.ndarray:
+    """Linearly resample envelope samples to ``n_samples`` points.
+
+    qibolab samples arbitrary envelopes at its own rate, while the DAC plays
+    ``samps_per_clk`` samples per fabric cycle. Each sample is taken at the
+    centre of its time bin, so both ends of the envelope are kept.
+    """
+    values = np.asarray(values, dtype=float)
+    if len(values) == n_samples:
+        return values
+    old_times = (np.arange(len(values)) + 0.5) / len(values)
+    new_times = (np.arange(n_samples) + 0.5) / n_samples
+    return np.interp(new_times, old_times, values)
+
+
 class BaseProgram(QickProgram):
     """Abstract class for QickPrograms."""
 
@@ -130,6 +145,7 @@ class BaseProgram(QickProgram):
         us_length = pulse.duration
         # Convert pulse length into DAC clock cycles
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
+        n_samples = soc_length * self.soccfg["gens"][gen_ch]["samps_per_clk"]
 
         name = pulse.waveform_name
 
@@ -160,14 +176,14 @@ class BaseProgram(QickProgram):
                 )
 
             elif isinstance(pulse, Hann):
-                self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_envelope))
+                self.add_pulse(gen_ch, name, pulse.i_values(n_samples, max_envelope))
             elif isinstance(pulse, Arbitrary):
                 # qibolab sends envelopes normalized to 1, qick wants DAC units
                 self.add_pulse(
                     gen_ch,
                     name,
-                    np.array(pulse.i_values) * max_envelope,
-                    np.array(pulse.q_values) * max_envelope,
+                    resample_envelope(pulse.i_values, n_samples) * max_envelope,
+                    resample_envelope(pulse.q_values, n_samples) * max_envelope,
                 )
             self.registered_waveforms[gen_ch].append(name)
 
@@ -688,6 +704,10 @@ class BaseProgramV2(AveragerProgramV2):
                 pulse.name + "_envelope", pulse.waveform_name
             )
 
+        # add_envelope takes raw samples, the DAC plays samps_per_clk per cycle
+        n_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
+        n_samples = n_cycles * self.soccfg["gens"][gen_ch]["samps_per_clk"]
+
         # Register the envelope shape (only once per definition)
         if new_envelope:
             if isinstance(pulse, Gaussian):
@@ -723,9 +743,6 @@ class BaseProgramV2(AveragerProgramV2):
                     length=pulse.duration,
                 )
             elif isinstance(pulse, Hann):
-                # add_envelope takes raw samples; convert duration (µs) → sample count
-                n_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
-                n_samples = int(n_cycles * self.soccfg["gens"][gen_ch]["samps_per_clk"])
                 self.add_envelope(
                     ch=gen_ch,
                     name=envelope_name,
@@ -736,8 +753,8 @@ class BaseProgramV2(AveragerProgramV2):
                 self.add_envelope(
                     ch=gen_ch,
                     name=envelope_name,
-                    idata=np.array(pulse.i_values) * max_envelope,
-                    qdata=np.array(pulse.q_values) * max_envelope,
+                    idata=resample_envelope(pulse.i_values, n_samples) * max_envelope,
+                    qdata=resample_envelope(pulse.q_values, n_samples) * max_envelope,
                 )
 
         # Register the pulse definition (freq/phase/gain in v2 native units;
