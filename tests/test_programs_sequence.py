@@ -855,3 +855,27 @@ def test_v1_mux_readouts_demodulate_the_played_tones(freqs, monkeypatch, mocker)
     program.config_readouts(mocker.Mock())
     demodulated = [program.ro_chs[adc]["ro_config"]["f_rounded"] for adc in (0, 1)]
     assert demodulated == pytest.approx(played, abs=0.1)
+
+
+def test_v2_readout_config_waits_for_the_previous_acquisition(soc_v2):
+    """A new config must not retune an acquisition still running on the ADC."""
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 0, 1.0, duration=1.0),
+    ]
+    sequence[1].frequency = 200
+    if "tproc_ctrl" not in soc_v2["readouts"][0]:
+        pytest.skip("static readouts have a single frequency")
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+
+    now, configs, windows = 0.0, [], []
+    for macro in program.macro_list:
+        kind = type(macro).__name__
+        if kind == "Delay":
+            now += macro.t
+        elif kind == "ConfigReadout":
+            configs.append(now + macro.t)
+        elif kind == "Trigger":
+            windows.append((now + macro.t, now + macro.t + sequence[0].duration))
+    assert len(configs) == 2
+    assert configs[1] >= windows[0][1]

@@ -554,12 +554,15 @@ class BaseProgramV2(AveragerProgramV2):
         """Send the readout config of ``readout``, if its ADC needs a new one.
 
         The previous acquisition on the same ADC can still be running (it is
-        delayed by the time of flight), so an unchanged config is not sent.
+        delayed by the time of flight), so the config is sent with the trigger
+        and an unchanged config is not sent.
         """
         idx = self.element_index[id(readout)]
         if idx in self.readout_config_changes:
             self.send_readoutconfig(
-                ch=readout.adc, name=self.readout_config_names[idx], t=0
+                ch=readout.adc,
+                name=self.readout_config_names[idx],
+                t=self.ro_time_of_flight,
             )
 
     def is_mux_gen(self, gen_ch: int) -> bool:
