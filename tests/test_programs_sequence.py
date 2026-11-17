@@ -8,7 +8,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Qubit
-from qibosoq.components.pulses import Drag, Gaussian, Measurement, Rectangular
+from qibosoq.components.pulses import Drag, Gaussian, Hann, Measurement, Rectangular
 from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
 
 
@@ -340,6 +340,23 @@ def test_v2_gaussian_sigma(soc_v2, cls, kw):
     assert envelope_std(data.astype(float)) == pytest.approx(
         envelope_std(expected), rel=0.02
     )
+
+
+def test_v2_hann_amplitude_applied_once(soc_v2):
+    sequence = [
+        v2_pulse("hann", "drive", 3, None, 0, cls=Hann),
+        v2_pulse("gauss", "drive", 3, None, 0, cls=Gaussian, rel_sigma=5),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    envs = program.envelopes[3]["envs"]
+    hann_peak = envs["hann_envelope"]["data"][:, 0].max()
+    gauss_peak = envs["gauss_envelope"]["data"][:, 0].max()
+    assert hann_peak == pytest.approx(gauss_peak, rel=0.01)
+    gains = [
+        program.pulses[name].waveforms[0].gain.start for name in ("hann_0", "gauss_1")
+    ]
+    assert gains[0] == gains[1]
 
 
 def test_v2_repeated_pulse_names(soc_v2):

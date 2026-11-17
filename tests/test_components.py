@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from qibosoq.components.base import Parameter, Sweeper
+from qibosoq.components.pulses import Hann
 
 PARAMETERS = [
     (Parameter.FREQUENCY, "frequency"),
@@ -92,3 +93,21 @@ def test_sweeper_validation():
             starts=np.array([1.2]),
             stops=np.array([1]),
         )
+
+
+def test_hann_envelope_is_full_scale():
+    """The amplitude is applied by the pulse gain, not by the envelope."""
+    pulse = Hann(
+        frequency=100,
+        amplitude=0.5,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.1,
+        name="hann",
+        type="drive",
+        dac=0,
+        adc=None,
+    )
+    values = pulse.i_values(100, 32766)
+    assert values.max() == pytest.approx(32766)
+    assert values[0] == 0

@@ -151,10 +151,12 @@ class Hann(Pulse):
     shape: str = "hann"
 
     def i_values(self, duration: int, max_gain: int):
-        """Compute the waveform i values."""
-        amp = int(self.amplitude * max_gain)
+        """Compute the full-scale waveform i values.
+
+        The amplitude is applied by the pulse gain, as for the other drive shapes.
+        """
         i_vals = np.sin(np.pi * np.arange(0, 1, 1 / duration)) ** 2
-        return amp * i_vals
+        return max_gain * i_vals
 
 
 @dataclass
