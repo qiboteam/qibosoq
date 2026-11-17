@@ -642,11 +642,13 @@ def test_v2_readout_config_only_for_dynamic_readouts(soc_v2):
     assert program.asm().count("WPORT_WR") == 1 + dynamic
 
 
-@pytest.mark.parametrize("field, value", [("frequency", 200), ("duration", 0.2)])
+@pytest.mark.parametrize(
+    "field, value", [("frequency", 200), ("duration", 0.2), ("dac", 5)]
+)
 def test_v2_static_readouts_on_one_adc_must_match(soc_v2_static, field, value):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
-        v2_pulse("readout1", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0.1),
     ]
     setattr(sequence[1], field, value)
     with pytest.raises(ValueError):
@@ -757,6 +759,24 @@ def test_v2_mux_mixer_centred_on_tones(soc_v2_multiplexed, freqs):
     assert gen["nqz"] == (1 if np.mean(freqs) < fs / 2 else 2)
     played = [tone["freq_rounded"] for tone in gen["mux_tones"]]
     assert played == pytest.approx(freqs, abs=0.1)
+
+
+def test_v2_mux_phase_is_reported(soc_v2_multiplexed, caplog):
+    """axis_sg_mux4_v2 has no tone phases."""
+    sequence = [mux_readout(0, 100)]
+    sequence[0].relative_phase = 90
+    with caplog.at_level("WARNING"):
+        ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+    assert "phase" in caplog.text
+
+
+def test_v2_sequence_without_readouts(soc_v2):
+    """qick's streamer needs a readout channel, as v1 does."""
+    sequence = [v2_pulse("drive0", "drive", 3, None, 0)]
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    program.acquire = None  # must not be reached
+    with pytest.raises(RuntimeError, match="acquisition"):
+        program.perform_experiment(soc_v2)
 
 
 def test_v2_normal_and_mux_generators(soc_v2_multiplexed):

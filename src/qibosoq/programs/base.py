@@ -630,10 +630,13 @@ class BaseProgramV2(AveragerProgramV2):
                     raise ValueError(
                         f"Readouts on ADC {adc_ch} must share the same duration."
                     )
-                if static and declared["freq"] != readout.frequency:
+                if static and (declared["freq"], declared["gen_ch"]) != (
+                    readout.frequency,
+                    ro_gen_ch,
+                ):
                     raise ValueError(
                         f"Readout {adc_ch} is configured at declaration (static), "
-                        "all its readouts must share the same frequency."
+                        "all its readouts must share the same frequency and DAC."
                     )
             elif static:
                 self.declare_readout(
@@ -853,6 +856,16 @@ class BaseProgramV2(AveragerProgramV2):
                 continue
             if not isinstance(elem, Rectangular):
                 raise TypeError("Only rectangular pulses can be multiplexed")
+            if (
+                elem.relative_phase != 0
+                and not self.soccfg["gens"][elem.dac]["has_phase"]
+            ):
+                logger.warning(
+                    "Multiplexed generator %d has no tone phases, the phase of %s "
+                    "is ignored.",
+                    elem.dac,
+                    elem.name,
+                )
 
             tones = self.mux_tones.setdefault(elem.dac, [])
             tone = next((tone for tone in tones if tone.adc == elem.adc), None)
@@ -923,11 +936,11 @@ class BaseProgramV2(AveragerProgramV2):
             Single shots: (readouts, shots) per channel, or
             (readouts, sweep_points, shots) when sweeping.
         """
-        buf = self.acquire(soc, rounds=self.rounds, progress=False)
-
-        # if there are no actual readouts, return empty lists
+        # as in v1: qick's streamer needs at least one readout channel
         if self.readouts_per_experiment == 0:
-            return [], []
+            raise RuntimeError("At least an acquisition is required.")
+
+        buf = self.acquire(soc, rounds=self.rounds, progress=False)
 
         if not average:
             return self.collect_shots()
