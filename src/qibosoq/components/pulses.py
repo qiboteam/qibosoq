@@ -1,10 +1,17 @@
 """Pulses objects."""
 
+import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
 import numpy as np
+
+
+def samples_digest(*samples) -> str:
+    """Return a short digest identifying waveform samples."""
+    data = np.array(samples, dtype=float)
+    return hashlib.sha1(data.tobytes()).hexdigest()[:16]
 
 
 @dataclass
@@ -82,7 +89,7 @@ class Gaussian(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        return f"{self.dac}_gaus_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}"
+        return f"{self.dac}_gaus_{self.rel_sigma}_{self.duration}"
 
 
 @dataclass
@@ -98,10 +105,7 @@ class Drag(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        rel_sigma = round(self.rel_sigma, 2)
-        duration = round(self.duration, 2)
-        beta = round(self.beta, 2)
-        return f"{self.dac}_drag_{rel_sigma}_{duration}_{beta}"
+        return f"{self.dac}_drag_{self.rel_sigma}_{self.duration}_{self.beta}"
 
 
 @dataclass
@@ -115,9 +119,7 @@ class FlatTop(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        return (
-            f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
-        )
+        return f"{self.dac}_flattop_{self.rel_sigma}_{self.duration}"
 
     @property
     def style(self) -> Optional[str]:
@@ -150,6 +152,11 @@ class Hann(Pulse):
 
     shape: str = "hann"
 
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_hann_{self.duration}"
+
     def i_values(self, duration: int, max_gain: int):
         """Compute the full-scale waveform i values.
 
@@ -169,8 +176,13 @@ class Arbitrary(Pulse):
 
     @property
     def waveform_name(self) -> Optional[str]:
-        """Return waveform name from parameters."""
-        return self.name
+        """Return waveform name from parameters.
+
+        The samples are part of the name, since qibolab can reuse a pulse id
+        with a different envelope.
+        """
+        digest = samples_digest(self.i_values, self.q_values)
+        return f"{self.dac}_arb_{self.duration}_{digest}"
 
 
 class Shape(Enum):

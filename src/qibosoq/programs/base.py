@@ -430,10 +430,8 @@ class BaseProgramV2(AveragerProgramV2):
         )
 
         self.pulses_registered = False
-        self.registered_waveforms: Dict[int, list] = {}
-        for pulse in self.pulse_sequence:
-            if pulse.dac not in self.registered_waveforms:
-                self.registered_waveforms[pulse.dac] = []
+        # {envelope definition: envelope name}, see envelope_name
+        self.envelope_names: Dict[str, str] = {}
 
         # {seq_idx: QickSweep1D} swept readout down-conversion frequencies.
         # Populated by sweep programs before declare_readout_freq so a
@@ -471,10 +469,28 @@ class BaseProgramV2(AveragerProgramV2):
         """Return a program-unique name for the pulse definition.
 
         qibolab can reuse a pulse id within a sequence (e.g. a duplicated rx90),
-        while qick v2 needs unique pulse names. Envelopes stay keyed by
-        ``pulse.name``, so duplicates still share waveform memory.
+        while qick v2 needs unique pulse names. Envelopes are shared through
+        ``envelope_name`` instead.
         """
         return f"{pulse.name}_{self.element_index[id(pulse)]}"
+
+    def envelope_name(self, base: str, definition: str) -> Tuple[str, bool]:
+        """Return the envelope name for a definition, and whether it is new.
+
+        Pulses with the same definition share one envelope in waveform memory.
+        A pulse id can come with different envelopes (qibolab keeps the id when
+        replacing amplitude or duration), so the first envelope is named
+        ``base`` and the following ones get a numbered suffix.
+        """
+        if definition in self.envelope_names:
+            return self.envelope_names[definition], False
+        taken = set(self.envelope_names.values())
+        name, count = base, 0
+        while name in taken:
+            count += 1
+            name = f"{base}_{count}"
+        self.envelope_names[definition] = name
+        return name, True
 
     def readout_config_name(self, readout: Element) -> str:
         """Return the name of the readout config to send before ``readout``."""
@@ -664,13 +680,14 @@ class BaseProgramV2(AveragerProgramV2):
         """
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
-        envelope_name = pulse.name + "_envelope"
+        envelope_name, new_envelope = None, False
+        if pulse.waveform_name is not None:
+            envelope_name, new_envelope = self.envelope_name(
+                pulse.name + "_envelope", pulse.waveform_name
+            )
 
-        # Register the envelope shape (only once per unique pulse name)
-        if (
-            envelope_name is not None
-            and envelope_name not in self.registered_waveforms[gen_ch]
-        ):
+        # Register the envelope shape (only once per definition)
+        if new_envelope:
             if isinstance(pulse, Gaussian):
                 # unlike asm_v1 (GAUSS_BUG), v2 takes the true standard deviation
                 sigma = pulse.duration / pulse.rel_sigma
@@ -720,7 +737,6 @@ class BaseProgramV2(AveragerProgramV2):
                     idata=np.array(pulse.i_values) * max_gain,
                     qdata=np.array(pulse.q_values) * max_gain,
                 )
-            self.registered_waveforms[gen_ch].append(envelope_name)
 
         # Register the pulse definition (freq/phase/gain in v2 native units;
         # caller may pass QickSweep1D objects via the optional override args)

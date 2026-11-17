@@ -15,6 +15,7 @@ from qibosoq.components.pulses import (
     FluxExponential,
     Pulse,
     Rectangular,
+    samples_digest,
 )
 from qibosoq.programs.base import BaseProgram, BaseProgramV2
 
@@ -126,10 +127,14 @@ class FluxProgram(BaseProgram):
         if (abs(i_vals) > max_gain).any():
             raise ValueError("Flux pulse got amplitude > 1")
 
-        self.add_pulse(gen_ch, pulse.name, i_vals, q_vals)
+        # qick replaces an envelope added again under the same name, so the
+        # name must change with the samples (a pulse id can be reused)
+        name = f"{gen_ch}_flux_{samples_digest(i_vals)}"
+        if name not in self.envelopes[gen_ch]["envs"]:
+            self.add_pulse(gen_ch, name, i_vals, q_vals)
         self.set_pulse_registers(
             ch=gen_ch,
-            waveform=pulse.name,
+            waveform=name,
             style="arb",
             outsel="input",
             stdysel="last",
@@ -342,14 +347,16 @@ class FluxProgramV2(BaseProgramV2):
         if (abs(i_vals) > max_gain).any():
             raise ValueError("Flux pulse got amplitude > 1")
 
-        if pulse.name not in self.registered_waveforms[gen_ch]:
-            self.add_envelope(ch=gen_ch, name=pulse.name, idata=i_vals, qdata=q_vals)
-            self.registered_waveforms[gen_ch].append(pulse.name)
+        envelope_name, new_envelope = self.envelope_name(
+            pulse.name, f"{gen_ch}_flux_{samples_digest(i_vals)}"
+        )
+        if new_envelope:
+            self.add_envelope(ch=gen_ch, name=envelope_name, idata=i_vals, qdata=q_vals)
         self.add_pulse(
             ch=gen_ch,
             name=self.pulse_name(pulse),
             style="arb",
-            envelope=pulse.name,
+            envelope=envelope_name,
             freq=0,
             phase=0,
             gain=1.0,  # amplitude already encoded in i_vals (scaled to max_gain)

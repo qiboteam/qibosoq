@@ -216,3 +216,50 @@ def test_flux_body(soc):
     )
     with pytest.raises(NotImplementedError):
         program = ExecutePulseSequence(soc, config, sequence, qubits)
+
+
+def test_flux_repeated_name_with_different_amplitude(soc):
+    """qibolab keeps the pulse id when replacing the amplitude."""
+    config = Config()
+    sequence = [
+        Rectangular(
+            frequency=0,
+            amplitude=amplitude,
+            relative_phase=0,
+            start_delay=0,
+            duration=0.04,
+            name="pulse_flux",
+            type="flux",
+            dac=1,
+            adc=None,
+        )
+        for amplitude in (0.1, 0.4)
+    ]
+    program = ExecutePulseSequence(soc, config, sequence, [Qubit(dac=1)])
+
+    peaks = sorted(
+        env["data"][:, 0].max() for env in program.envelopes[1]["envs"].values()
+    )
+    maxv = soc.get_maxv(1)
+    assert peaks == pytest.approx([0.1 * maxv, 0.4 * maxv], abs=1)
+
+
+def test_drive_envelopes_differ_by_duration(soc):
+    config = Config()
+    sequence = [
+        Gaussian(
+            frequency=100,
+            amplitude=0.1,
+            relative_phase=0,
+            start_delay=0,
+            duration=duration,
+            name="rx",
+            type="drive",
+            dac=3,
+            adc=None,
+            rel_sigma=5,
+        )
+        for duration in (0.041, 0.044)
+    ]
+    program = ExecutePulseSequence(soc, config, sequence, [Qubit()])
+    assert len(program.envelopes[3]["envs"]) == 2

@@ -429,6 +429,34 @@ def test_v2_repeated_pulse_names(soc_v2):
     assert phases[0] != phases[1]
 
 
+def test_v2_repeated_pulse_names_with_different_envelopes(soc_v2):
+    """qibolab keeps the pulse id when replacing amplitude or duration."""
+    sequence = [
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("rx", "drive", 3, None, 0, 0.04, cls=Gaussian, rel_sigma=5),
+        v2_pulse("rx", "drive", 3, None, 0, 0.08, cls=Gaussian, rel_sigma=5),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[1].amplitude = 0.4
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    def played(name):
+        dac = name_dac[name]
+        # the waveform address is in clock cycles
+        addr = (
+            program.pulses[name].waveforms[0].env * soc_v2["gens"][dac]["samps_per_clk"]
+        )
+        envs = program.envelopes[dac]["envs"].values()
+        return next(env["data"][:, 0] for env in envs if env["addr"] == addr)
+
+    name_dac = {"flux0_0": 2, "flux0_1": 2, "rx_2": 3, "rx_3": 3}
+    maxv = soc_v2.get_maxv(2)
+    assert played("flux0_0").max() == pytest.approx(0.1 * maxv, abs=1)
+    assert played("flux0_1").max() == pytest.approx(0.4 * maxv, abs=1)
+    assert len(played("rx_3")) == 2 * len(played("rx_2"))
+
+
 def test_v2_time_of_flight_in_ticks(soc_v2):
     sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
     program = ExecutePulseSequenceV2(
