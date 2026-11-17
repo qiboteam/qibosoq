@@ -26,6 +26,18 @@ from qibosoq.components.pulses import (
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
 
+def check_not_mux(soccfg, pulse: Pulse):
+    """Raise if a pulse that is not a multiplexed readout targets a mux generator.
+
+    A mux generator only plays the readout tones declared with it.
+    """
+    if "n_tones" in soccfg["gens"][pulse.dac]:
+        raise ValueError(
+            f"Generator {pulse.dac} is multiplexed and only plays readout pulses, "
+            f"but got a {pulse.type} pulse ({pulse.name})."
+        )
+
+
 def resample_envelope(values, n_samples: int) -> np.ndarray:
     """Linearly resample envelope samples to ``n_samples`` points.
 
@@ -104,6 +116,7 @@ class BaseProgram(QickProgram):
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
+                check_not_mux(self.soccfg, pulse)
                 sampling_rate = self.soccfg["gens"][gen_ch]["fs"]
                 zone = 1 if freq < sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
@@ -569,7 +582,8 @@ class BaseProgramV2(AveragerProgramV2):
         for pulse in pulse_sequence:
             ch_to_pulses.setdefault(pulse.dac, []).append(pulse)
 
-        for gen_ch, pulses in ch_to_pulses.items():
+        for pulses in ch_to_pulses.values():
+            check_not_mux(self.soccfg, pulses[0])
             self.declare_nqz_zones(pulses)
 
     def declare_readout_freq(self):

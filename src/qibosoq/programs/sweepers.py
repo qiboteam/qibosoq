@@ -68,9 +68,16 @@ class ExecuteSweeps(FluxProgram, NDAveragerProgram):
             elif par is Parameter.DURATION:
                 raise NotImplementedError("Sweepers on duration are not implemented.")
             else:
-                if self.sequence[sweeper.indexes[idx]].type == "flux":
+                target = self.sequence[sweeper.indexes[idx]]
+                if target.type == "flux":
                     raise NotImplementedError(
                         "Sweepers on flux pulses are not implemented."
+                    )
+                if not isinstance(target, Pulse) and par is not Parameter.DELAY:
+                    # an acquisition has no generator registers to sweep
+                    raise NotImplementedError(
+                        f"Sweepers on {par.value} of an acquisition without "
+                        "pulse are not implemented."
                     )
 
     def add_sweep_info_bias(self, sweeper: Sweeper) -> List[Sweeper]:
@@ -215,6 +222,14 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                 if target.type == "flux":
                     raise NotImplementedError(
                         "Sweepers on flux pulses are not implemented."
+                    )
+                if not isinstance(target, Pulse) and par in (
+                    Parameter.AMPLITUDE,
+                    Parameter.RELATIVE_PHASE,
+                ):
+                    raise NotImplementedError(
+                        f"Sweepers on {par.value} of an acquisition without "
+                        "pulse are not implemented."
                     )
                 group_idx = self.mux_group_of.get(id(target))
                 if group_idx is not None:
