@@ -111,3 +111,19 @@ def test_hann_envelope_is_full_scale():
     values = pulse.i_values(100, 32766)
     assert values.max() == pytest.approx(32766)
     assert values[0] == 0
+
+
+@pytest.mark.parametrize("samples", [3, 7, 49, 112])
+def test_hann_sample_count(samples):
+    pulse = Hann(
+        frequency=100,
+        amplitude=0.5,
+        relative_phase=0,
+        start_delay=0,
+        duration=0.1,
+        name="hann",
+        type="drive",
+        dac=0,
+        adc=None,
+    )
+    assert len(pulse.i_values(samples, 1)) == samples

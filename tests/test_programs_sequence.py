@@ -316,14 +316,54 @@ def test_v2_bias_and_flux_pulses_hold_their_value(soc_v2):
         assert program.pulses[name].params["stdysel"] == "last"
 
 
+def macros(program, name):
+    return [macro for macro in program.macro_list if type(macro).__name__ == name]
+
+
+def test_v2_bias_held_through_relaxation(soc_v2):
+    """The bias goes back to zero only after the last shot."""
+    sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
+    program = ExecutePulseSequenceV2(
+        soc_v2, Config(), sequence, [Qubit(bias=0.3, dac=2)]
+    )
+    names = [
+        (type(macro).__name__, getattr(macro, "name", None))
+        for macro in program.macro_list
+    ]
+    close = names.index(("CloseLoop", None))
+    assert names.index(("Pulse", "bias_sweetspot_2")) < close
+    assert names.index(("Pulse", "bias_zero_2")) > close
+
+
 def test_v2_back_to_back_readouts_do_not_overlap(soc_v2, caplog):
+    """qibolab counts start_delay from the start of the previous element."""
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0, duration=1.0),
-        v2_pulse("readout1", "readout", 6, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 0, 1.0, duration=1.0),
     ]
     with caplog.at_level("WARNING"):
-        ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+        program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
     assert "conflict" not in caplog.text
+    # the first acquisition is still running, its config is not resent
+    assert len(macros(program, "ConfigReadout")) == (
+        0 if program.is_static_readout(0) else 1
+    )
+
+
+def test_v2_simultaneous_readouts_start_together(soc_v2):
+    sequence = [
+        v2_pulse("readout0", "readout", 5, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 1, 0, duration=1.0),
+    ]
+    sequence[1].frequency = 200
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    body = program.macro_list
+    triggers = [
+        idx for idx, macro in enumerate(body) if macro in macros(program, "Trigger")
+    ]
+    between = body[triggers[0] : triggers[1]]
+    delays = [macro for macro in between if type(macro).__name__ == "Delay"]
+    assert all(macro.t == 0 and not macro.auto for macro in delays)
 
 
 def test_v2_gaussian_readout(soc_v2):
@@ -397,6 +437,59 @@ def test_v2_arbitrary_envelopes_in_dac_units(soc_v2):
     assert flux.max() == pytest.approx(0.5 * soc_v2["gens"][2]["maxv"], abs=1)
 
 
+def test_v2_envelopes_respect_maxv_scale(soc_v2):
+    """int4 generators limit the envelopes to 0.9 maxv, as qick's own shapes."""
+    for gen in (2, 3):
+        soc_v2["gens"][gen]["maxv_scale"] = 0.9
+    samples = 64
+    kw = dict(cls=Arbitrary, i_values=[1.0] * samples, q_values=[0.0] * samples)
+    sequence = [
+        v2_pulse("arb", "drive", 3, None, 0, **kw),
+        v2_pulse("hann", "drive", 3, None, 0, cls=Hann),
+        v2_pulse("gauss", "drive", 3, None, 0, cls=Gaussian, rel_sigma=5),
+        v2_pulse("flux0", "flux", 2, None, 0, **kw),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[3].amplitude = 1.0
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    envs = program.envelopes[3]["envs"]
+    gauss_peak = envs["gauss_envelope"]["data"][:, 0].max()
+    assert gauss_peak == pytest.approx(soc_v2.get_maxv(3), abs=1)
+    assert envs["arb_envelope"]["data"][:, 0].max() == pytest.approx(gauss_peak, abs=1)
+    assert envs["hann_envelope"]["data"][:, 0].max() == pytest.approx(
+        gauss_peak, rel=0.01
+    )
+    flux = program.envelopes[2]["envs"]["flux0"]["data"][:, 0]
+    assert flux.max() == pytest.approx(soc_v2.get_maxv(2), abs=1)
+
+
+@pytest.mark.parametrize("samples", [40, 400, 500])
+def test_v2_arbitrary_envelopes_resampled_to_duration(soc_v2, samples):
+    """qibolab samples envelopes at its own rate, not at the DAC one."""
+    duration = 0.04
+    ramp = list(np.linspace(0, 1, samples))
+    kw = dict(cls=Arbitrary, i_values=ramp, q_values=[0.0] * samples)
+    sequence = [
+        v2_pulse("drive0", "drive", 3, None, 0, duration, **kw),
+        v2_pulse("flux0", "flux", 2, None, 0, duration, **kw),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[1].amplitude = 1.0
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    for dac, name in [(3, "drive0_envelope"), (2, "flux0")]:
+        expected = soc_v2.us2cycles(duration, gen_ch=dac) * (
+            soc_v2["gens"][dac]["samps_per_clk"]
+        )
+        data = program.envelopes[dac]["envs"][name]["data"][:expected, 0]
+        assert len(data) == expected
+        # the ramp keeps its shape: increasing, from about 0 to full scale
+        assert np.all(np.diff(data) >= 0)
+        assert data[0] < 0.05 * soc_v2.get_maxv(dac)
+        assert data[-1] > 0.95 * soc_v2.get_maxv(dac)
+
+
 def test_v2_readouts_on_dacs_in_different_zones(soc_v2):
     sequence = [
         v2_pulse("readout0", "readout", 5, 0, 0),
@@ -429,6 +522,48 @@ def test_v2_repeated_pulse_names(soc_v2):
     assert phases[0] != phases[1]
 
 
+def test_v2_repeated_pulse_names_with_different_envelopes(soc_v2):
+    """qibolab keeps the pulse id when replacing amplitude or duration."""
+    sequence = [
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("flux0", "flux", 2, None, 0),
+        v2_pulse("rx", "drive", 3, None, 0, 0.04, cls=Gaussian, rel_sigma=5),
+        v2_pulse("rx", "drive", 3, None, 0, 0.08, cls=Gaussian, rel_sigma=5),
+        v2_pulse("readout0", "readout", 6, 0, 0),
+    ]
+    sequence[1].amplitude = 0.4
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit(dac=2)])
+
+    def played(name):
+        dac = name_dac[name]
+        # the waveform address is in clock cycles
+        addr = (
+            program.pulses[name].waveforms[0].env * soc_v2["gens"][dac]["samps_per_clk"]
+        )
+        envs = program.envelopes[dac]["envs"].values()
+        return next(env["data"][:, 0] for env in envs if env["addr"] == addr)
+
+    name_dac = {"flux0_0": 2, "flux0_1": 2, "rx_2": 3, "rx_3": 3}
+    maxv = soc_v2.get_maxv(2)
+    assert played("flux0_0").max() == pytest.approx(0.1 * maxv, abs=1)
+    assert played("flux0_1").max() == pytest.approx(0.4 * maxv, abs=1)
+    assert len(played("rx_3")) == 2 * len(played("rx_2"))
+
+
+def test_v2_results_in_ascending_adc_order(soc_v2):
+    """qibolab maps the results to the ADCs in ascending order."""
+    sequence = [
+        v2_pulse("readout1", "readout", 6, 1, 0),
+        v2_pulse("readout0", "readout", 5, 0, 0),
+    ]
+    sequence[0].frequency = 200
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    assert list(program.ro_chs) == [0, 1]
+    if not program.is_static_readout(0):
+        configs = program.readout_config_names
+        assert configs[0].startswith("readout_1") and configs[1].startswith("readout_0")
+
+
 def test_v2_time_of_flight_in_ticks(soc_v2):
     sequence = [v2_pulse("readout0", "readout", 6, 0, 0)]
     program = ExecutePulseSequenceV2(
@@ -456,7 +591,7 @@ def normalized(program, raw):
 def test_v2_single_shots(soc_v2):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
-        v2_pulse("readout1", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0.1),
     ]
     reps = 5
     program = ExecutePulseSequenceV2(
@@ -477,18 +612,28 @@ def test_v2_single_shots(soc_v2):
             assert totq[0][read][shot] == pytest.approx(expected[shot, read, 1])
 
 
-def test_v2_static_readout(soc_v2_static, mocker):
+@pytest.mark.parametrize("measurement_first", [False, True])
+@pytest.mark.parametrize("measurement_dac", [6, 0])
+def test_v2_static_readout(soc_v2_static, mocker, measurement_dac, measurement_first):
+    """qibolab sends acquisitions without pulse on DAC 0."""
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
         Measurement(
-            type="readout", frequency=100, start_delay=0, duration=0.1, dac=6, adc=0
+            type="readout",
+            frequency=100,
+            start_delay=0,
+            duration=0.1,
+            dac=measurement_dac,
+            adc=0,
         ),
     ]
+    if measurement_first:
+        sequence.reverse()
     program = ExecutePulseSequenceV2(soc_v2_static, Config(), sequence, [Qubit()])
     readout = program.ro_chs[0]
     assert (readout["freq"], readout["gen_ch"], readout["trigs"]) == (100, 6, 2)
     # the frequency is set by PYNQ, there is no tProc readout config
-    assert list(program.pulses) == ["readout0_0"]
+    assert list(program.pulses) == [f"readout0_{int(measurement_first)}"]
 
     soc = mocker.Mock()
     program.config_readouts(soc)
@@ -507,11 +652,13 @@ def test_v2_readout_config_only_for_dynamic_readouts(soc_v2):
     assert program.asm().count("WPORT_WR") == 1 + dynamic
 
 
-@pytest.mark.parametrize("field, value", [("frequency", 200), ("duration", 0.2)])
+@pytest.mark.parametrize(
+    "field, value", [("frequency", 200), ("duration", 0.2), ("dac", 5)]
+)
 def test_v2_static_readouts_on_one_adc_must_match(soc_v2_static, field, value):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
-        v2_pulse("readout1", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0.1),
     ]
     setattr(sequence[1], field, value)
     with pytest.raises(ValueError):
@@ -530,8 +677,8 @@ def test_v2_readouts_on_one_adc_must_share_duration(soc_v2):
 def test_v2_dynamic_readout_config_per_frequency(soc_v2_dynamic):
     sequence = [
         v2_pulse("readout0", "readout", 6, 0, 0),
-        v2_pulse("readout1", "readout", 6, 0, 0),
-        v2_pulse("readout2", "readout", 6, 0, 0),
+        v2_pulse("readout1", "readout", 6, 0, 0.1),
+        v2_pulse("readout2", "readout", 6, 0, 0.1),
     ]
     sequence[1].frequency = 200
     program = ExecutePulseSequenceV2(soc_v2_dynamic, Config(), sequence, [Qubit()])
@@ -587,8 +734,8 @@ def test_v2_mux_tones_and_masks(soc_v2_multiplexed, mocker):
         mux_readout(0, 100),
         v2_pulse("drive0", "drive", 3, None, 0),
         # equal to the second readout, but a separate acquisition
-        mux_readout(0, 100),
-        mux_readout(0, 100),
+        mux_readout(0, 100, start_delay=0.1),
+        mux_readout(0, 100, start_delay=0.1),
     ]
     program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
 
@@ -609,6 +756,37 @@ def test_v2_mux_tones_and_masks(soc_v2_multiplexed, mocker):
     for tone, adc in zip(tones, (1, 0)):
         port = soc_v2_multiplexed["readouts"][adc]["pfb_port"]
         assert tone["freq_rounded"] == pytest.approx(ro_freqs[port])
+
+
+@pytest.mark.parametrize("freqs", [(400, 450), (7226, 7300)])
+def test_v2_mux_mixer_centred_on_tones(soc_v2_multiplexed, freqs):
+    """qick's mux4 v2 generator has a digital mixer, the tones are offsets."""
+    sequence = [mux_readout(0, freqs[0]), mux_readout(1, freqs[1])]
+    program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+    gen = program.gen_chs[6]
+    assert gen["mixer_freq"]["rounded"] == pytest.approx(np.mean(freqs), abs=1)
+    fs = soc_v2_multiplexed["gens"][6]["fs"]
+    assert gen["nqz"] == (1 if np.mean(freqs) < fs / 2 else 2)
+    played = [tone["freq_rounded"] for tone in gen["mux_tones"]]
+    assert played == pytest.approx(freqs, abs=0.1)
+
+
+def test_v2_mux_phase_is_reported(soc_v2_multiplexed, caplog):
+    """axis_sg_mux4_v2 has no tone phases."""
+    sequence = [mux_readout(0, 100)]
+    sequence[0].relative_phase = 90
+    with caplog.at_level("WARNING"):
+        ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
+    assert "phase" in caplog.text
+
+
+def test_v2_sequence_without_readouts(soc_v2):
+    """qick's streamer needs a readout channel, as v1 does."""
+    sequence = [v2_pulse("drive0", "drive", 3, None, 0)]
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+    program.acquire = None  # must not be reached
+    with pytest.raises(RuntimeError, match="acquisition"):
+        program.perform_experiment(soc_v2)
 
 
 def test_v2_normal_and_mux_generators(soc_v2_multiplexed):
@@ -665,3 +843,49 @@ def test_v2_measurement_with_mux_readouts(soc_v2_multiplexed):
     program = ExecutePulseSequenceV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])
     assert program.mux_group_pulses == ["mux_ro_6_0"]
     assert [program.ro_chs[adc]["trigs"] for adc in (0, 1)] == [1, 1]
+
+
+@pytest.mark.parametrize("freqs", [(200, 500), (7226, 7300)])
+def test_v1_mux_readouts_demodulate_the_played_tones(freqs, monkeypatch, mocker):
+    """tProc v1 frequencies are relative, qick adds the mixer to the readouts."""
+    monkeypatch.setattr(qibosoq.configuration, "IS_MULTIPLEXED", True)
+    soc = qick.QickConfig(
+        str(pathlib.Path(__file__).parent / "qick_config_multiplexed.json")
+    )
+    soc.reset_gens = lambda: None
+    sequence = [mux_readout(0, freqs[0]), mux_readout(1, freqs[1])]
+    for readout in sequence:
+        readout.duration = 1
+    program = ExecutePulseSequence(soc, Config(), sequence, [Qubit()])
+    gen = program.gen_chs[6]
+    mixer = gen["mixer_freq"]["rounded"]
+    played = [mixer + tone["freq_rounded"] for tone in gen["mux_tones"]]
+    assert played == pytest.approx(freqs, abs=0.1)
+
+    program.config_readouts(mocker.Mock())
+    demodulated = [program.ro_chs[adc]["ro_config"]["f_rounded"] for adc in (0, 1)]
+    assert demodulated == pytest.approx(played, abs=0.1)
+
+
+def test_v2_readout_config_waits_for_the_previous_acquisition(soc_v2):
+    """A new config must not retune an acquisition still running on the ADC."""
+    sequence = [
+        v2_pulse("readout0", "readout", 6, 0, 0, duration=1.0),
+        v2_pulse("readout1", "readout", 6, 0, 1.0, duration=1.0),
+    ]
+    sequence[1].frequency = 200
+    if "tproc_ctrl" not in soc_v2["readouts"][0]:
+        pytest.skip("static readouts have a single frequency")
+    program = ExecutePulseSequenceV2(soc_v2, Config(), sequence, [Qubit()])
+
+    now, configs, windows = 0.0, [], []
+    for macro in program.macro_list:
+        kind = type(macro).__name__
+        if kind == "Delay":
+            now += macro.t
+        elif kind == "ConfigReadout":
+            configs.append(now + macro.t)
+        elif kind == "Trigger":
+            windows.append((now + macro.t, now + macro.t + sequence[0].duration))
+    assert len(configs) == 2
+    assert configs[1] >= windows[0][1]

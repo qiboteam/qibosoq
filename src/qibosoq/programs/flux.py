@@ -15,8 +15,9 @@ from qibosoq.components.pulses import (
     FluxExponential,
     Pulse,
     Rectangular,
+    samples_digest,
 )
-from qibosoq.programs.base import BaseProgram, BaseProgramV2
+from qibosoq.programs.base import BaseProgram, BaseProgramV2, resample_envelope
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
 
@@ -52,7 +53,7 @@ class FluxProgram(BaseProgram):
             max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
             if mode == "sweetspot":
-                value = max_gain
+                value = self.soccfg.get_maxv(flux_ch)
             elif mode == "zero":
                 value = 0
             else:
@@ -93,8 +94,10 @@ class FluxProgram(BaseProgram):
         """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        # the pulse plays at full gain, the amplitude is in the samples
+        max_envelope = self.soccfg.get_maxv(gen_ch)
         bias = self.find_qubit_sweetspot(pulse)
-        sweetspot = np.trunc(bias * max_gain).astype(int)
+        sweetspot = np.trunc(bias * max_envelope).astype(int)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         try:
@@ -106,13 +109,14 @@ class FluxProgram(BaseProgram):
         duration *= samples_per_clk  # the duration here is expressed in samples
 
         if isinstance(pulse, Rectangular):
-            amp = np.trunc(pulse.amplitude * max_gain).astype(int)
+            amp = np.trunc(pulse.amplitude * max_envelope).astype(int)
             i_vals = np.full(duration, amp)
         elif isinstance(pulse, FluxExponential):
-            i_vals = pulse.i_values(duration, max_gain)
+            i_vals = pulse.i_values(duration, max_envelope)
         elif isinstance(pulse, Arbitrary):
             # normalized envelope, flux pulses carry the amplitude in the samples
-            i_vals = np.array(pulse.i_values) * pulse.amplitude * max_gain
+            envelope = resample_envelope(pulse.i_values, duration)
+            i_vals = envelope * pulse.amplitude * max_envelope
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(
@@ -123,13 +127,17 @@ class FluxProgram(BaseProgram):
         i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
         q_vals = np.zeros(len(i_vals))
 
-        if (abs(i_vals) > max_gain).any():
+        if (abs(i_vals) > max_envelope).any():
             raise ValueError("Flux pulse got amplitude > 1")
 
-        self.add_pulse(gen_ch, pulse.name, i_vals, q_vals)
+        # qick replaces an envelope added again under the same name, so the
+        # name must change with the samples (a pulse id can be reused)
+        name = f"{gen_ch}_flux_{samples_digest(i_vals)}"
+        if name not in self.envelopes[gen_ch]["envs"]:
+            self.add_pulse(gen_ch, name, i_vals, q_vals)
         self.set_pulse_registers(
             ch=gen_ch,
-            waveform=pulse.name,
+            waveform=name,
             style="arb",
             outsel="input",
             stdysel="last",
@@ -184,8 +192,16 @@ class FluxProgram(BaseProgram):
                 self.execute_flux_pulse(elem)
 
         self.wait_all()
-        self.set_bias("zero")
+        # the bias holds the sweetspot through relaxation, see end()
         self.sync_all(self.relax_delay)
+
+    def end(self):
+        """Remove the flux bias after the last shot, then end the program.
+
+        Called once by make_program, after the repetition loops.
+        """
+        self.set_bias("zero")
+        self.append_instruction("end")
 
     def declare_zones_and_ro(self, sequence: List[Pulse]):
         """Declare all nqz zones and readout frequencies.
@@ -251,6 +267,14 @@ class FluxProgramV2(BaseProgramV2):
                     stdysel="last",  # hold the bias after the pulse ends
                 )
 
+    def _cleanup(self, cfg):
+        """Remove the flux bias after the last shot.
+
+        The bias holds the sweetspot through relaxation, so that each shot
+        starts from a settled flux.
+        """
+        self.set_bias("zero")
+
     def set_bias(self, mode: str = "sweetspot"):
         """Fire a pre-registered constant bias pulse on every flux DAC.
 
@@ -312,9 +336,10 @@ class FluxProgramV2(BaseProgramV2):
         v1 four-argument add_pulse + set_pulse_registers pair.
         """
         gen_ch = pulse.dac
-        max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        # the pulse plays at full gain, the amplitude is in the samples
+        max_envelope = self.soccfg.get_maxv(gen_ch)
         bias = self.find_qubit_sweetspot(pulse)
-        sweetspot = np.trunc(bias * max_gain).astype(int)
+        sweetspot = np.trunc(bias * max_envelope).astype(int)
 
         duration_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         samples_per_clk = self.soccfg["gens"][gen_ch]["samps_per_clk"]
@@ -322,13 +347,14 @@ class FluxProgramV2(BaseProgramV2):
 
         i_vals: np.ndarray
         if isinstance(pulse, Rectangular):
-            amp = np.trunc(pulse.amplitude * max_gain).astype(int)
+            amp = np.trunc(pulse.amplitude * max_envelope).astype(int)
             i_vals = np.full(duration_samples, amp)
         elif isinstance(pulse, FluxExponential):
-            i_vals = pulse.i_values(duration_samples, max_gain)
+            i_vals = pulse.i_values(duration_samples, max_envelope)
         elif isinstance(pulse, Arbitrary):
             # normalized envelope, flux pulses carry the amplitude in the samples
-            i_vals = np.array(pulse.i_values) * pulse.amplitude * max_gain
+            envelope = resample_envelope(pulse.i_values, duration_samples)
+            i_vals = envelope * pulse.amplitude * max_envelope
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(
@@ -339,20 +365,22 @@ class FluxProgramV2(BaseProgramV2):
         i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
         q_vals = np.zeros(len(i_vals))
 
-        if (abs(i_vals) > max_gain).any():
+        if (abs(i_vals) > max_envelope).any():
             raise ValueError("Flux pulse got amplitude > 1")
 
-        if pulse.name not in self.registered_waveforms[gen_ch]:
-            self.add_envelope(ch=gen_ch, name=pulse.name, idata=i_vals, qdata=q_vals)
-            self.registered_waveforms[gen_ch].append(pulse.name)
+        envelope_name, new_envelope = self.envelope_name(
+            pulse.name, f"{gen_ch}_flux_{samples_digest(i_vals)}"
+        )
+        if new_envelope:
+            self.add_envelope(ch=gen_ch, name=envelope_name, idata=i_vals, qdata=q_vals)
         self.add_pulse(
             ch=gen_ch,
             name=self.pulse_name(pulse),
             style="arb",
-            envelope=pulse.name,
+            envelope=envelope_name,
             freq=0,
             phase=0,
-            gain=1.0,  # amplitude already encoded in i_vals (scaled to max_gain)
+            gain=1.0,  # amplitude already encoded in i_vals
             outsel="input",
             stdysel="last",  # stay at the sweetspot after the pulse ends
         )

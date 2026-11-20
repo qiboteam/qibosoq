@@ -9,7 +9,7 @@ qick.QickSoc = None
 
 import qibosoq.configuration
 from qibosoq.components.base import Config, Parameter, Qubit, Sweeper
-from qibosoq.components.pulses import Rectangular
+from qibosoq.components.pulses import Measurement, Rectangular
 from qibosoq.programs.sweepers import ExecuteSweeps, ExecuteSweepsV2, reversed_sweepers
 
 
@@ -589,3 +589,46 @@ def test_execute_sweeps_v2_with_mux_readouts(soc_v2_multiplexed):
     )
     assert program.mux_group_pulses == ["mux_ro_6_0_1"]
     assert [program.ro_chs[adc]["trigs"] for adc in (0, 1)] == [1, 1]
+
+
+def measurement_sequence():
+    sequence = v2_sequence()
+    measurement = Measurement(
+        type="readout",
+        frequency=100,
+        start_delay=0.04,
+        duration=0.04,
+        dac=6,
+        adc=0,
+    )
+    return [sequence[0], measurement]
+
+
+@pytest.mark.parametrize("parameter", [Parameter.AMPLITUDE, Parameter.RELATIVE_PHASE])
+def test_execute_sweeps_v2_measurement_parameters(soc_v2, parameter):
+    """An acquisition without pulse has no gain or phase to sweep."""
+    sweeper = Sweeper(
+        expts=5, parameters=[parameter], starts=[0], stops=[0.5], indexes=[1]
+    )
+    with pytest.raises(NotImplementedError, match="acquisition"):
+        ExecuteSweepsV2(soc_v2, Config(), measurement_sequence(), [Qubit()], sweeper)
+
+
+@pytest.mark.parametrize(
+    "parameter", [Parameter.AMPLITUDE, Parameter.RELATIVE_PHASE, Parameter.FREQUENCY]
+)
+def test_execute_sweeps_measurement_parameters(soc, parameter):
+    """v1 sweeps generator registers, which an acquisition does not have."""
+    sweeper = Sweeper(
+        expts=5, parameters=[parameter], starts=[0], stops=[0.5], indexes=[1]
+    )
+    with pytest.raises(NotImplementedError, match="acquisition"):
+        ExecuteSweeps(soc, Config(), measurement_sequence(), [Qubit()], sweeper)
+
+
+def test_drive_pulse_on_mux_generator(soc_v2_multiplexed):
+    """A probe played as a separate pulse cannot use the mux generator."""
+    sequence = measurement_sequence()
+    sequence[0] = replace(sequence[0], dac=6)
+    with pytest.raises(ValueError, match="multiplexed"):
+        ExecuteSweepsV2(soc_v2_multiplexed, Config(), sequence, [Qubit()])

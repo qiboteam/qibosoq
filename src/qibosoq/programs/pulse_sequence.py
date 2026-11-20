@@ -64,4 +64,3 @@ class ExecutePulseSequenceV2(FluxProgramV2, AveragerProgramV2):
     def _body(self, cfg):
         """Execute inside the hardware repetitions loop. Plays the pulse sequence."""
         self.play_sequence()
-        self.set_bias("zero")

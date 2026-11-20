@@ -294,7 +294,7 @@
             "revision": 2,
             "tproc_ch": 6,
             "dac": "00",
-            "has_mixer": false,
+            "has_mixer": true,
             "has_dds": true,
             "fs": 6881.280000000001,
             "fs_mult": 56,
