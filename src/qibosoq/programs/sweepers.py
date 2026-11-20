@@ -189,6 +189,7 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
         qubits: List[Qubit],
         *sweepers: Sweeper,
     ):
+        """Init function, stores sweepers before calling super.__init__."""
         self.sweepers = list(sweepers)
         super().__init__(soc, qpcfg, sequence, qubits)
 
@@ -210,9 +211,33 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
             elif par is Parameter.DURATION:
                 raise NotImplementedError("Sweepers on duration are not implemented.")
             else:
-                if self.sequence[sweeper.indexes[idx]].type == "flux":
+                target = self.sequence[sweeper.indexes[idx]]
+                if target.type == "flux":
                     raise NotImplementedError(
                         "Sweepers on flux pulses are not implemented."
+                    )
+                group_idx = self.mux_group_of.get(id(target))
+                if group_idx is not None:
+                    # mux tones are fixed at declaration, a delayed readout
+                    # would still be played with the previous ones
+                    if par is not Parameter.DELAY:
+                        raise NotImplementedError(
+                            f"Sweepers on {par.value} of multiplexed readouts "
+                            "are not implemented."
+                        )
+                    if self.multi_ro_pulses[group_idx][0] is not target:
+                        raise NotImplementedError(
+                            "Sweepers on delay of a multiplexed readout played "
+                            "with the previous ones are not implemented."
+                        )
+                if (
+                    par is Parameter.FREQUENCY
+                    and target.type == "readout"
+                    and self.is_static_readout(target.adc)
+                ):
+                    raise NotImplementedError(
+                        f"Readout {target.adc} is configured at declaration (static), "
+                        "its frequency cannot be swept."
                     )
 
     def _initialize(self, cfg):
@@ -245,13 +270,12 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                     pulse_sweeps.setdefault(jdx, {})[par] = swept
                     # A readout-frequency sweep must also move the ADC
                     # down-conversion frequency, not only the DAC pulse.
-                    # (mux readout sweeps are not supported yet.)
+                    # (mux readout sweeps are rejected in validate.)
                     if (
                         par is Parameter.FREQUENCY
                         and self.sequence[jdx].type == "readout"
-                        and not self.is_mux
                     ):
-                        self.ro_freq_sweeps[self.sequence[jdx].adc] = swept
+                        self.ro_freq_sweeps[jdx] = swept
 
         # Declared after ro_freq_sweeps is known so the readout config picks up
         # the swept down-conversion frequency when requested.
@@ -277,19 +301,18 @@ class ExecuteSweepsV2(FluxProgramV2, AveragerProgramV2):
                 pulse.type == "readout"
                 and isinstance(pulse, Pulse)
                 and pulse.adc is not None
+                and not self.is_mux_gen(pulse.dac)
             ):
-                if not self.is_mux:
-                    swept = pulse_sweeps.get(seq_idx, {})
-                    self.add_ro_pulse_to_register(
-                        pulse,
-                        freq=swept.get(Parameter.FREQUENCY),
-                        gain=swept.get(Parameter.AMPLITUDE),
-                        phase=swept.get(Parameter.RELATIVE_PHASE),
-                    )
-        if self.is_mux:
-            self.register_mux_readout_groups()
+                swept = pulse_sweeps.get(seq_idx, {})
+                self.add_pulse_to_register(
+                    pulse,
+                    freq=swept.get(Parameter.FREQUENCY),
+                    gain=swept.get(Parameter.AMPLITUDE),
+                    phase=swept.get(Parameter.RELATIVE_PHASE),
+                )
+        self.register_mux_readout_groups()
 
     def _body(self, cfg):
-        """Executed inside all sweep loops. Identical to ExecutePulseSequenceV2."""
+        """Execute inside all sweep loops. Identical to ExecutePulseSequenceV2."""
         self.play_sequence()
         self.set_bias("zero")

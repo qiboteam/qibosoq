@@ -20,6 +20,7 @@ from qibosoq.programs.sweepers import ExecuteSweeps, ExecuteSweepsV2
 logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
 TPROC_VERSION = 0  # set 0 first, to ensure that version is set in serve()
+MUX4_PHASE_BITS = 32
 
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
@@ -95,15 +96,6 @@ def validate_sweeps_payload(data: dict) -> List[Dict]:
     return sweepers
 
 
-def us_to_tproc_ticks(time_us: float, qick_soc: QickSoc) -> int:
-    """Convert a time in microseconds to tProc (v1) clock ticks.
-
-    ``ro_time_of_flight`` is expressed in us; tProc v1 needs it in clock ticks
-    (as ``adc_trig_offset``), while tProc v2 consumes it in us directly.
-    """
-    return int(qick_soc.us2cycles(time_us))
-
-
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
@@ -113,9 +105,10 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     opcode = OperationCode(data["operation_code"])
     args = []
 
-    # soft_avgs is deprecated and kept only for backward compatibility; drop it
-    # here so it is never used for the rest of the sequence (see 'rounds').
-    data["cfg"].pop("soft_avgs", None)
+    # soft_avgs is the deprecated name of rounds, still sent by older clients
+    soft_avgs = data["cfg"].pop("soft_avgs", 1)
+    if data["cfg"].get("rounds", 1) == 1:
+        data["cfg"]["rounds"] = soft_avgs
 
     # 1. Program Instantiation based on TPROC_VERSION
     if TPROC_VERSION == 1:
@@ -134,11 +127,6 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
                 f"Operation code {data['operation_code']} not supported"
             )
 
-        # ro_time_of_flight is provided in us; tProc v1 needs ADC clock ticks.
-        if "ro_time_of_flight" in data["cfg"]:
-            data["cfg"]["ro_time_of_flight"] = us_to_tproc_ticks(
-                data["cfg"]["ro_time_of_flight"], qick_soc
-            )
         # remove ASMv2 specific keys from the config for tProc v1
         if "final_wait" in data["cfg"]:
             del data["cfg"]["final_wait"]
@@ -224,7 +212,9 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
                 toti = None
                 totq = None
         else:
-            toti, totq = program.perform_experiment(qick_soc)
+            toti, totq = program.perform_experiment(
+                qick_soc, average=data["cfg"].get("average", True)
+            )
     else:
         raise RuntimeError(f"Unknown TPROC_VERSION {TPROC_VERSION}")
 
@@ -270,10 +260,31 @@ class ConnectionHandler(BaseRequestHandler):
         self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
+def fix_mux4_generators():
+    """Let QickSoc load firmware with axis_sg_mux4 generators.
+
+    qick leaves B_PHASE unset for AxisSgMux4V1/V2/V3, but asserts it for every
+    pulsed generator, so QickSoc() fails on such firmware. These generators have
+    no phase register, so any width works. Only a missing B_PHASE is set, so
+    this does nothing on other firmware or once qick defines it.
+    """
+    # pylint: disable-next=import-outside-toplevel
+    from qick.drivers import generator  # needs pynq, only on the board
+
+    for name in ("AxisSgMux4V1", "AxisSgMux4V2", "AxisSgMux4V3"):
+        driver = getattr(generator, name, None)
+        if driver is not None and driver.B_PHASE is None:
+            driver.B_PHASE = MUX4_PHASE_BITS
+
+
 def log_initial_info():
     """Log info regarding the loaded configuration."""
     logger.info("Server listening, PID %d", os.getpid())
-    mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
+    if TPROC_VERSION == 2:
+        # tProc v2 programs detect the multiplexed generators themselves
+        mux_str = "tProc v2"
+    else:
+        mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
     logger.info("%s firmware loaded from %s", mux_str, cfg.QICKSOC_LOCATION)
 
 
@@ -283,6 +294,7 @@ def serve(host, port):
     TCPServer.allow_reuse_address = True
     global TPROC_VERSION  # to access global variable
     with TCPServer((host, port), ConnectionHandler) as server:
+        fix_mux4_generators()
         server.qick_soc = QickSoc(
             bitfile=cfg.QICKSOC_LOCATION, external_clk=cfg.EXT_CLK
         )
