@@ -14,11 +14,13 @@ from qick import QickSoc
 import qibosoq.configuration as cfg
 from qibosoq.components.base import Config, OperationCode, Parameter, Qubit, Sweeper
 from qibosoq.components.pulses import Element, Measurement, Shape
-from qibosoq.programs.pulse_sequence import ExecutePulseSequence
-from qibosoq.programs.sweepers import ExecuteSweeps
+from qibosoq.programs.pulse_sequence import ExecutePulseSequence, ExecutePulseSequenceV2
+from qibosoq.programs.sweepers import ExecuteSweeps, ExecuteSweepsV2
 
 logger = logging.getLogger(cfg.MAIN_LOGGER_NAME)
 qick_logger = logging.getLogger(cfg.PROGRAM_LOGGER_NAME)
+TPROC_VERSION = 0  # set 0 first, to ensure that version is set in serve()
+MUX4_PHASE_BITS = 32
 
 
 def load_elements(list_sequence: List[Dict]) -> List[Element]:
@@ -49,6 +51,51 @@ def load_sweeps(list_sweepers: List[Dict]) -> List[Sweeper]:
     return sweepers
 
 
+def validate_sweeps_payload(data: dict) -> List[Dict]:
+    """Validate and return sweeper payload for EXECUTE_SWEEPS."""
+    if "sweepers" not in data:
+        raise ValueError("Missing 'sweepers' payload for EXECUTE_SWEEPS.")
+
+    sweepers = data["sweepers"]
+    if not isinstance(sweepers, list) or len(sweepers) == 0:
+        raise ValueError("'sweepers' must be a non-empty list for EXECUTE_SWEEPS.")
+
+    required = {"expts", "parameters", "starts", "stops", "indexes"}
+    for idx, sweep in enumerate(sweepers):
+        if not isinstance(sweep, dict):
+            raise ValueError(f"Sweeper at index {idx} must be a dictionary.")
+
+        missing = required - set(sweep)
+        if missing:
+            missing_str = ", ".join(sorted(missing))
+            raise ValueError(f"Sweeper at index {idx} is missing keys: {missing_str}.")
+
+        if not isinstance(sweep["expts"], int) or sweep["expts"] <= 0:
+            raise ValueError(f"Sweeper at index {idx} has invalid 'expts'.")
+
+        for field in ("parameters", "starts", "stops", "indexes"):
+            if not isinstance(sweep[field], list):
+                raise ValueError(
+                    f"Sweeper at index {idx} field '{field}' must be a list."
+                )
+
+        lengths = {
+            "parameters": len(sweep["parameters"]),
+            "starts": len(sweep["starts"]),
+            "stops": len(sweep["stops"]),
+            "indexes": len(sweep["indexes"]),
+        }
+        if any(length == 0 for length in lengths.values()):
+            raise ValueError(f"Sweeper at index {idx} cannot have empty fields.")
+
+        if len(set(lengths.values())) != 1:
+            raise ValueError(
+                f"Sweeper at index {idx} has inconsistent field lengths: {lengths}."
+            )
+
+    return sweepers
+
+
 def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """Create and execute qick programs.
 
@@ -57,53 +104,119 @@ def execute_program(data: dict, qick_soc: QickSoc) -> dict:
     """
     opcode = OperationCode(data["operation_code"])
     args = []
-    if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
-        programcls = ExecutePulseSequence
-    elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        programcls = ExecutePulseSequence
-        data["cfg"]["soft_avgs"] = data["cfg"]["reps"]
-        data["cfg"]["reps"] = 1
-    elif opcode is OperationCode.EXECUTE_SWEEPS:
-        programcls = ExecuteSweeps
-        args = load_sweeps(data["sweepers"])
-    else:
-        raise NotImplementedError(
-            f"Operation code {data['operation_code']} not supported"
-        )
 
-    program = programcls(
-        qick_soc,
-        Config(**data["cfg"]),
-        load_elements(data["sequence"]),
-        [Qubit(**qubit) for qubit in data["qubits"]],
-        *args,
-    )
+    # soft_avgs is the deprecated name of rounds, still sent by older clients
+    soft_avgs = data["cfg"].pop("soft_avgs", 1)
+    if data["cfg"].get("rounds", 1) == 1:
+        data["cfg"]["rounds"] = soft_avgs
 
-    asm_prog = program.asm()
-    qick_logger.handlers[0].doRollover()  # type: ignore
-    qick_logger.info(asm_prog)
+    # 1. Program Instantiation based on TPROC_VERSION
+    if TPROC_VERSION == 1:
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
+            programcls = ExecutePulseSequence
+        elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            programcls = ExecutePulseSequence
+            # using rounds in acquire_decimated() to loop the same pulse sequence in QICK, aka soft_avg
+            data["cfg"]["rounds"] = data["cfg"]["reps"]
+            data["cfg"]["reps"] = 1
+        elif opcode is OperationCode.EXECUTE_SWEEPS:
+            programcls = ExecuteSweeps
+            args = load_sweeps(validate_sweeps_payload(data))
+        else:
+            raise NotImplementedError(
+                f"Operation code {data['operation_code']} not supported"
+            )
 
-    num_instructions = len(program.prog_list)
-    max_mem = qick_soc["tprocs"][0]["pmem_size"]
-    if num_instructions > max_mem:
-        raise MemoryError(
-            f"The tproc has a max memory size of {max_mem}, "
-            f"but the program had {num_instructions} instructions"
-        )
+        # remove ASMv2 specific keys from the config for tProc v1
+        if "final_wait" in data["cfg"]:
+            del data["cfg"]["final_wait"]
+        if "initial_delay" in data["cfg"]:
+            del data["cfg"]["initial_delay"]
+        if "reps_innermost" in data["cfg"]:
+            del data["cfg"]["reps_innermost"]
 
-    if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
-        results = program.acquire_decimated(  # pylint: disable=E1120
+        program = programcls(
             qick_soc,
-            load_pulses=True,
-            progress=False,
+            Config(**data["cfg"]),
+            load_elements(data["sequence"]),
+            [Qubit(**qubit) for qubit in data["qubits"]],
+            *args,
         )
-        toti = [[results[0][0].tolist()]]
-        totq = [[results[0][1].tolist()]]
-    else:
-        toti, totq = program.perform_experiment(
+
+        asm_prog = program.asm()
+        qick_logger.handlers[0].doRollover()  # type: ignore
+        qick_logger.info(asm_prog)
+
+        num_instructions = len(program.prog_list)
+        max_mem = qick_soc["tprocs"][0]["pmem_size"]
+        if num_instructions > max_mem:
+            raise MemoryError(
+                f"The tproc has a max memory size of {max_mem}, "
+                f"but the program had {num_instructions} instructions"
+            )
+
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            results = program.acquire_decimated(  # pylint: disable=E1120
+                qick_soc,
+                load_pulses=True,
+                progress=False,
+            )
+            toti = [[results[0][0].tolist()]]
+            totq = [[results[0][1].tolist()]]
+        else:
+            # Note: Ensure perform_experiment is implemented in your BaseProgramV2
+            toti, totq = program.perform_experiment(
+                qick_soc,
+                average=data["cfg"]["average"],
+            )
+
+    elif TPROC_VERSION == 2:
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE:
+            programcls = ExecutePulseSequenceV2
+        elif opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            programcls = ExecutePulseSequenceV2
+            # using rounds in acquire_decimated() to loop the same pulse sequence in QICK, aka soft_avg
+            data["cfg"]["rounds"] = data["cfg"]["reps"]
+            data["cfg"]["reps"] = 1
+        elif opcode is OperationCode.EXECUTE_SWEEPS:
+            programcls = ExecuteSweepsV2
+            args = load_sweeps(validate_sweeps_payload(data))
+        else:
+            raise NotImplementedError(
+                f"Operation code {data['operation_code']} not supported"
+            )
+
+        program = programcls(
             qick_soc,
-            average=data["cfg"]["average"],
+            Config(**data["cfg"]),
+            load_elements(data["sequence"]),
+            [Qubit(**qubit) for qubit in data["qubits"]],
+            *args,
         )
+
+        asm_prog = program.asm()
+        qick_logger.handlers[0].doRollover()  # type: ignore
+        qick_logger.info(asm_prog)
+
+        if opcode is OperationCode.EXECUTE_PULSE_SEQUENCE_RAW:
+            # rounds reruns the (reps=1) program in software and averages the
+            # decimated traces; without it only a single un-averaged shot is kept.
+            results = program.acquire_decimated(
+                qick_soc, rounds=data["cfg"]["rounds"], progress=False
+            )
+            if results:
+                toti = [[results[0][..., 0].tolist()]]
+                totq = [[results[0][..., 1].tolist()]]
+            else:
+                logger.info("results is empty, most likely there is no Readout")
+                toti = None
+                totq = None
+        else:
+            toti, totq = program.perform_experiment(
+                qick_soc, average=data["cfg"].get("average", True)
+            )
+    else:
+        raise RuntimeError(f"Unknown TPROC_VERSION {TPROC_VERSION}")
 
     return {"i": toti, "q": totq}
 
@@ -147,10 +260,31 @@ class ConnectionHandler(BaseRequestHandler):
         self.request.sendall(bytes(json.dumps(results), "utf-8"))
 
 
+def fix_mux4_generators():
+    """Let QickSoc load firmware with axis_sg_mux4 generators.
+
+    qick leaves B_PHASE unset for AxisSgMux4V1/V2/V3, but asserts it for every
+    pulsed generator, so QickSoc() fails on such firmware. These generators have
+    no phase register, so any width works. Only a missing B_PHASE is set, so
+    this does nothing on other firmware or once qick defines it.
+    """
+    # pylint: disable-next=import-outside-toplevel
+    from qick.drivers import generator  # needs pynq, only on the board
+
+    for name in ("AxisSgMux4V1", "AxisSgMux4V2", "AxisSgMux4V3"):
+        driver = getattr(generator, name, None)
+        if driver is not None and driver.B_PHASE is None:
+            driver.B_PHASE = MUX4_PHASE_BITS
+
+
 def log_initial_info():
     """Log info regarding the loaded configuration."""
     logger.info("Server listening, PID %d", os.getpid())
-    mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
+    if TPROC_VERSION == 2:
+        # tProc v2 programs detect the multiplexed generators themselves
+        mux_str = "tProc v2"
+    else:
+        mux_str = "Multiplexed" if cfg.IS_MULTIPLEXED else "Not multiplexed"
     logger.info("%s firmware loaded from %s", mux_str, cfg.QICKSOC_LOCATION)
 
 
@@ -158,9 +292,20 @@ def serve(host, port):
     """Open the TCPServer and wait forever for connections."""
     # initialize QickSoc object (firmware and clocks)
     TCPServer.allow_reuse_address = True
+    global TPROC_VERSION  # to access global variable
     with TCPServer((host, port), ConnectionHandler) as server:
+        fix_mux4_generators()
         server.qick_soc = QickSoc(
             bitfile=cfg.QICKSOC_LOCATION, external_clk=cfg.EXT_CLK
         )
+        # Using this to detect which TPROC_VERISON is loaded in bitstream
+        if "axis_tproc64x32_x8_0" in server.qick_soc.ip_dict:
+            TPROC_VERSION = 1
+        elif "qick_processor_0" in server.qick_soc.ip_dict:
+            TPROC_VERSION = 2
+        else:
+            raise RuntimeError("No tProcessor found")
+        print(f"Set TPROC_VERSION = {TPROC_VERSION}")
+        print(server.qick_soc)
         log_initial_info()
         server.serve_forever()

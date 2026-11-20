@@ -3,10 +3,11 @@
 import logging
 from abc import abstractmethod
 from dataclasses import asdict
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Set, Tuple, Union
 
 import numpy as np
 from qick import QickProgram, QickSoc
+from qick.asm_v2 import AveragerProgramV2, QickSweep1D
 
 import qibosoq.configuration as qibosoq_cfg
 from qibosoq.components.base import Config, Qubit
@@ -23,6 +24,38 @@ from qibosoq.components.pulses import (
 )
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
+
+
+def check_not_mux(soccfg, pulse: Pulse):
+    """Raise if a pulse that is not a multiplexed readout targets a mux generator.
+
+    A mux generator only plays the readout tones declared with it.
+    """
+    if "n_tones" in soccfg["gens"][pulse.dac]:
+        raise ValueError(
+            f"Generator {pulse.dac} is multiplexed and only plays readout pulses, "
+            f"but got a {pulse.type} pulse ({pulse.name})."
+        )
+
+
+def mux_centre(freqs: List[float]) -> float:
+    """Return the mixer frequency centring the tones of a mux generator (MHz)."""
+    return (min(freqs) + max(freqs)) / 2
+
+
+def resample_envelope(values, n_samples: int) -> np.ndarray:
+    """Linearly resample envelope samples to ``n_samples`` points.
+
+    qibolab samples arbitrary envelopes at its own rate, while the DAC plays
+    ``samps_per_clk`` samples per fabric cycle. Each sample is taken at the
+    centre of its time bin, so both ends of the envelope are kept.
+    """
+    values = np.asarray(values, dtype=float)
+    if len(values) == n_samples:
+        return values
+    old_times = (np.arange(len(values)) + 0.5) / len(values)
+    new_times = (np.arange(n_samples) + 0.5) / n_samples
+    return np.interp(new_times, old_times, values)
 
 
 class BaseProgram(QickProgram):
@@ -88,14 +121,24 @@ class BaseProgram(QickProgram):
 
             if gen_ch not in ch_already_declared:
                 ch_already_declared.append(gen_ch)
+                check_not_mux(self.soccfg, pulse)
                 sampling_rate = self.soccfg["gens"][gen_ch]["fs"]
                 zone = 1 if freq < sampling_rate / 2 else 2
                 self.declare_gen(gen_ch, nqz=zone)
 
+    def readouts_by_adc(self) -> List[Element]:
+        """Return the readouts sorted by ADC, keeping the sequence order per ADC.
+
+        Results come back in the order the readouts are declared, and qibolab
+        expects them in ascending ADC number.
+        """
+        readouts = [elem for elem in self.sequence if elem.type == "readout"]
+        return sorted(readouts, key=lambda readout: readout.adc)
+
     def declare_readout_freq(self):
         """Declare ADCs downconversion frequencies."""
         adc_ch_already_declared = []
-        for readout in (elem for elem in self.sequence if elem.type == "readout"):
+        for readout in self.readouts_by_adc():
             adc_ch = readout.adc
             ro_ch = readout.dac
             if adc_ch not in adc_ch_already_declared:
@@ -104,6 +147,11 @@ class BaseProgram(QickProgram):
                 length = self.soc.us2cycles(readout.duration, ro_ch=adc_ch)
 
                 freq = readout.frequency
+                # tProc v1 frequencies are relative to the generator mixer,
+                # which qick adds back to the down-conversion frequency
+                gen_cfg = self.gen_chs.get(ro_ch, {})
+                if "mixer_freq" in gen_cfg:
+                    freq -= gen_cfg["mixer_freq"]["rounded"]
 
                 # in declare_readout frequency in MHz
                 self.declare_readout(ch=adc_ch, length=length, freq=freq, gen_ch=ro_ch)
@@ -116,6 +164,7 @@ class BaseProgram(QickProgram):
         """
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        max_envelope = self.soccfg.get_maxv(gen_ch)
 
         # assign gain parameter
         gain = int(pulse.amplitude * max_gain)
@@ -128,6 +177,7 @@ class BaseProgram(QickProgram):
         us_length = pulse.duration
         # Convert pulse length into DAC clock cycles
         soc_length = self.soc.us2cycles(us_length, gen_ch=gen_ch)
+        n_samples = soc_length * self.soccfg["gens"][gen_ch]["samps_per_clk"]
 
         name = pulse.waveform_name
 
@@ -158,9 +208,15 @@ class BaseProgram(QickProgram):
                 )
 
             elif isinstance(pulse, Hann):
-                self.add_pulse(gen_ch, name, pulse.i_values(soc_length, max_gain))
+                self.add_pulse(gen_ch, name, pulse.i_values(n_samples, max_envelope))
             elif isinstance(pulse, Arbitrary):
-                self.add_pulse(gen_ch, name, pulse.i_values, pulse.q_values)
+                # qibolab sends envelopes normalized to 1, qick wants DAC units
+                self.add_pulse(
+                    gen_ch,
+                    name,
+                    resample_envelope(pulse.i_values, n_samples) * max_envelope,
+                    resample_envelope(pulse.q_values, n_samples) * max_envelope,
+                )
             self.registered_waveforms[gen_ch].append(name)
 
         args = {"waveform": name} if name is not None else {}
@@ -274,9 +330,8 @@ class BaseProgram(QickProgram):
         """Read the internal buffers and returns single shots (i,q)."""
         adcs = []  # list of adcs per readouts (not unique values)
         lengths = []  # length of readouts (only one per adcs)
-        for elem in (elem for elem in self.sequence if elem.type == "readout"):
+        for elem in self.readouts_by_adc():
             adc_ch = elem.adc
-            ro_ch = elem.dac
             if adc_ch not in adcs:
                 # Convert acquisition length into ADC clock cycles
                 lengths.append(self.soc.us2cycles(elem.duration, ro_ch=adc_ch))
@@ -286,9 +341,10 @@ class BaseProgram(QickProgram):
         tot = []
 
         for idx, count in enumerate(adc_count.astype(int)):
-            stacked = np.swapaxes(self.acc_buf[idx], 0, 2) / lengths[idx]
+            # (shots, *sweeps, readouts, 2) -> (2, readouts, *sweeps, shots)
+            stacked = np.moveaxis(self.acc_buf[idx], [-1, -2, 0], [0, 1, -1])
+            stacked = stacked / lengths[idx]
             if hasattr(self, "sweep_axes"):
-                stacked = np.moveaxis(stacked, -1, 0)
                 # (adc_channels, number_of_readouts, number_of_points, number_of_shots)
                 shape = (
                     2,
@@ -312,7 +368,6 @@ class BaseProgram(QickProgram):
         mux_gains = []
 
         ro_ch = None
-        zone = 1
         for pulse in (pulse for pulse in self.sequence if pulse.type == "readout"):
             if not isinstance(pulse, Pulse):
                 continue
@@ -321,19 +376,27 @@ class BaseProgram(QickProgram):
 
             if adc_ch not in adc_ch_added:
                 adc_ch_added.append(adc_ch)
-                freq = pulse.frequency
-                zone = 1 if freq < self.soccfg["gens"][ro_ch]["fs"] / 2 else 2
-                mux_freqs.append(freq)
+                mux_freqs.append(pulse.frequency)
                 mux_gains.append(pulse.amplitude)
 
         if ro_ch is None:
             return
 
+        gen = self.soccfg["gens"][ro_ch]
+        # the tones are DDS offsets from the mixer (relative in tProc v1)
+        centre = mux_centre(mux_freqs) if gen["has_mixer"] else mux_freqs[0]
+        zone = 1 if centre < gen["fs"] / 2 else 2
+        mixer_freq = 0
+        if gen["has_mixer"]:
+            # the tones are offsets from the mixer as qick will round it
+            mixer_freq = self.soccfg.calc_mixer_freq(
+                ro_ch, centre, zone, adc_ch_added[0]
+            )["rounded"]
         self.declare_gen(
             ch=ro_ch,
             nqz=zone,
-            mixer_freq=0,
-            mux_freqs=mux_freqs,
+            mixer_freq=mixer_freq,
+            mux_freqs=[freq - mixer_freq for freq in mux_freqs],
             mux_gains=mux_gains,
             ro_ch=adc_ch_added[0],
         )
@@ -390,3 +453,541 @@ class BaseProgram(QickProgram):
     def initialize(self):
         """Abstract initialization."""
         raise NotImplementedError
+
+
+class BaseProgramV2(AveragerProgramV2):
+    """Abstract class for tProc v2 QickPrograms."""
+
+    def __init__(
+        self,
+        soc: QickSoc,
+        qpcfg: Config,
+        sequence: List[Element],
+        qubits: List[Qubit],
+        **kwargs,
+    ):
+        """Set up qibosoq for tProc v2.
+
+        Extracts channel mappings and configurations.
+        """
+        self.soc = soc
+        self.soccfg = soc  # this is used by qick
+        self.sequence = sequence
+        self.pulse_sequence = [elem for elem in sequence if isinstance(elem, Pulse)]
+        self.element_index = {id(elem): idx for idx, elem in enumerate(sequence)}
+        self.qubits = qubits
+        # ro_time_of_flight is given in tProc ticks, v2 schedules in us
+        self.ro_time_of_flight = soc.cycles2us(qpcfg.ro_time_of_flight)
+        self.rounds = qpcfg.rounds
+
+        self.readouts_per_experiment = len(
+            [elem for elem in self.sequence if elem.type == "readout"]
+        )
+
+        self.pulses_registered = False
+        # {envelope definition: envelope name}, see envelope_name
+        self.envelope_names: Dict[str, str] = {}
+
+        # {seq_idx: QickSweep1D} swept readout down-conversion frequencies.
+        # Populated by sweep programs before declare_readout_freq so a
+        # readout-frequency sweep also moves the demodulation frequency, not
+        # just the DAC pulse.
+        self.ro_freq_sweeps: Dict[int, QickSweep1D] = {}
+        # {seq_idx: name} readout config sent before each dynamic readout
+        self.readout_config_names: Dict[int, str] = {}
+        # seq idx of the readouts whose config differs from the previous
+        # readout on the same ADC, the only ones that send it
+        self.readout_config_changes: Set[int] = set()
+
+        # {qubit_idx: QickSweep1D} swept flux bias gains. Populated by sweep
+        # programs so a bias sweep is registered/applied even when the qubit's
+        # static bias is 0 (see FluxProgramV2._flux_qubits).
+        self.bias_sweeps: Dict[int, QickSweep1D] = {}
+
+        # mux settings: a readout is multiplexed if its generator is.
+        # {dac: [first readout pulse of each tone]}, a tone index is its position
+        self.mux_tones: Dict[int, List[Pulse]] = {}
+        # {id(readout): group index} for the readouts in multi_ro_pulses
+        self.mux_group_of: Dict[int, int] = {}
+        self.multi_ro_pulses = self.group_mux_ro()
+        # pulse name of each group in multi_ro_pulses
+        self.mux_group_pulses: List[str] = []
+
+        # Pass remaining arguments to AveragerProgramV2
+        super().__init__(
+            soc,
+            reps=qpcfg.reps,
+            final_delay=qpcfg.relaxation_time,
+            final_wait=qpcfg.final_wait,
+            initial_delay=qpcfg.initial_delay,
+            reps_innermost=qpcfg.reps_innermost,
+        )
+
+    def pulse_name(self, pulse: Pulse) -> str:
+        """Return a program-unique name for the pulse definition.
+
+        qibolab can reuse a pulse id within a sequence (e.g. a duplicated rx90),
+        while qick v2 needs unique pulse names. Envelopes are shared through
+        ``envelope_name`` instead.
+        """
+        return f"{pulse.name}_{self.element_index[id(pulse)]}"
+
+    def envelope_name(self, base: str, definition: str) -> Tuple[str, bool]:
+        """Return the envelope name for a definition, and whether it is new.
+
+        Pulses with the same definition share one envelope in waveform memory.
+        A pulse id can come with different envelopes (qibolab keeps the id when
+        replacing amplitude or duration), so the first envelope is named
+        ``base`` and the following ones get a numbered suffix.
+        """
+        if definition in self.envelope_names:
+            return self.envelope_names[definition], False
+        taken = set(self.envelope_names.values())
+        name, count = base, 0
+        while name in taken:
+            count += 1
+            name = f"{base}_{count}"
+        self.envelope_names[definition] = name
+        return name, True
+
+    def send_readout_config(self, readout: Element):
+        """Send the readout config of ``readout``, if its ADC needs a new one.
+
+        The previous acquisition on the same ADC can still be running (it is
+        delayed by the time of flight), so the config is sent with the trigger
+        and an unchanged config is not sent.
+        """
+        idx = self.element_index[id(readout)]
+        if idx in self.readout_config_changes:
+            self.send_readoutconfig(
+                ch=readout.adc,
+                name=self.readout_config_names[idx],
+                t=self.ro_time_of_flight,
+            )
+
+    def is_mux_gen(self, gen_ch: int) -> bool:
+        """Return whether a generator is multiplexed (plays several tones)."""
+        return "n_tones" in self.soccfg["gens"][gen_ch]
+
+    def is_static_readout(self, adc_ch: int) -> bool:
+        """Return whether a readout is configured by PYNQ, not by the tProc.
+
+        Only tProc-controlled readouts have ``tproc_ctrl``. The others (e.g. PFB
+        readouts) take their frequency in declare_readout, fixed per program.
+        """
+        return "tproc_ctrl" not in self.soccfg["readouts"][adc_ch]
+
+    def declare_nqz_zones(self, pulse_sequence: List[Pulse]):
+        """Declare nqz zone (1-2) for a given PulseSequence.
+
+        Args:
+            pulse_sequence (PulseSequence): grouped pulse_sequence of gen_ch to consider
+        """
+        if not pulse_sequence:
+            return
+        zone = 0
+        gen_ch = None
+        freq = None
+        for pulse in pulse_sequence:
+            freq = pulse.frequency
+            gen_ch = pulse.dac
+
+            # calculate zone for the current pulse
+            sampling_rate = self.soccfg["gens"][gen_ch]["fs"]
+            cur_zone = 1 if freq < sampling_rate / 2 else 2
+            if zone == 0:
+                zone = cur_zone
+            elif zone != cur_zone:
+                raise ValueError(
+                    f"All pulses in the sequence must belong to the same nqz zone. Found zones 1 and 2 for gen_ch {gen_ch} with frequencies {freq} and sampling rate {sampling_rate}."
+                )
+        if self.soccfg["gens"][gen_ch]["has_mixer"]:
+            self.declare_gen(gen_ch, nqz=zone, mixer_freq=freq)
+        else:
+            self.declare_gen(gen_ch, nqz=zone)
+
+    def batch_declare_gen(self, pulse_sequence: List[Pulse]):
+        """Declare generators for all PulseSequence, one nqz zone per generator."""
+        # collate pulses by gen_ch
+        ch_to_pulses: Dict[int, List[Pulse]] = {}
+        for pulse in pulse_sequence:
+            ch_to_pulses.setdefault(pulse.dac, []).append(pulse)
+
+        for pulses in ch_to_pulses.values():
+            check_not_mux(self.soccfg, pulses[0])
+            self.declare_nqz_zones(pulses)
+
+    def declare_readout_freq(self):
+        """Declare the readouts and their down-conversion frequencies.
+
+        Each ADC has a single acquisition window per program. Dynamic readouts
+        get one readout config per distinct frequency, sent before each
+        acquisition. Static readouts take the frequency at declaration.
+        """
+        configs: Dict[tuple, str] = {}
+        last_config: Dict[int, str] = {}
+        # results come back in declaration order, qibolab expects ascending ADCs
+        readouts = [
+            (idx, elem)
+            for idx, elem in enumerate(self.sequence)
+            if elem.type == "readout"
+        ]
+        # a Measurement has no pulse, a static ADC is matched to the DAC of
+        # its readout pulse
+        pulse_dacs: Dict[int, int] = {}
+        for _, readout in readouts:
+            if isinstance(readout, Pulse):
+                pulse_dacs.setdefault(readout.adc, readout.dac)
+        for idx, readout in sorted(readouts, key=lambda item: item[1].adc):
+            adc_ch = readout.adc
+            static = self.is_static_readout(adc_ch)
+            ro_gen_ch = readout.dac
+            if static and not isinstance(readout, Pulse):
+                ro_gen_ch = pulse_dacs.get(adc_ch, readout.dac)
+
+            if adc_ch in self.ro_chs:
+                declared = self.ro_chs[adc_ch]
+                length = self.us2cycles(ro_ch=adc_ch, us=readout.duration)
+                if declared["length"] != length:
+                    raise ValueError(
+                        f"Readouts on ADC {adc_ch} must share the same duration."
+                    )
+                if static and (declared["freq"], declared["gen_ch"]) != (
+                    readout.frequency,
+                    ro_gen_ch,
+                ):
+                    raise ValueError(
+                        f"Readout {adc_ch} is configured at declaration (static), "
+                        "all its readouts must share the same frequency and DAC."
+                    )
+            elif static:
+                self.declare_readout(
+                    ch=adc_ch,
+                    length=readout.duration,
+                    freq=readout.frequency,
+                    gen_ch=ro_gen_ch,
+                )
+            else:
+                # frequency and generator are set by the readout config
+                self.declare_readout(ch=adc_ch, length=readout.duration)
+
+            if static:
+                continue
+
+            # Measurement-only readouts may not have a pulse on this DAC,
+            # but add_readoutconfig still requires a valid generator mapping.
+            if ro_gen_ch not in self.gen_chs:
+                sampling_rate = self.soccfg["gens"][ro_gen_ch]["fs"]
+                zone = 1 if readout.frequency < sampling_rate / 2 else 2
+                if self.soccfg["gens"][ro_gen_ch]["has_mixer"]:
+                    self.declare_gen(ro_gen_ch, nqz=zone, mixer_freq=readout.frequency)
+                else:
+                    self.declare_gen(ro_gen_ch, nqz=zone)
+
+            key: tuple = (adc_ch, ro_gen_ch, readout.frequency)
+            if idx in self.ro_freq_sweeps:
+                key = ("sweep", idx)
+            if key not in configs:
+                configs[key] = f"readout_{adc_ch}_ro_{len(configs)}"
+                self.add_readoutconfig(
+                    ch=adc_ch,
+                    name=configs[key],
+                    freq=self.ro_freq_sweeps.get(idx, readout.frequency),
+                    gen_ch=ro_gen_ch,
+                )
+            self.readout_config_names[idx] = configs[key]
+            # sorting by ADC keeps the sequence order of each ADC's readouts
+            if last_config.get(adc_ch) != configs[key]:
+                self.readout_config_changes.add(idx)
+            last_config[adc_ch] = configs[key]
+
+    def execute_readout(self, readout: Element):
+        """Schedule a v2 readout, with or without a DAC pulse.
+
+        ``Measurement`` elements only trigger the ADC. Pulse readouts both
+        trigger the ADC and play the corresponding DAC pulse.
+
+        The reference time is already advanced by ``delay(start_delay)`` in
+        the body loop, so events are scheduled relative to it (``t=0``). As
+        in qibolab, start_delay counts from the start of the previous element,
+        so the readout does not move the reference to its end.
+        """
+        self.send_readout_config(readout)
+        self.trigger(ros=[readout.adc], t=self.ro_time_of_flight)
+        if isinstance(readout, Pulse):
+            self.pulse(ch=readout.dac, name=self.pulse_name(readout), t=0)
+
+    def register_mux_readout_groups(self):
+        """Register one mux pulse per readout group, enabling the group tones."""
+        self.mux_group_pulses = []
+        for group in self.multi_ro_pulses:
+            dac = group[0].dac
+            tone_adcs = [tone.adc for tone in self.mux_tones[dac]]
+            mask = sorted(tone_adcs.index(readout.adc) for readout in group)
+            name = f"mux_ro_{dac}_{'_'.join(str(idx) for idx in mask)}"
+            if name not in self.pulses:
+                self.add_pulse(
+                    ch=dac,
+                    name=name,
+                    style="const",
+                    length=group[0].duration,
+                    mask=mask,
+                )
+            self.mux_group_pulses.append(name)
+
+    def execute_mux_readout_group(self, group_idx: int):
+        """Execute a grouped mux readout event.
+
+        The reference time is already advanced by ``delay(start_delay)`` in
+        the body loop, so events are scheduled relative to it (``t=0``).
+        """
+        group = self.multi_ro_pulses[group_idx]
+        adcs = [readout.adc for readout in group]
+        for readout in group:
+            self.send_readout_config(readout)
+        self.trigger(ros=adcs, t=self.ro_time_of_flight)
+        self.pulse(ch=group[0].dac, name=self.mux_group_pulses[group_idx], t=0)
+
+    def add_pulse_to_register(self, pulse: Pulse, freq=None, gain=None, phase=None):
+        """Register a drive pulse definition in the v2 pulse library.
+
+        In v2 all durations/sigmas are in µs; phase is in degrees; gain is 0–1.
+        Must be called from _initialize (before the repetition loop).
+
+        Optional freq/gain/phase override the pulse's own values; pass
+        QickSweep1D objects here to register a pulse with a swept parameter.
+        """
+        gen_ch = pulse.dac
+        # envelope samples are limited to maxv * maxv_scale (0.9 on int4 gens)
+        max_envelope = self.soccfg.get_maxv(gen_ch)
+        envelope_name, new_envelope = None, False
+        if pulse.waveform_name is not None:
+            envelope_name, new_envelope = self.envelope_name(
+                pulse.name + "_envelope", pulse.waveform_name
+            )
+
+        # add_envelope takes raw samples, the DAC plays samps_per_clk per cycle
+        n_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
+        n_samples = n_cycles * self.soccfg["gens"][gen_ch]["samps_per_clk"]
+
+        # Register the envelope shape (only once per definition)
+        if new_envelope:
+            if isinstance(pulse, Gaussian):
+                # unlike asm_v1 (GAUSS_BUG), v2 takes the true standard deviation
+                sigma = pulse.duration / pulse.rel_sigma
+                self.add_gauss(
+                    ch=gen_ch, name=envelope_name, sigma=sigma, length=pulse.duration
+                )
+            elif isinstance(pulse, FlatTop):
+                # ramp = half the total duration; flat part = other half
+                ramp_length = pulse.duration / 2
+                sigma = ramp_length / pulse.rel_sigma
+                self.add_gauss(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    sigma=sigma,
+                    length=ramp_length,
+                    even_length=True,
+                )
+            elif isinstance(pulse, Drag):
+                delta = (
+                    -self.soccfg["gens"][gen_ch]["samps_per_clk"]
+                    * self.soccfg["gens"][gen_ch]["f_fabric"]
+                    / 2
+                )
+                sigma = pulse.duration / pulse.rel_sigma
+                self.add_DRAG(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    sigma=sigma,
+                    delta=delta,
+                    alpha=pulse.beta,
+                    length=pulse.duration,
+                )
+            elif isinstance(pulse, Hann):
+                self.add_envelope(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    idata=pulse.i_values(n_samples, max_envelope),
+                )
+            elif isinstance(pulse, Arbitrary):
+                # qibolab sends envelopes normalized to 1, qick wants DAC units
+                self.add_envelope(
+                    ch=gen_ch,
+                    name=envelope_name,
+                    idata=resample_envelope(pulse.i_values, n_samples) * max_envelope,
+                    qdata=resample_envelope(pulse.q_values, n_samples) * max_envelope,
+                )
+
+        # Register the pulse definition (freq/phase/gain in v2 native units;
+        # caller may pass QickSweep1D objects via the optional override args)
+        common = dict(
+            freq=freq if freq is not None else pulse.frequency,
+            phase=phase if phase is not None else pulse.relative_phase,
+            gain=gain if gain is not None else pulse.amplitude,
+        )
+        if pulse.adc is not None:
+            # match the generator frequency to the readout frequency grid
+            common["ro_ch"] = pulse.adc
+        pulse_name = self.pulse_name(pulse)
+        if isinstance(pulse, Rectangular):
+            self.add_pulse(
+                ch=gen_ch,
+                name=pulse_name,
+                style="const",
+                length=pulse.duration,
+                **common,
+            )
+        elif isinstance(pulse, FlatTop):
+            # 'flat_top' style: envelope is the Gaussian ramp, length is the flat part
+            self.add_pulse(
+                ch=gen_ch,
+                name=pulse_name,
+                style="flat_top",
+                envelope=envelope_name,
+                length=pulse.duration / 2,
+                **common,
+            )
+        elif isinstance(pulse, (Gaussian, Drag, Hann, Arbitrary)):
+            self.add_pulse(
+                ch=gen_ch,
+                name=pulse_name,
+                style="arb",
+                envelope=envelope_name,
+                **common,
+            )
+
+    def group_mux_ro(self) -> List[List[Pulse]]:
+        """Group the readout pulses played by multiplexed generators.
+
+        A mux generator plays all its tones at once: consecutive readout pulses
+        of the same mux generator, on different ADCs and with no delay in
+        between, form one group played as a single pulse, e.g.
+        [[pulse1, pulse2], [pulse3]]. Each distinct ADC of a mux generator is
+        one tone, whose frequency and amplitude are fixed for the program.
+        """
+        mux_list: List[List[Pulse]] = []
+        group: List[Pulse] = []
+        for elem in self.sequence:
+            if not (
+                isinstance(elem, Pulse)
+                and elem.type == "readout"
+                and self.is_mux_gen(elem.dac)
+            ):
+                group = []
+                continue
+            if not isinstance(elem, Rectangular):
+                raise TypeError("Only rectangular pulses can be multiplexed")
+            if (
+                elem.relative_phase != 0
+                and not self.soccfg["gens"][elem.dac]["has_phase"]
+            ):
+                logger.warning(
+                    "Multiplexed generator %d has no tone phases, the phase of %s "
+                    "is ignored.",
+                    elem.dac,
+                    elem.name,
+                )
+
+            tones = self.mux_tones.setdefault(elem.dac, [])
+            tone = next((tone for tone in tones if tone.adc == elem.adc), None)
+            if tone is None:
+                n_tones = self.soccfg["gens"][elem.dac]["n_tones"]
+                if len(tones) == n_tones:
+                    raise ValueError(
+                        f"Multiplexed generator {elem.dac} supports {n_tones} tones "
+                        "(one per ADC)."
+                    )
+                tones.append(elem)
+            elif (tone.frequency, tone.amplitude) != (elem.frequency, elem.amplitude):
+                raise ValueError(
+                    f"Multiplexed readouts of generator {elem.dac} on ADC "
+                    f"{elem.adc} must share the same frequency and amplitude."
+                )
+
+            if (
+                group
+                and group[0].dac == elem.dac
+                and elem.start_delay == 0
+                and all(readout.adc != elem.adc for readout in group)
+            ):
+                if elem.duration != group[0].duration:
+                    raise RuntimeError(
+                        f"Muxed readout pulses must share same duration.: {group}"
+                    )
+                group.append(elem)
+            else:
+                group = [elem]
+                mux_list.append(group)
+            self.mux_group_of[id(elem)] = len(mux_list) - 1
+        return mux_list
+
+    def declare_gen_mux_ro(self):
+        """Declare the multiplexed generators with their readout tones."""
+        for dac, tones in self.mux_tones.items():
+            gen = self.soccfg["gens"][dac]
+            freqs = [tone.frequency for tone in tones]
+            # the tones are DDS offsets from the mixer, which can only reach
+            # f_dds / 2 around it
+            centre = mux_centre(freqs)
+            zone = 1 if centre < gen["fs"] / 2 else 2
+            mixer = {"mixer_freq": centre} if gen["has_mixer"] else {}
+            self.declare_gen(
+                ch=dac,
+                nqz=zone,
+                mux_freqs=freqs,
+                mux_gains=[tone.amplitude for tone in tones],
+                ro_ch=tones[0].adc,
+                **mixer,
+            )
+
+    def perform_experiment(
+        self,
+        soc: QickSoc,
+        average: bool = True,
+    ) -> Tuple[list, list]:
+        """Call acquire, executing the experiment (tProc v2 version).
+
+        Args:
+            average (bool): if true return averaged res, otherwise single shots
+
+        Returns:
+            (toti, totq): nested lists of I and Q values, one entry per
+            readout channel, in the same layout as the tProc v1 programs.
+            Averaged: (readouts, *sweeps) per channel.
+            Single shots: (readouts, shots) per channel, or
+            (readouts, sweep_points, shots) when sweeping.
+        """
+        # as in v1: qick's streamer needs at least one readout channel
+        if self.readouts_per_experiment == 0:
+            raise RuntimeError("At least an acquisition is required.")
+
+        buf = self.acquire(soc, rounds=self.rounds, progress=False)
+
+        if not average:
+            return self.collect_shots()
+
+        # buf: list of arrays (one per readout channel).
+        # Each array has shape (...sweep_dims..., 2) where [..., 0]=I, [..., 1]=Q.
+        toti = [np.array(ch)[..., 0].tolist() for ch in buf]
+        totq = [np.array(ch)[..., 1].tolist() for ch in buf]
+        return toti, totq
+
+    def collect_shots(self) -> Tuple[list, list]:
+        """Return the single shots (i, q) of the last round, for each readout channel.
+
+        Raw values are normalized as acquire() does for the averages.
+        """
+        toti, totq = [], []
+        for raw, (ch, ro) in zip(self.get_raw(), self.ro_chs.items()):
+            # (*loops, reads, 2), the reps loop is at avg_level
+            shots = np.moveaxis(raw.astype(float), self.avg_level, -3)
+            if not ro["edge_counting"]:
+                shots = shots / ro["length"] - self._ro_offset(ch, ro.get("ro_config"))
+            # -> (2, reads, *sweeps, reps)
+            shots = np.moveaxis(shots, [-1, -2], [0, 1])
+            if shots.ndim > 4:
+                shots = shots.reshape(*shots.shape[:2], -1, shots.shape[-1])
+            toti.append(shots[0].tolist())
+            totq.append(shots[1].tolist())
+        return toti, totq

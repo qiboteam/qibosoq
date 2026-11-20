@@ -15,10 +15,14 @@ from qibosoq.components.pulses import (
     FluxExponential,
     Pulse,
     Rectangular,
+    samples_digest,
 )
-from qibosoq.programs.base import BaseProgram
+from qibosoq.programs.base import BaseProgram, BaseProgramV2, resample_envelope
 
 logger = logging.getLogger(qibosoq_cfg.MAIN_LOGGER_NAME)
+
+BIAS_SETTLE_TIME = 0.1
+"""Time (us) waited after setting a flux bias, before playing other pulses."""
 
 
 class FluxProgram(BaseProgram):
@@ -49,7 +53,7 @@ class FluxProgram(BaseProgram):
             max_gain = int(self.soccfg["gens"][flux_ch]["maxv"])
 
             if mode == "sweetspot":
-                value = max_gain
+                value = self.soccfg.get_maxv(flux_ch)
             elif mode == "zero":
                 value = 0
             else:
@@ -90,8 +94,10 @@ class FluxProgram(BaseProgram):
         """Fire a fast flux pulse the starts and ends in sweetspot."""
         gen_ch = pulse.dac
         max_gain = int(self.soccfg["gens"][gen_ch]["maxv"])
+        # the pulse plays at full gain, the amplitude is in the samples
+        max_envelope = self.soccfg.get_maxv(gen_ch)
         bias = self.find_qubit_sweetspot(pulse)
-        sweetspot = np.trunc(bias * max_gain).astype(int)
+        sweetspot = np.trunc(bias * max_envelope).astype(int)
 
         duration = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
         try:
@@ -103,12 +109,14 @@ class FluxProgram(BaseProgram):
         duration *= samples_per_clk  # the duration here is expressed in samples
 
         if isinstance(pulse, Rectangular):
-            amp = np.trunc(pulse.amplitude * max_gain).astype(int)
+            amp = np.trunc(pulse.amplitude * max_envelope).astype(int)
             i_vals = np.full(duration, amp)
         elif isinstance(pulse, FluxExponential):
-            i_vals = pulse.i_values(duration, max_gain)
+            i_vals = pulse.i_values(duration, max_envelope)
         elif isinstance(pulse, Arbitrary):
-            i_vals = np.array(pulse.i_values)
+            # normalized envelope, flux pulses carry the amplitude in the samples
+            envelope = resample_envelope(pulse.i_values, duration)
+            i_vals = envelope * pulse.amplitude * max_envelope
             logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
         else:
             raise NotImplementedError(
@@ -119,13 +127,17 @@ class FluxProgram(BaseProgram):
         i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
         q_vals = np.zeros(len(i_vals))
 
-        if (abs(i_vals) > max_gain).any():
+        if (abs(i_vals) > max_envelope).any():
             raise ValueError("Flux pulse got amplitude > 1")
 
-        self.add_pulse(gen_ch, pulse.name, i_vals, q_vals)
+        # qick replaces an envelope added again under the same name, so the
+        # name must change with the samples (a pulse id can be reused)
+        name = f"{gen_ch}_flux_{samples_digest(i_vals)}"
+        if name not in self.envelopes[gen_ch]["envs"]:
+            self.add_pulse(gen_ch, name, i_vals, q_vals)
         self.set_pulse_registers(
             ch=gen_ch,
-            waveform=pulse.name,
+            waveform=name,
             style="arb",
             outsel="input",
             stdysel="last",
@@ -180,8 +192,16 @@ class FluxProgram(BaseProgram):
                 self.execute_flux_pulse(elem)
 
         self.wait_all()
-        self.set_bias("zero")
+        # the bias holds the sweetspot through relaxation, see end()
         self.sync_all(self.relax_delay)
+
+    def end(self):
+        """Remove the flux bias after the last shot, then end the program.
+
+        Called once by make_program, after the repetition loops.
+        """
+        self.set_bias("zero")
+        self.append_instruction("end")
 
     def declare_zones_and_ro(self, sequence: List[Pulse]):
         """Declare all nqz zones and readout frequencies.
@@ -196,4 +216,204 @@ class FluxProgram(BaseProgram):
             self.declare_nqz_zones(
                 [pulse for pulse in sequence if pulse.type == "readout"]
             )
+        self.declare_readout_freq()
+
+
+class FluxProgramV2(BaseProgramV2):
+    """Abstract class for flux-tunable qubits programs."""
+
+    def __init__(
+        self, soc: QickSoc, qpcfg: Config, sequence: List[Element], qubits: List[Qubit]
+    ):
+        """Call super().__init__."""
+        super().__init__(soc, qpcfg, sequence, qubits)
+
+    def _flux_qubits(self):
+        """Yield ``(qi, qubit, flux_ch)`` for qubits that need a bias pulse.
+
+        A qubit participates in flux biasing when it has a DAC and either a
+        nonzero static bias or an active bias sweep. Including swept qubits
+        here ensures a bias sweep around 0 is still registered and applied
+        instead of being silently dropped.
+        """
+        for qi, qubit in enumerate(self.qubits):
+            if qubit.dac is None:
+                continue
+            if qubit.bias in (None, 0) and qi not in self.bias_sweeps:
+                continue
+            yield qi, qubit, qubit.dac
+
+    def register_bias_pulses(self):
+        """Pre-register constant bias pulses for all flux qubits.
+
+        Must be called from _initialize before the repetition loop.
+        Registers both sweetspot and zero-amplitude pulses per qubit DAC.
+        Swept qubits (in ``self.bias_sweeps``) get a swept sweetspot gain.
+        """
+        for qi, qubit, flux_ch in self._flux_qubits():
+            sweetspot_gain = self.bias_sweeps.get(qi, float(qubit.bias))
+            for name, gain in [
+                (f"bias_sweetspot_{flux_ch}", sweetspot_gain),
+                (f"bias_zero_{flux_ch}", 0.0),
+            ]:
+                self.add_pulse(
+                    ch=flux_ch,
+                    name=name,
+                    style="const",
+                    freq=0,
+                    phase=0,
+                    gain=gain,
+                    length=0.1,  # 0.1 µs — short enough to not delay the experiment
+                    stdysel="last",  # hold the bias after the pulse ends
+                )
+
+    def _cleanup(self, cfg):
+        """Remove the flux bias after the last shot.
+
+        The bias holds the sweetspot through relaxation, so that each shot
+        starts from a settled flux.
+        """
+        self.set_bias("zero")
+
+    def set_bias(self, mode: str = "sweetspot"):
+        """Fire a pre-registered constant bias pulse on every flux DAC.
+
+        register_bias_pulses() must have been called in _initialize first.
+        Args:
+            mode: 'sweetspot' applies qubit.bias amplitude; 'zero' outputs nothing.
+        """
+        if mode not in ("sweetspot", "zero"):
+            raise NotImplementedError(f"Mode {mode} not supported")
+        flux_qubits = list(self._flux_qubits())
+        if not flux_qubits:
+            return
+
+        if mode == "zero":
+            # remove the bias only after every pulse and readout has ended
+            self.delay_auto(0)
+        for _, _, flux_ch in flux_qubits:
+            self.pulse(ch=flux_ch, name=f"bias_{mode}_{flux_ch}", t=0)
+        # let the bias settle before continuing (v1 used sync_all(50))
+        self.delay_auto(BIAS_SETTLE_TIME)
+
+    def play_sequence(self):
+        """Play the full sequence body once, in order.
+
+        Applies the sweetspot bias, then fires each element (readout, drive or
+        flux) relative to the advancing timeline. Shared by the tProc v2
+        sequence and sweep programs.
+        """
+        self.set_bias("sweetspot")
+
+        for pulse in self.sequence:
+            self.delay(pulse.start_delay)
+            if pulse.type == "readout":
+                group_idx = self.mux_group_of.get(id(pulse))
+                if group_idx is None:
+                    self.execute_readout(pulse)
+                elif self.multi_ro_pulses[group_idx][0] is pulse:
+                    # the other readouts of the group are played with the first
+                    self.execute_mux_readout_group(group_idx)
+            elif pulse.type == "drive":
+                self.pulse(ch=pulse.dac, name=self.pulse_name(pulse), t="auto")
+            elif pulse.type == "flux":
+                self.execute_flux_pulse(pulse)
+            else:
+                raise ValueError(f"Unsupported pulse type: {pulse.type!r}")
+
+    def find_qubit_sweetspot(self, pulse: Pulse) -> float:
+        """Return bias of a qubit from flux pulse."""
+        for qubit in self.qubits:
+            if pulse.dac == qubit.dac:
+                return qubit.bias if qubit.bias else 0
+        return 0.0
+
+    def _register_flux_pulse(self, pulse: Pulse):
+        """Pre-register a flux pulse envelope and pulse definition.
+
+        Must be called from _initialize for each flux pulse in the sequence.
+        Uses add_envelope + add_pulse(style='arb'), the v2 equivalents of the
+        v1 four-argument add_pulse + set_pulse_registers pair.
+        """
+        gen_ch = pulse.dac
+        # the pulse plays at full gain, the amplitude is in the samples
+        max_envelope = self.soccfg.get_maxv(gen_ch)
+        bias = self.find_qubit_sweetspot(pulse)
+        sweetspot = np.trunc(bias * max_envelope).astype(int)
+
+        duration_cycles = self.soc.us2cycles(pulse.duration, gen_ch=gen_ch)
+        samples_per_clk = self.soccfg["gens"][gen_ch]["samps_per_clk"]
+        duration_samples = int(duration_cycles * samples_per_clk)
+
+        i_vals: np.ndarray
+        if isinstance(pulse, Rectangular):
+            amp = np.trunc(pulse.amplitude * max_envelope).astype(int)
+            i_vals = np.full(duration_samples, amp)
+        elif isinstance(pulse, FluxExponential):
+            i_vals = pulse.i_values(duration_samples, max_envelope)
+        elif isinstance(pulse, Arbitrary):
+            # normalized envelope, flux pulses carry the amplitude in the samples
+            envelope = resample_envelope(pulse.i_values, duration_samples)
+            i_vals = envelope * pulse.amplitude * max_envelope
+            logger.info("Arbitrary shaped flux pulse. q_vals will be ignored.")
+        else:
+            raise NotImplementedError(
+                "Only Rectangular, FluxExponential and Arbitrary are supported for flux pulses"
+            )
+
+        # append one clock cycle of sweetspot to return to sweetspot after pulse
+        i_vals = np.append(i_vals + sweetspot, np.full(samples_per_clk, sweetspot))
+        q_vals = np.zeros(len(i_vals))
+
+        if (abs(i_vals) > max_envelope).any():
+            raise ValueError("Flux pulse got amplitude > 1")
+
+        envelope_name, new_envelope = self.envelope_name(
+            pulse.name, f"{gen_ch}_flux_{samples_digest(i_vals)}"
+        )
+        if new_envelope:
+            self.add_envelope(ch=gen_ch, name=envelope_name, idata=i_vals, qdata=q_vals)
+        self.add_pulse(
+            ch=gen_ch,
+            name=self.pulse_name(pulse),
+            style="arb",
+            envelope=envelope_name,
+            freq=0,
+            phase=0,
+            gain=1.0,  # amplitude already encoded in i_vals
+            outsel="input",
+            stdysel="last",  # stay at the sweetspot after the pulse ends
+        )
+
+    def execute_flux_pulse(self, pulse: Pulse):
+        """Fire a pre-registered flux pulse (_register_flux_pulse must be called first)."""
+        self.pulse(ch=pulse.dac, name=self.pulse_name(pulse), t="auto")
+
+    def declare_nqz_flux(self):
+        """Declare nqz = 1 for used flux channel."""
+        for qubit in self.qubits:
+            if qubit.dac is not None:
+                flux_ch = qubit.dac
+                is_ch_mux = "n_tones" in self.soccfg["gens"][flux_ch]
+                if not is_ch_mux:
+                    self.declare_gen(flux_ch, nqz=1)
+
+    def declare_gen_and_ro(self, sequence: List[Pulse]):
+        """Declare all generators and readout frequencies.
+
+        Declares drives, fluxes and readout (mux or not) and readout freq.
+        """
+        # declare generators first
+        # for simplicity, we assume that there it is axis_signal_gen_v6 or axis_sg_int4_v2 (no mux)
+        self.batch_declare_gen([pulse for pulse in sequence if pulse.type == "drive"])
+
+        self.declare_nqz_flux()
+        self.declare_gen_mux_ro()
+        self.batch_declare_gen(
+            [
+                pulse
+                for pulse in sequence
+                if pulse.type == "readout" and not self.is_mux_gen(pulse.dac)
+            ]
+        )
         self.declare_readout_freq()

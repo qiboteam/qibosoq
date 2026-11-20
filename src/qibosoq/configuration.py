@@ -35,4 +35,7 @@ EXT_CLK = from_env("EXT_CLK", "False") in ("True", "true", "1")
 """Whether the external clock is used as a reference or not."""
 
 IS_MULTIPLEXED = from_env("IS_MULTIPLEXED", "True") in ("True", "true", "1")
-"""Whether the readout is multiplexed or not."""
+"""Whether the readout is multiplexed or not (tProc v1 only).
+
+tProc v2 programs treat a readout as multiplexed if its generator is.
+"""

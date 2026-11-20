@@ -1,10 +1,17 @@
 """Pulses objects."""
 
+import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional
 
 import numpy as np
+
+
+def samples_digest(*samples) -> str:
+    """Return a short digest identifying waveform samples."""
+    data = np.array(samples, dtype=float)
+    return hashlib.sha1(data.tobytes()).hexdigest()[:16]
 
 
 @dataclass
@@ -82,7 +89,7 @@ class Gaussian(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        return f"{self.dac}_gaus_{round(self.rel_sigma, 2)}_{round(self.duration, 2)}"
+        return f"{self.dac}_gaus_{self.rel_sigma}_{self.duration}"
 
 
 @dataclass
@@ -92,16 +99,18 @@ class Drag(Pulse):
     rel_sigma: float
     """Sigma of the drag as a fraction of duration."""
     beta: float
-    """Beta parameter for drag pulse."""
+    """Beta parameter for drag pulse.
+
+    It is passed to qick's ``add_DRAG`` as ``alpha``. With the same value,
+    the Q component is about 1/pi of the one in qibolab's DRAG envelope, so
+    beta must be calibrated on qibosoq rather than copied from qibolab.
+    """
     shape: str = "drag"
 
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        rel_sigma = round(self.rel_sigma, 2)
-        duration = round(self.duration, 2)
-        beta = round(self.beta, 2)
-        return f"{self.dac}_drag_{rel_sigma}_{duration}_{beta}"
+        return f"{self.dac}_drag_{self.rel_sigma}_{self.duration}_{self.beta}"
 
 
 @dataclass
@@ -115,9 +124,7 @@ class FlatTop(Pulse):
     @property
     def waveform_name(self) -> Optional[str]:
         """Return waveform name from parameters."""
-        return (
-            f"{self.dac}_flattop_{round(self.rel_sigma, 2)}_{round(self.duration), 2}"
-        )
+        return f"{self.dac}_flattop_{self.rel_sigma}_{self.duration}"
 
     @property
     def style(self) -> Optional[str]:
@@ -150,11 +157,18 @@ class Hann(Pulse):
 
     shape: str = "hann"
 
+    @property
+    def waveform_name(self) -> Optional[str]:
+        """Return waveform name from parameters."""
+        return f"{self.dac}_hann_{self.duration}"
+
     def i_values(self, duration: int, max_gain: int):
-        """Compute the waveform i values."""
-        amp = int(self.amplitude * max_gain)
-        i_vals = np.sin(np.pi * np.arange(0, 1, 1 / duration)) ** 2
-        return amp * i_vals
+        """Compute the full-scale waveform i values.
+
+        The amplitude is applied by the pulse gain, as for the other drive shapes.
+        """
+        i_vals = np.sin(np.pi * np.arange(duration) / duration) ** 2
+        return max_gain * i_vals
 
 
 @dataclass
@@ -167,8 +181,13 @@ class Arbitrary(Pulse):
 
     @property
     def waveform_name(self) -> Optional[str]:
-        """Return waveform name from parameters."""
-        return self.name
+        """Return waveform name from parameters.
+
+        The samples are part of the name, since qibolab can reuse a pulse id
+        with a different envelope.
+        """
+        digest = samples_digest(self.i_values, self.q_values)
+        return f"{self.dac}_arb_{self.duration}_{digest}"
 
 
 class Shape(Enum):
